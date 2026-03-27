@@ -141,10 +141,107 @@ const TH=({cols})=><div style={{display:"grid",gridTemplateColumns:cols.map(c=>c
 const SH=({title,sub,right})=><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:18,flexWrap:"wrap",gap:8}}><div><h1 style={{fontSize:24,fontWeight:800,color:"var(--tx)"}}>{title}</h1>{sub&&<p style={{color:"var(--tx3)",fontSize:12,fontWeight:600,marginTop:2}}>{sub}</p>}</div>{right&&<div style={{display:"flex",gap:8,flexWrap:"wrap"}}>{right}</div>}</div>;
 
 /* ═══════════════════════════════════════════
+   MODAL COMPONENTS (fora do ERP para respeitar Rules of Hooks)
+   ═══════════════════════════════════════════ */
+function ModalEditCli({d,setModal,saveCli}){
+  const [f,setF]=useState(d||{});
+  const u=(k,v)=>setF(p=>({...p,[k]:v}));
+  const isE=!!d?.id;
+  return(<><h2 style={{fontSize:16,fontWeight:800,marginBottom:16}}>{isE?"Editar":"Novo"} Cliente</h2>
+    <Field label="Nome" value={f.nome||""} onChange={v=>u("nome",v)}/>
+    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+      <Field label="CPF/CNPJ" value={f.doc||""} onChange={v=>u("doc",v)}/>
+      <Field label="Telefone" value={f.tel||""} onChange={v=>u("tel",v)}/>
+    </div>
+    <Field label="E-mail" value={f.email||""} onChange={v=>u("email",v)}/>
+    <Field label="Endereço" value={f.endereco||""} onChange={v=>u("endereco",v)}/>
+    <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
+      <Btn v="ghost" onClick={()=>setModal(null)}>Cancelar</Btn>
+      <Btn onClick={()=>saveCli(f)}><I.Check/> Salvar</Btn>
+    </div>
+  </>);
+}
+
+function ModalSelCli({clientes,setModal,criarOrc}){
+  const [s,setS]=useState("");
+  const l=clientes.filter(c=>c.nome.toLowerCase().includes(s.toLowerCase()));
+  return(<><h2 style={{fontSize:16,fontWeight:800,marginBottom:14}}>Selecionar Cliente</h2>
+    <div style={{position:"relative",marginBottom:12}}>
+      <div style={{position:"absolute",left:12,top:10,color:"var(--tx3)"}}><I.Search/></div>
+      <input value={s} onChange={e=>setS(e.target.value)} placeholder="Buscar..." style={{width:"100%",padding:"10px 14px 10px 36px",borderRadius:"var(--r)",border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:13,outline:"none"}}/>
+    </div>
+    <div style={{maxHeight:250,overflowY:"auto"}}>
+      {l.map(c=><div key={c.id} onClick={()=>criarOrc(c.id)} className="hr2" style={{padding:"10px 12px",borderRadius:"var(--r)",border:"1.5px solid var(--bd)",marginBottom:5,cursor:"pointer"}}>
+        <div style={{fontWeight:700,fontSize:12,color:"var(--tx)"}}>{c.nome}</div>
+        <div style={{fontSize:11,color:"var(--tx3)"}}>{c.doc}</div>
+      </div>)}
+    </div>
+    <div style={{borderTop:"1.5px solid var(--bd)",paddingTop:10,marginTop:6}}>
+      <Btn v="ghost" onClick={()=>setModal({t:"editCli",d:{}})} style={{width:"100%",justifyContent:"center"}}><I.Plus/> Novo Cliente</Btn>
+    </div>
+  </>);
+}
+
+function ModalEditLead({d,setModal,setLeads,showToast}){
+  const isE=!!d?.id;
+  const [f,setF]=useState(d||{nome:"",tel:"",email:"",origem:"",interesse:"",valor:0,etapa:"Novo Lead",obs:"",prioridade:"media",data:hoje()});
+  const u=(k,v)=>setF(p=>({...p,[k]:v}));
+  return(<><h2 style={{fontSize:16,fontWeight:800,marginBottom:16}}>{isE?"Editar":"Novo"} Lead</h2>
+    <Field label="Nome" value={f.nome} onChange={v=>u("nome",v)} placeholder="Nome do lead"/>
+    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+      <Field label="Telefone" value={f.tel} onChange={v=>u("tel",v)}/>
+      <Field label="E-mail" value={f.email} onChange={v=>u("email",v)}/>
+    </div>
+    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+      <Field label="Origem" value={f.origem} onChange={v=>u("origem",v)} placeholder="Instagram, Site, Indicação..."/>
+      <Field label="Valor Estimado" type="number" value={f.valor} onChange={v=>u("valor",+v)}/>
+    </div>
+    <Field label="Interesse" value={f.interesse} onChange={v=>u("interesse",v)} placeholder="Cozinha, Closet..."/>
+    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+      <Field label="Etapa" value={f.etapa} onChange={v=>u("etapa",v)} options={LEAD_STAGES}/>
+      <Field label="Prioridade" value={f.prioridade} onChange={v=>u("prioridade",v)} options={["alta","media","baixa"]}/>
+    </div>
+    <Field label="Observações" value={f.obs} onChange={v=>u("obs",v)} rows={2}/>
+    <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
+      <Btn v="ghost" onClick={()=>setModal(null)}>Cancelar</Btn>
+      <Btn onClick={()=>{
+        if(!f.nome)return showToast("Nome!","red");
+        if(isE)setLeads(p=>p.map(l=>l.id===f.id?{...l,...f}:l));
+        else setLeads(p=>[...p,{...f,id:uid()}]);
+        setModal(null);showToast("Lead salvo!");
+      }}><I.Check/> Salvar</Btn>
+    </div>
+  </>);
+}
+
+function ModalNewFin({setModal,setFinanceiro,showToast}){
+  const [f,setF]=useState({tipo:"pagar",desc:"",valor:0,fornecedor:"",numParc:1});
+  return(<><h2 style={{fontSize:16,fontWeight:800,marginBottom:16}}>Nova Conta</h2>
+    <Field label="Tipo" value={f.tipo} onChange={v=>setF(p=>({...p,tipo:v}))} options={[{v:"pagar",l:"A Pagar"},{v:"receber",l:"A Receber"}]}/>
+    <Field label="Descrição" value={f.desc} onChange={v=>setF(p=>({...p,desc:v}))} placeholder="Descrição da conta"/>
+    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+      <Field label="Valor Total" type="number" value={f.valor} onChange={v=>setF(p=>({...p,valor:+v}))}/>
+      <Field label="Nº Parcelas" type="number" value={f.numParc} onChange={v=>setF(p=>({...p,numParc:Math.max(1,+v)}))}/>
+    </div>
+    {f.tipo==="pagar"&&<Field label="Fornecedor" value={f.fornecedor} onChange={v=>setF(p=>({...p,fornecedor:v}))}/>}
+    <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:8}}>
+      <Btn v="ghost" onClick={()=>setModal(null)}>Cancelar</Btn>
+      <Btn onClick={()=>{
+        if(!f.desc)return showToast("Descrição!","red");
+        const vParc=f.valor/f.numParc;
+        const parcelas=Array.from({length:f.numParc},(_,i)=>({id:uid(),valor:vParc,venc:"",pago:false,dataPago:""}));
+        setFinanceiro(prev=>[...prev,{id:uid(),tipo:f.tipo,desc:f.desc,valor:f.valor,valorPago:0,parcelas,fornecedor:f.fornecedor,status:"aberto"}]);
+        setModal(null);showToast("Conta criada!");
+      }}><I.Check/> Criar</Btn>
+    </div>
+  </>);
+}
+
+/* ═══════════════════════════════════════════
    MAIN APP
    ═══════════════════════════════════════════ */
 export default function ERP(){
-  const [user,setUser]=useState({role:"admin",nome:"Admin",id:"admin"});
+  const [user,setUser]=useState(()=>{try{const u=localStorage.getItem('erpUser');return u?JSON.parse(u):{role:"admin",nome:"Admin",id:"admin"};}catch{return{role:"admin",nome:"Admin",id:"admin"};}});
   const [loginView,setLoginView]=useState(null);
   const [loginErr,setLoginErr]=useState("");
   const [tab,setTab]=useState("dashboard");
@@ -182,8 +279,10 @@ export default function ERP(){
     {id:"l3",nome:"Ricardo Prado",tel:"(11)99666-3344",email:"ricardo@empresa.com",origem:"Site",interesse:"Escritório completo",valor:35000,etapa:"Proposta Enviada",obs:"Empresa precisa de 3 estações",data:hoje(),prioridade:"alta"},
   ]);
   const [bankSync,setBankSync]=useState({connected:false,banco:"",agencia:"",conta:"",lastSync:""});
+  const [empresa,setEmpresa]=useState(()=>{try{return JSON.parse(localStorage.getItem('erpEmpresa'))||{nome:"Marcenaria",endereco:"",telefone:"",email:"",cnpj:"",logo:"",loginAdmin:"admin",senhaAdmin:"admin123"};}catch{return{nome:"Marcenaria",endereco:"",telefone:"",email:"",cnpj:"",logo:"",loginAdmin:"admin",senhaAdmin:"admin123"};}});
 
   const showToast=useCallback((msg,type="success")=>{setToast({msg,type});setTimeout(()=>setToast(null),2500)},[]);
+  const saveEmpresa=e=>{setEmpresa(e);localStorage.setItem('erpEmpresa',JSON.stringify(e));showToast("Empresa salva!");};
 
   // ── CRUD ──
   const getCli=id=>clientes.find(c=>c.id===id);
@@ -236,7 +335,12 @@ export default function ERP(){
   };
 
   // Login
-  const handleLogin=(l,s)=>{const m=marceneiros.find(x=>x.login===l&&x.senha===s&&x.ativo);if(m){setUser({role:"marc",nome:m.nome,id:m.id});setTab("minha_area");setLoginView(null);setLoginErr("")}else setLoginErr("Credenciais inválidas")};
+  const handleLogin=(l,s)=>{
+    if(l===empresa.loginAdmin&&s===empresa.senhaAdmin){const u={role:"admin",nome:"Admin",id:"admin"};setUser(u);localStorage.setItem('erpUser',JSON.stringify(u));setLoginView(null);setLoginErr("");setTab("dashboard");return;}
+    const m=marceneiros.find(x=>x.login===l&&x.senha===s&&x.ativo);
+    if(m){setUser({role:"marc",nome:m.nome,id:m.id});setTab("minha_area");setLoginView(null);setLoginErr("");}
+    else setLoginErr("Credenciais inválidas");
+  };
 
   // Computed
   const orc=orcamentos.find(o=>o.id===orcAtivo);
@@ -254,7 +358,7 @@ export default function ERP(){
   },[clientes,orcamentos,pedidos,financeiro,leads,estoque]);
 
   // ── LOGIN SCREEN ──
-  if(loginView)return(
+  if(!user||loginView)return(
     <div style={{fontFamily:"var(--ft)",background:"linear-gradient(135deg,#6366f1,#8b5cf6,#ec4899)",minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center"}}><style>{CSS}</style>
       <div style={{background:"#fff",borderRadius:24,padding:36,width:380,boxShadow:"var(--sh2)",animation:"scaleIn .3s"}}>
         <div style={{textAlign:"center",marginBottom:28}}><div style={{width:56,height:56,borderRadius:16,background:"var(--prib2)",display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 12px",fontSize:28}}>🪵</div><h1 style={{fontSize:22,fontWeight:800,color:"var(--tx)"}}>Área do Marceneiro</h1><p style={{fontSize:12,color:"var(--tx3)",fontWeight:600,marginTop:4}}>Acesse com suas credenciais</p></div>
@@ -262,7 +366,7 @@ export default function ERP(){
         <Field label="Senha" type="password" value={loginView.s||""} onChange={v=>setLoginView({...loginView,s:v})} placeholder="••••"/>
         {loginErr&&<p style={{color:"var(--rd)",fontSize:12,fontWeight:700,marginBottom:8}}>{loginErr}</p>}
         <Btn onClick={()=>handleLogin(loginView.l,loginView.s)} style={{width:"100%",justifyContent:"center",marginBottom:8,padding:12}}><I.Lock/> Entrar</Btn>
-        <Btn v="ghost" onClick={()=>setLoginView(null)} style={{width:"100%",justifyContent:"center"}}>Voltar ao Admin</Btn>
+        {loginView&&<Btn v="ghost" onClick={()=>setLoginView(null)} style={{width:"100%",justifyContent:"center"}}>Voltar ao Admin</Btn>}
       </div>
     </div>
   );
@@ -280,6 +384,7 @@ export default function ERP(){
     {k:"estoque",l:"Estoque",i:<I.Box/>},
     {k:"dre",l:"DRE",i:<I.DRE/>},
     {k:"banco",l:"Banco",i:<I.Bank/>},
+    {k:"configuracao",l:"Configurações",i:<I.Settings/>},
   ];
   const marcNav=[{k:"minha_area",l:"Projetos",i:<I.Hammer/>},{k:"meu_kanban",l:"Kanban",i:<I.Kanban/>},{k:"comissoes",l:"Comissões",i:<I.Dollar/>}];
   const nav=user.role==="admin"?adminNav:marcNav;
@@ -609,8 +714,67 @@ export default function ERP(){
   const PgCom=()=>{const tc=meusP.reduce((s,p)=>s+p.comVal,0);const tr=meusP.reduce((s,p)=>s+(p.pags?.filter(pg=>pg.desc?.includes("[COM]")).reduce((ss,pg)=>ss+pg.valor,0)||0),0);return(<div style={{animation:"fadeIn .3s"}}><SH title="Minhas Comissões"/><div style={{display:"flex",gap:12,marginBottom:18}}><KPI label="Total" value={R$(tc)} icon={<I.Dollar/>} color="pri"/><KPI label="Recebido" value={R$(tr)} icon={<I.Check/>} color="gn"/><KPI label="A Receber" value={R$(tc-tr)} icon={<I.Clock/>} color="rd"/></div>
     <Card><TH cols={[{l:"Pedido",w:"80px"},{l:"Projeto",w:"1.5fr"},{l:"%",w:"60px"},{l:"Valor",w:"100px"},{l:"Recebido",w:"100px"},{l:"Restante",w:"100px"}]}/>{meusP.map(p=>{const c=getCli(p.clienteId);const r=p.pags?.filter(pg=>pg.desc?.includes("[COM]")).reduce((s,pg)=>s+pg.valor,0)||0;return(<div key={p.id} style={{display:"grid",gridTemplateColumns:"80px 1.5fr 60px 100px 100px 100px",gap:6,padding:"10px 18px",borderBottom:"1.5px solid var(--bd)",alignItems:"center",fontSize:12}}><span style={{fontWeight:800,color:"var(--pri)"}}>{p.num}</span><span style={{color:"var(--tx)",fontWeight:600}}>{c?.nome}</span><Badge>{p.comPerc}%</Badge><span style={{fontWeight:700}}>{R$(p.comVal)}</span><span style={{color:"var(--gn)",fontWeight:700}}>{R$(r)}</span><span style={{color:"var(--rd)",fontWeight:800}}>{R$(p.comVal-r)}</span></div>)})}</Card></div>)};
 
+  // CONFIGURAÇÕES DA EMPRESA
+  const PgConfig=()=>{
+    const [f,setF]=useState({...empresa});
+    const u=(k,v)=>setF(p=>({...p,[k]:v}));
+    const handleLogo=e=>{const file=e.target.files[0];if(!file)return;const reader=new FileReader();reader.onload=ev=>u("logo",ev.target.result);reader.readAsDataURL(file);};
+    return(
+      <div style={{animation:"fadeIn .3s",maxWidth:720}}>
+        <SH title="Configurações da Empresa" sub="Informações usadas nos orçamentos e proposta comercial"/>
+        <Card style={{padding:24,marginBottom:16}}>
+          <h3 style={{fontSize:13,fontWeight:800,color:"var(--tx)",marginBottom:16,textTransform:"uppercase",letterSpacing:".5px"}}>Dados da Empresa</h3>
+          <Field label="Nome da Empresa" value={f.nome} onChange={v=>u("nome",v)} placeholder="Ex: Marcenaria Silva"/>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+            <Field label="CNPJ / CPF" value={f.cnpj} onChange={v=>u("cnpj",v)} placeholder="00.000.000/0001-00"/>
+            <Field label="Telefone" value={f.telefone} onChange={v=>u("telefone",v)} placeholder="(00) 00000-0000"/>
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+            <Field label="E-mail" value={f.email} onChange={v=>u("email",v)} placeholder="contato@empresa.com"/>
+            <Field label="Endereço" value={f.endereco} onChange={v=>u("endereco",v)} placeholder="Rua, número - Cidade/UF"/>
+          </div>
+        </Card>
+        <Card style={{padding:24,marginBottom:16}}>
+          <h3 style={{fontSize:13,fontWeight:800,color:"var(--tx)",marginBottom:16,textTransform:"uppercase",letterSpacing:".5px"}}>Logo da Empresa</h3>
+          <div style={{display:"flex",gap:20,alignItems:"center"}}>
+            {f.logo?<img src={f.logo} alt="logo" style={{width:100,height:100,objectFit:"contain",border:"1.5px solid var(--bd)",borderRadius:12,background:"var(--bg)",padding:8}}/>:<div style={{width:100,height:100,border:"2px dashed var(--bd)",borderRadius:12,display:"flex",alignItems:"center",justifyContent:"center",color:"var(--tx3)",fontSize:11,fontWeight:700}}>Sem logo</div>}
+            <div>
+              <label style={{display:"inline-flex",alignItems:"center",gap:6,padding:"10px 16px",borderRadius:10,background:"var(--prib)",color:"var(--pri)",fontSize:12,fontWeight:700,cursor:"pointer",border:"1.5px solid var(--pri)"}}>
+                <I.Clip/> Carregar Logo
+                <input type="file" accept="image/*" onChange={handleLogo} style={{display:"none"}}/>
+              </label>
+              {f.logo&&<button onClick={()=>u("logo","")} style={{display:"block",marginTop:8,background:"none",border:"none",color:"var(--rd)",fontSize:11,fontWeight:700,cursor:"pointer"}}>Remover logo</button>}
+              <p style={{fontSize:10,color:"var(--tx3)",marginTop:6,fontWeight:600}}>PNG ou JPG • Será exibido no cabeçalho dos orçamentos</p>
+            </div>
+          </div>
+          {f.logo&&(
+            <div style={{marginTop:16,border:"1.5px solid var(--bd)",borderRadius:12,padding:20,background:"var(--bg)"}}>
+              <p style={{fontSize:10,fontWeight:800,color:"var(--tx3)",marginBottom:12,textTransform:"uppercase"}}>Prévia do Cabeçalho</p>
+              <div style={{borderBottom:"3px solid #6366f1",paddingBottom:12,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                <div style={{display:"flex",alignItems:"center",gap:12}}>
+                  <img src={f.logo} alt="logo" style={{height:48,objectFit:"contain"}}/>
+                  <div><div style={{fontWeight:800,fontSize:16,color:"#1e293b"}}>{f.nome||"Empresa"}</div><div style={{fontSize:11,color:"#888"}}>{f.endereco}</div></div>
+                </div>
+                <div style={{textAlign:"right",fontSize:11,color:"#888"}}><div>{f.telefone}</div><div>{f.email}</div><div>{f.cnpj}</div></div>
+              </div>
+            </div>
+          )}
+        </Card>
+        <Card style={{padding:24,marginBottom:16}}>
+          <h3 style={{fontSize:13,fontWeight:800,color:"var(--tx)",marginBottom:16,textTransform:"uppercase",letterSpacing:".5px"}}>Acesso do Administrador</h3>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+            <Field label="Login do Admin" value={f.loginAdmin} onChange={v=>u("loginAdmin",v)}/>
+            <Field label="Senha do Admin" type="password" value={f.senhaAdmin} onChange={v=>u("senhaAdmin",v)}/>
+          </div>
+          <p style={{fontSize:11,color:"var(--tx3)",fontWeight:600}}>Use essas credenciais para entrar como administrador no sistema.</p>
+        </Card>
+        <Btn onClick={()=>saveEmpresa(f)} style={{width:"100%",justifyContent:"center",padding:14}}><I.Check/> Salvar Configurações</Btn>
+      </div>
+    );
+  };
+
   // PAGE ROUTER
-  const pages={dashboard:PgDash,crm:PgCRM,clientes:PgCli,orcamentos:PgOrc,pedidos:PgPed,kanban:PgKanban,marceneiros:PgMarc,financeiro:PgFin,estoque:PgEst,dre:PgDRE,banco:PgBanco,minha_area:PgMinhaArea,meu_kanban:PgMeuKanban,comissoes:PgCom};
+  const pages={dashboard:PgDash,crm:PgCRM,clientes:PgCli,orcamentos:PgOrc,pedidos:PgPed,kanban:PgKanban,marceneiros:PgMarc,financeiro:PgFin,estoque:PgEst,dre:PgDRE,banco:PgBanco,minha_area:PgMinhaArea,meu_kanban:PgMeuKanban,comissoes:PgCom,configuracao:PgConfig};
   const Pg=pages[tab]||PgDash;
 
   // ══════════════════════════════
@@ -636,8 +800,12 @@ export default function ERP(){
         </nav>
         <div style={{padding:"12px 16px",borderTop:"1.5px solid var(--bd)"}}>
           <div style={{fontSize:10,color:"var(--tx3)",fontWeight:700,marginBottom:6}}>{user.role==="admin"?"👤 Administrador":"🔧 "+user.nome}</div>
-          {user.role==="admin"?<Btn v="ghost" small onClick={()=>setLoginView({l:"",s:""})} style={{width:"100%",justifyContent:"center",fontSize:10}}><I.Lock/> Área Marceneiro</Btn>
-          :<Btn v="ghost" small onClick={()=>{setUser({role:"admin",nome:"Admin",id:"admin"});setTab("dashboard")}} style={{width:"100%",justifyContent:"center",fontSize:10}}>Sair</Btn>}
+          {user.role==="admin"
+            ?<div style={{display:"flex",flexDirection:"column",gap:4}}>
+              <Btn v="ghost" small onClick={()=>setLoginView({l:"",s:""})} style={{width:"100%",justifyContent:"center",fontSize:10}}><I.Lock/> Área Marceneiro</Btn>
+              <Btn v="ghost" small onClick={()=>{localStorage.removeItem('erpUser');setUser(null);}} style={{width:"100%",justifyContent:"center",fontSize:10,color:"var(--rd)"}}>Sair</Btn>
+             </div>
+            :<Btn v="ghost" small onClick={()=>{const u={role:"admin",nome:"Admin",id:"admin"};setUser(u);localStorage.setItem('erpUser',JSON.stringify(u));setTab("dashboard");}} style={{width:"100%",justifyContent:"center",fontSize:10}}>← Voltar ao Admin</Btn>}
         </div>
       </aside>
 
@@ -645,15 +813,21 @@ export default function ERP(){
       <main style={{flex:1,padding:"20px 24px",minHeight:"100vh",overflowY:"auto"}}><Pg/></main>
 
       {/* MODALS */}
-      {modal?.t==="editCli"&&<Modal onClose={()=>setModal(null)}>{(()=>{const isE=!!modal.d?.id;const [f,setF]=useState(modal.d||{});const u=(k,v)=>setF({...f,[k]:v});return(<><h2 style={{fontSize:16,fontWeight:800,marginBottom:16}}>{isE?"Editar":"Novo"} Cliente</h2><Field label="Nome" value={f.nome||""} onChange={v=>u("nome",v)}/><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}><Field label="CPF/CNPJ" value={f.doc||""} onChange={v=>u("doc",v)}/><Field label="Telefone" value={f.tel||""} onChange={v=>u("tel",v)}/></div><Field label="E-mail" value={f.email||""} onChange={v=>u("email",v)}/><Field label="Endereço" value={f.endereco||""} onChange={v=>u("endereco",v)}/><div style={{display:"flex",gap:8,justifyContent:"flex-end"}}><Btn v="ghost" onClick={()=>setModal(null)}>Cancelar</Btn><Btn onClick={()=>saveCli(f)}><I.Check/> Salvar</Btn></div></>)})()}</Modal>}
+      {modal?.t==="editCli"&&<Modal onClose={()=>setModal(null)}><ModalEditCli d={modal.d} setModal={setModal} saveCli={saveCli}/></Modal>}
 
-      {modal?.t==="selCli"&&<Modal onClose={()=>setModal(null)}>{(()=>{const [s,setS]=useState("");const l=clientes.filter(c=>c.nome.toLowerCase().includes(s.toLowerCase()));return(<><h2 style={{fontSize:16,fontWeight:800,marginBottom:14}}>Selecionar Cliente</h2><div style={{position:"relative",marginBottom:12}}><div style={{position:"absolute",left:12,top:10,color:"var(--tx3)"}}><I.Search/></div><input value={s} onChange={e=>setS(e.target.value)} placeholder="Buscar..." style={{width:"100%",padding:"10px 14px 10px 36px",borderRadius:"var(--r)",border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:13,outline:"none"}}/></div><div style={{maxHeight:250,overflowY:"auto"}}>{l.map(c=><div key={c.id} onClick={()=>criarOrc(c.id)} className="hr2" style={{padding:"10px 12px",borderRadius:"var(--r)",border:"1.5px solid var(--bd)",marginBottom:5,cursor:"pointer"}}><div style={{fontWeight:700,fontSize:12,color:"var(--tx)"}}>{c.nome}</div><div style={{fontSize:11,color:"var(--tx3)"}}>{c.doc}</div></div>)}</div><div style={{borderTop:"1.5px solid var(--bd)",paddingTop:10,marginTop:6}}><Btn v="ghost" onClick={()=>setModal({t:"editCli",d:{}})} style={{width:"100%",justifyContent:"center"}}><I.Plus/> Novo Cliente</Btn></div></>)})()}</Modal>}
+      {modal?.t==="selCli"&&<Modal onClose={()=>setModal(null)}><ModalSelCli clientes={clientes} setModal={setModal} criarOrc={criarOrc}/></Modal>}
 
-      {modal?.t==="editLead"&&<Modal onClose={()=>setModal(null)}>{(()=>{const isE=!!modal.d?.id;const [f,setF]=useState(modal.d||{nome:"",tel:"",email:"",origem:"",interesse:"",valor:0,etapa:"Novo Lead",obs:"",prioridade:"media",data:hoje()});const u=(k,v)=>setF({...f,[k]:v});return(<><h2 style={{fontSize:16,fontWeight:800,marginBottom:16}}>{isE?"Editar":"Novo"} Lead</h2><Field label="Nome" value={f.nome} onChange={v=>u("nome",v)} placeholder="Nome do lead"/><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}><Field label="Telefone" value={f.tel} onChange={v=>u("tel",v)}/><Field label="E-mail" value={f.email} onChange={v=>u("email",v)}/></div><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}><Field label="Origem" value={f.origem} onChange={v=>u("origem",v)} placeholder="Instagram, Site, Indicação..." /><Field label="Valor Estimado" type="number" value={f.valor} onChange={v=>u("valor",+v)}/></div><Field label="Interesse" value={f.interesse} onChange={v=>u("interesse",v)} placeholder="Cozinha, Closet..."/><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}><Field label="Etapa" value={f.etapa} onChange={v=>u("etapa",v)} options={LEAD_STAGES}/><Field label="Prioridade" value={f.prioridade} onChange={v=>u("prioridade",v)} options={["alta","media","baixa"]}/></div><Field label="Observações" value={f.obs} onChange={v=>u("obs",v)} rows={2}/><div style={{display:"flex",gap:8,justifyContent:"flex-end"}}><Btn v="ghost" onClick={()=>setModal(null)}>Cancelar</Btn><Btn onClick={()=>{if(!f.nome)return showToast("Nome!","red");if(isE){setLeads(p=>p.map(l=>l.id===f.id?{...l,...f}:l))}else{setLeads(p=>[...p,{...f,id:uid()}])}setModal(null);showToast("Lead salvo!")}}><I.Check/> Salvar</Btn></div></>)})()}</Modal>}
+      {modal?.t==="editLead"&&<Modal onClose={()=>setModal(null)}><ModalEditLead d={modal.d} setModal={setModal} setLeads={setLeads} showToast={showToast}/></Modal>}
 
       {modal?.t==="pdf"&&(()=>{const o=modal.d;const c=getCli(o.clienteId);return(<Modal onClose={()=>setModal(null)} wide><div style={{display:"flex",justifyContent:"space-between",marginBottom:14}}><h2 style={{fontSize:16,fontWeight:800}}>Proposta Comercial</h2><Btn v="ghost" small onClick={()=>setModal(null)}><I.X/></Btn></div>
         <div style={{background:"#fff",borderRadius:12,padding:"36px 40px",fontSize:13,lineHeight:1.6,maxHeight:"70vh",overflowY:"auto",border:"1.5px solid var(--bd)"}}>
-          <div style={{borderBottom:"3px solid #6366f1",paddingBottom:16,marginBottom:20,display:"flex",justifyContent:"space-between",alignItems:"flex-end"}}><div><h1 style={{fontSize:24,fontWeight:800,margin:0}}>Proposta Comercial</h1><p style={{color:"#888",fontSize:12}}>Móveis Planejados sob Medida</p></div><div style={{textAlign:"right"}}><div style={{fontWeight:800,color:"#6366f1",fontSize:15}}>{o.num}</div><div style={{color:"#888",fontSize:11}}>{o.data}</div></div></div>
+          <div style={{borderBottom:"3px solid #6366f1",paddingBottom:16,marginBottom:20,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+            <div style={{display:"flex",alignItems:"center",gap:12}}>
+              {empresa.logo&&<img src={empresa.logo} alt="logo" style={{height:52,objectFit:"contain"}}/>}
+              <div><h1 style={{fontSize:22,fontWeight:800,margin:0,color:"#1e293b"}}>{empresa.nome||"Proposta Comercial"}</h1><p style={{color:"#888",fontSize:11}}>{empresa.endereco}</p>{empresa.telefone&&<p style={{color:"#888",fontSize:11}}>{empresa.telefone}{empresa.email?" • "+empresa.email:""}</p>}{empresa.cnpj&&<p style={{color:"#888",fontSize:11}}>CNPJ: {empresa.cnpj}</p>}</div>
+            </div>
+            <div style={{textAlign:"right"}}><div style={{fontWeight:800,color:"#6366f1",fontSize:15}}>{o.num}</div><div style={{color:"#888",fontSize:11}}>{o.data}</div></div>
+          </div>
           <div style={{background:"#f8f7ff",borderRadius:10,padding:"14px 18px",marginBottom:20,border:"1px solid #e8e5f0"}}><div style={{fontSize:10,fontWeight:800,textTransform:"uppercase",color:"#999",marginBottom:6}}>Cliente</div><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"2px 20px",fontSize:12}}><div><strong>Nome:</strong> {c?.nome}</div><div><strong>Doc:</strong> {c?.doc}</div><div><strong>Tel:</strong> {c?.tel}</div><div><strong>Email:</strong> {c?.email}</div></div></div>
           {o.ambientes.map((a,i)=><div key={a.id} style={{marginBottom:8,border:"1px solid #e8e5f0",borderRadius:8,overflow:"hidden"}}><div style={{background:"#f8f7ff",padding:"10px 16px",display:"flex",justifyContent:"space-between"}}><strong>{a.nome||`Amb ${i+1}`}</strong><span style={{fontWeight:800,color:"#6366f1"}}>{R$(a.valorTotal)}</span></div>{a.desc&&<div style={{padding:"8px 16px",fontSize:12,color:"#555",whiteSpace:"pre-line"}}>{a.desc}</div>}</div>)}
           <div style={{background:"linear-gradient(135deg,#6366f1,#8b5cf6)",borderRadius:10,padding:"16px 20px",margin:"16px 0 20px",display:"flex",justifyContent:"space-between",alignItems:"center",color:"#fff"}}><span style={{fontWeight:700}}>Valor Total</span><span style={{fontSize:24,fontWeight:800}}>{R$(totalOrc(o))}</span></div>
@@ -673,7 +847,7 @@ export default function ERP(){
         <div style={{textAlign:"right",marginTop:12}}><Btn v="ghost" onClick={()=>setModal(null)}>Fechar</Btn></div>
       </Modal>)})()}
 
-      {modal?.t==="newFin"&&<Modal onClose={()=>setModal(null)}>{(()=>{const [f,setF]=useState({tipo:"pagar",desc:"",valor:0,fornecedor:"",numParc:1});return(<><h2 style={{fontSize:16,fontWeight:800,marginBottom:16}}>Nova Conta</h2><Field label="Tipo" value={f.tipo} onChange={v=>setF({...f,tipo:v})} options={[{v:"pagar",l:"A Pagar"},{v:"receber",l:"A Receber"}]}/><Field label="Descrição" value={f.desc} onChange={v=>setF({...f,desc:v})} placeholder="Descrição da conta"/><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}><Field label="Valor Total" type="number" value={f.valor} onChange={v=>setF({...f,valor:+v})}/><Field label="Nº Parcelas" type="number" value={f.numParc} onChange={v=>setF({...f,numParc:Math.max(1,+v)})}/></div>{f.tipo==="pagar"&&<Field label="Fornecedor" value={f.fornecedor} onChange={v=>setF({...f,fornecedor:v})}/>}<div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:8}}><Btn v="ghost" onClick={()=>setModal(null)}>Cancelar</Btn><Btn onClick={()=>{if(!f.desc)return showToast("Descrição!","red");const vParc=f.valor/f.numParc;const parcelas=Array.from({length:f.numParc},(_,i)=>({id:uid(),valor:vParc,venc:"",pago:false,dataPago:""}));setFinanceiro(prev=>[...prev,{id:uid(),tipo:f.tipo,desc:f.desc,valor:f.valor,valorPago:0,parcelas,fornecedor:f.fornecedor,status:"aberto"}]);setModal(null);showToast("Conta criada!")}}><I.Check/> Criar</Btn></div></>)})()}</Modal>}
+      {modal?.t==="newFin"&&<Modal onClose={()=>setModal(null)}><ModalNewFin setModal={setModal} setFinanceiro={setFinanceiro} showToast={showToast}/></Modal>}
 
       {/* TOAST */}
       {toast&&<div style={{position:"fixed",bottom:20,right:20,padding:"10px 18px",borderRadius:12,background:toast.type==="red"?"var(--rdb)":"var(--gnb)",color:toast.type==="red"?"var(--rd)":"var(--gn)",border:`1.5px solid ${toast.type==="red"?"rgba(239,68,68,.15)":"rgba(16,185,129,.15)"}`,fontSize:12,fontWeight:800,boxShadow:"var(--sh2)",animation:"scaleIn .2s",zIndex:9999,display:"flex",alignItems:"center",gap:6}}>{toast.type==="red"?<I.X/>:<I.Check/>}{toast.msg}</div>}

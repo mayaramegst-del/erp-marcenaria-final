@@ -1,4 +1,5 @@
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useRef, useEffect } from "react";
+import { dbGet, dbSet } from "./supabase";
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, Legend } from "recharts";
 
 /* ═══════════════════════════════════════════
@@ -81,6 +82,22 @@ button{cursor:pointer;font-family:var(--ft)}input,textarea,select{font-family:va
 .hr:hover{background:var(--bg)!important}
 .hr2:hover{border-color:var(--pri)!important;background:var(--prib)!important}
 .kcard{transition:all .15s}.kcard:hover{transform:translateY(-2px);box-shadow:var(--sh2)}
+/* ── MOBILE ── */
+@media(max-width:768px){
+  .erp-wrap{flex-direction:column!important}
+  .erp-sidebar{width:100%!important;min-height:unset!important;flex-direction:row!important;border-right:none!important;border-bottom:1.5px solid var(--bd)!important;position:sticky!important;top:0!important;z-index:50!important;overflow-x:auto}
+  .erp-sidebar .sidebar-logo{display:none!important}
+  .erp-sidebar nav{display:flex!important;flex-direction:row!important;padding:0!important;overflow-x:auto!important;flex:1}
+  .erp-sidebar nav>div{padding:10px 12px!important;border-left:none!important;border-bottom:3px solid transparent!important;flex-shrink:0;font-size:10px!important}
+  .erp-sidebar nav>div[style*="var(--pri)"]{border-bottom-color:var(--pri)!important;border-left-color:transparent!important}
+  .erp-sidebar nav>div span{display:none}
+  .erp-sidebar .sidebar-user{display:none!important}
+  .erp-main{padding:12px!important;min-height:calc(100vh - 60px)!important}
+  .mob-kpi{flex-direction:column!important}
+  .mob-grid2{grid-template-columns:1fr!important}
+  .mob-hide{display:none!important}
+}
+@media(min-width:769px){.erp-sidebar{width:205px}}
 `;
 
 /* ═══════════════════════════════════════════
@@ -92,14 +109,34 @@ const Modal=({children,onClose,wide,xwide})=>(
   </div>
 );
 
-const Field=({label,value,onChange,placeholder,type="text",rows,disabled,style:sx,options})=>(
-  <div style={{marginBottom:12,...sx}}>
-    {label&&<label style={{display:"block",fontSize:11,fontWeight:700,color:"var(--tx2)",textTransform:"uppercase",letterSpacing:".5px",marginBottom:4}}>{label}</label>}
-    {options?<select value={value} onChange={e=>onChange(e.target.value)} disabled={disabled} style={{width:"100%",padding:"10px 12px",borderRadius:"var(--r)",border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:13,fontWeight:500,outline:"none"}}>{options.map(o=><option key={o.v||o} value={o.v||o}>{o.l||o}</option>)}</select>
-    :rows?<textarea value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder} rows={rows} disabled={disabled} style={{width:"100%",padding:"10px 12px",borderRadius:"var(--r)",border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:13,fontWeight:500,outline:"none",resize:"vertical",lineHeight:1.5}}/>
-    :<input type={type} value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder} disabled={disabled} style={{width:"100%",padding:"10px 12px",borderRadius:"var(--r)",border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:13,fontWeight:500,outline:"none"}}/>}
-  </div>
-);
+// commitOnBlur=true: uncontrolled (não causa re-render no parent a cada tecla)
+function Field({label,value,onChange,placeholder,type="text",rows,disabled,style:sx,options,commitOnBlur}){
+  const ref=useRef(null);
+  // Sincroniza valor externo → input apenas se não estiver focado
+  useEffect(()=>{
+    if(commitOnBlur&&ref.current&&document.activeElement!==ref.current)
+      ref.current.value=value==null?"":String(value);
+  },[value,commitOnBlur]);
+  const IS=commitOnBlur
+    ?{ref,defaultValue:value==null?"":String(value),onBlur:e=>onChange(type==="number"?+e.target.value:e.target.value)}
+    :{value:value==null?"":String(value),onChange:e=>onChange(type==="number"?+e.target.value:e.target.value)};
+  const ST={width:"100%",padding:"10px 12px",borderRadius:"var(--r)",border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:13,fontWeight:500,outline:"none"};
+  return(
+    <div style={{marginBottom:12,...sx}}>
+      {label&&<label style={{display:"block",fontSize:11,fontWeight:700,color:"var(--tx2)",textTransform:"uppercase",letterSpacing:".5px",marginBottom:4}}>{label}</label>}
+      {options?<select value={value} onChange={e=>onChange(e.target.value)} disabled={disabled} style={ST}>{options.map(o=><option key={o.v||o} value={o.v||o}>{o.l||o}</option>)}</select>
+      :rows?<textarea {...IS} placeholder={placeholder} rows={rows} disabled={disabled} style={{...ST,resize:"vertical",lineHeight:1.5}}/>
+      :<input type={type} {...IS} placeholder={placeholder} disabled={disabled} style={ST}/>}
+    </div>
+  );
+}
+
+// Input sem re-render no parent a cada tecla (uncontrolled + commit onBlur)
+function BlurInput({value,onCommit,type="text",placeholder,style:sx,...rest}){
+  const ref=useRef(null);
+  useEffect(()=>{if(ref.current&&document.activeElement!==ref.current)ref.current.value=value==null?"":String(value);},[value]);
+  return <input ref={ref} type={type} defaultValue={value==null?"":String(value)} onBlur={e=>onCommit(type==="number"?+e.target.value:e.target.value)} placeholder={placeholder} style={sx} {...rest}/>;
+}
 
 const Btn=({children,onClick,v="primary",small,style:sx,disabled})=>{
   const b={padding:small?"6px 14px":"10px 20px",borderRadius:10,border:"none",fontSize:small?12:13,fontWeight:700,display:"inline-flex",alignItems:"center",gap:6,transition:"all .15s",opacity:disabled?.4:1,letterSpacing:".01em"};
@@ -310,37 +347,54 @@ export default function ERP(){
   const [ambAberto,setAmbAberto]=useState(null);
   const [insModal,setInsModal]=useState(null);
 
-  // ── DATA STORE (ready for Prisma/DB migration) ──
-  const [clientes,setClientes]=useState([
-    {id:"cli1",nome:"João Mendes",tel:"(19)99812-3456",email:"joao@email.com",endereco:"Rua Augusta 450, Campinas/SP",doc:"123.456.789-00"},
-    {id:"cli2",nome:"Ana Costa",tel:"(19)98765-4321",email:"ana@email.com",endereco:"Av Brasil 1200, Valinhos/SP",doc:"987.654.321-00"},
-  ]);
-  const [orcamentos,setOrcamentos]=useState([]);
-  const [pedidos,setPedidos]=useState([]);
-  const [marceneiros,setMarceneiros]=useState([
-    {id:"m1",nome:"Carlos Silva",tel:"(19)99111-2233",esp:"Cozinhas",comissao:12,login:"carlos",senha:"1234",ativo:true},
-    {id:"m2",nome:"Roberto Alves",tel:"(19)99444-5566",esp:"Dormitórios",comissao:10,login:"roberto",senha:"1234",ativo:true},
-  ]);
-  const [estoque,setEstoque]=useState([
-    {id:"e1",nome:"MDF Branco 15mm",un:"chapa",qtd:45,custo:189.90},
-    {id:"e2",nome:"MDF Amadeirado 15mm",un:"chapa",qtd:30,custo:210.50},
-    {id:"e3",nome:"Puxador Gota 128mm",un:"un",qtd:200,custo:12.80},
-    {id:"e4",nome:"Dobradiça 35mm",un:"un",qtd:500,custo:4.50},
-    {id:"e5",nome:"Corrediça 400mm",un:"par",qtd:80,custo:38.90},
-  ]);
-  const [financeiro,setFinanceiro]=useState([
-    // {id,tipo:"pagar"|"receber",desc,valor,valorPago,parcelas:[{id,valor,venc,pago,dataPago}],pedidoId?,clienteId?,fornecedor?,status:"aberto"|"parcial"|"pago"}
-  ]);
-  const [leads,setLeads]=useState([
-    {id:"l1",nome:"Fernando Lima",tel:"(19)99777-8899",email:"fernando@gmail.com",origem:"Instagram",interesse:"Cozinha completa",valor:25000,etapa:"Novo Lead",obs:"Viu nosso post e entrou em contato",data:hoje(),prioridade:"alta"},
-    {id:"l2",nome:"Mariana Souza",tel:"(19)98888-1122",email:"mari@hotmail.com",origem:"Indicação",interesse:"Closet casal",valor:15000,etapa:"Contato Feito",obs:"Indicação do João Mendes",data:hoje(),prioridade:"media"},
-    {id:"l3",nome:"Ricardo Prado",tel:"(11)99666-3344",email:"ricardo@empresa.com",origem:"Site",interesse:"Escritório completo",valor:35000,etapa:"Proposta Enviada",obs:"Empresa precisa de 3 estações",data:hoje(),prioridade:"alta"},
-  ]);
+  // ── DATA STORE ──
+  const LS=k=>{try{const v=localStorage.getItem('erp_'+k);return v?JSON.parse(v):null;}catch{return null;}};
+  const DEMO_CLIENTES=[{id:"cli1",nome:"João Mendes",tel:"(19)99812-3456",email:"joao@email.com",endereco:"Rua Augusta 450, Campinas/SP",doc:"123.456.789-00"},{id:"cli2",nome:"Ana Costa",tel:"(19)98765-4321",email:"ana@email.com",endereco:"Av Brasil 1200, Valinhos/SP",doc:"987.654.321-00"}];
+  const DEMO_MARC=[{id:"m1",nome:"Carlos Silva",tel:"(19)99111-2233",esp:"Cozinhas",comissao:12,login:"carlos",senha:"1234",ativo:true},{id:"m2",nome:"Roberto Alves",tel:"(19)99444-5566",esp:"Dormitórios",comissao:10,login:"roberto",senha:"1234",ativo:true}];
+  const DEMO_EST=[{id:"e1",nome:"MDF Branco 15mm",un:"chapa",qtd:45,custo:189.90},{id:"e2",nome:"MDF Amadeirado 15mm",un:"chapa",qtd:30,custo:210.50},{id:"e3",nome:"Puxador Gota 128mm",un:"un",qtd:200,custo:12.80},{id:"e4",nome:"Dobradiça 35mm",un:"un",qtd:500,custo:4.50},{id:"e5",nome:"Corrediça 400mm",un:"par",qtd:80,custo:38.90}];
+  const DEMO_LEADS=[{id:"l1",nome:"Fernando Lima",tel:"(19)99777-8899",email:"fernando@gmail.com",origem:"Instagram",interesse:"Cozinha completa",valor:25000,etapa:"Novo Lead",obs:"Viu nosso post e entrou em contato",data:hoje(),prioridade:"alta"},{id:"l2",nome:"Mariana Souza",tel:"(19)98888-1122",email:"mari@hotmail.com",origem:"Indicação",interesse:"Closet casal",valor:15000,etapa:"Contato Feito",obs:"Indicação do João Mendes",data:hoje(),prioridade:"media"},{id:"l3",nome:"Ricardo Prado",tel:"(11)99666-3344",email:"ricardo@empresa.com",origem:"Site",interesse:"Escritório completo",valor:35000,etapa:"Proposta Enviada",obs:"Empresa precisa de 3 estações",data:hoje(),prioridade:"alta"}];
+  const [clientes,setClientes]=useState(()=>LS('clientes')||DEMO_CLIENTES);
+  const [orcamentos,setOrcamentos]=useState(()=>LS('orcamentos')||[]);
+  const [pedidos,setPedidos]=useState(()=>LS('pedidos')||[]);
+  const [marceneiros,setMarceneiros]=useState(()=>LS('marceneiros')||DEMO_MARC);
+  const [estoque,setEstoque]=useState(()=>LS('estoque')||DEMO_EST);
+  const [financeiro,setFinanceiro]=useState(()=>LS('financeiro')||[]);
+  const [leads,setLeads]=useState(()=>LS('leads')||DEMO_LEADS);
   const [bankSync,setBankSync]=useState({connected:false,banco:"",agencia:"",conta:"",lastSync:""});
+  const [dbLoaded,setDbLoaded]=useState(false);
   const [empresa,setEmpresa]=useState(()=>{try{return JSON.parse(localStorage.getItem('erpEmpresa'))||{nome:"Marcenaria",endereco:"",telefone:"",email:"",cnpj:"",logo:"",loginAdmin:"admin",senhaAdmin:"admin123"};}catch{return{nome:"Marcenaria",endereco:"",telefone:"",email:"",cnpj:"",logo:"",loginAdmin:"admin",senhaAdmin:"admin123"};}});
 
   const showToast=useCallback((msg,type="success")=>{setToast({msg,type});setTimeout(()=>setToast(null),2500)},[]);
-  const saveEmpresa=e=>{setEmpresa(e);localStorage.setItem('erpEmpresa',JSON.stringify(e));showToast("Empresa salva!");};
+  const saveEmpresa=e=>{setEmpresa(e);localStorage.setItem('erpEmpresa',JSON.stringify(e));dbSet('empresa',e);showToast("Empresa salva!");};
+
+  // ── SUPABASE SYNC ──
+  const syncTimers=useRef({});
+  const syncCloud=(k,v)=>{
+    localStorage.setItem('erp_'+k,JSON.stringify(v));
+    clearTimeout(syncTimers.current[k]);
+    syncTimers.current[k]=setTimeout(()=>dbSet(k,v),1500);
+  };
+  // Load from Supabase on mount (overrides localStorage if cloud has data)
+  useEffect(()=>{
+    const load=async()=>{
+      const keys=['clientes','orcamentos','pedidos','marceneiros','estoque','financeiro','leads','empresa'];
+      const setters={clientes:setClientes,orcamentos:setOrcamentos,pedidos:setPedidos,marceneiros:setMarceneiros,estoque:setEstoque,financeiro:setFinanceiro,leads:setLeads,empresa:setEmpresa};
+      for(const k of keys){
+        const cloud=await dbGet(k);
+        if(cloud!==null) setters[k](cloud);
+      }
+      setDbLoaded(true);
+    };
+    load();
+  },[]);
+  // Save to cloud whenever data changes (skip before initial load completes)
+  useEffect(()=>{if(dbLoaded)syncCloud('clientes',clientes);},[clientes,dbLoaded]);
+  useEffect(()=>{if(dbLoaded)syncCloud('orcamentos',orcamentos);},[orcamentos,dbLoaded]);
+  useEffect(()=>{if(dbLoaded)syncCloud('pedidos',pedidos);},[pedidos,dbLoaded]);
+  useEffect(()=>{if(dbLoaded)syncCloud('marceneiros',marceneiros);},[marceneiros,dbLoaded]);
+  useEffect(()=>{if(dbLoaded)syncCloud('estoque',estoque);},[estoque,dbLoaded]);
+  useEffect(()=>{if(dbLoaded)syncCloud('financeiro',financeiro);},[financeiro,dbLoaded]);
+  useEffect(()=>{if(dbLoaded)syncCloud('leads',leads);},[leads,dbLoaded]);
 
   // ── CRUD ──
   const getCli=id=>clientes.find(c=>c.id===id);
@@ -556,8 +610,8 @@ export default function ERP(){
               <div style={{display:"flex",alignItems:"center",gap:10}}><span style={{fontWeight:800,fontSize:15,color:"var(--pri)"}}>{R$(a.valorTotal)}</span><I.Chev d={op?"up":"down"}/></div>
             </div>
             {op&&<div style={{padding:16}}>
-              <Field label="Nome" value={a.nome} onChange={v=>updAmb(orc.id,a.id,{nome:v})} placeholder="Ex: Cozinha, Closet..."/>
-              <Field label="Descrição" value={a.desc} onChange={v=>updAmb(orc.id,a.id,{desc:v})} placeholder="Medidas, acabamentos..." rows={2}/>
+              <Field label="Nome" value={a.nome} onChange={v=>updAmb(orc.id,a.id,{nome:v})} placeholder="Ex: Cozinha, Closet..." commitOnBlur/>
+              <Field label="Descrição" value={a.desc} onChange={v=>updAmb(orc.id,a.id,{desc:v})} placeholder="Medidas, acabamentos..." rows={2} commitOnBlur/>
               <div style={{background:"var(--bg)",borderRadius:"var(--r)",padding:"12px 14px",border:"1.5px solid var(--bd)",display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
                 <div style={{fontSize:12}}><span style={{color:"var(--tx3)",fontWeight:600}}>Custo: </span><span style={{fontWeight:700,color:"var(--tx2)"}}>{R$(a.vi)}</span><span style={{color:"var(--tx3)",fontWeight:600,marginLeft:4}}>× {MARKUP} = </span><span style={{fontWeight:800,color:"var(--pri)"}}>{R$(a.valorTotal)}</span></div>
                 <Btn small v="secondary" onClick={()=>setInsModal(a.id)}><I.Calc/> Insumos</Btn>
@@ -575,7 +629,7 @@ export default function ERP(){
                 {orc[s.ek]?<div style={{display:"flex",gap:4}}><Btn v="ghost" small onClick={()=>updOrc(orc.id,{[s.k]:s.pd,[s.ek]:false})}>Reset</Btn><Btn small onClick={()=>updOrc(orc.id,{[s.ek]:false})}><I.Check/></Btn></div>
                 :<Btn v="ghost" small onClick={()=>updOrc(orc.id,{[s.ek]:true})}><I.Edit/></Btn>}
               </div>
-              {orc[s.ek]?<textarea value={orc[s.k]} onChange={e=>updOrc(orc.id,{[s.k]:e.target.value})} rows={5} style={{width:"100%",padding:"10px 12px",borderRadius:"var(--r)",border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:12,fontWeight:500,outline:"none",resize:"vertical",lineHeight:1.5}}/>
+              {orc[s.ek]?<Field value={orc[s.k]} onChange={v=>updOrc(orc.id,{[s.k]:v})} rows={5} commitOnBlur/>
               :<div style={{fontSize:12,color:"var(--tx2)",whiteSpace:"pre-line",lineHeight:1.5,fontWeight:500}}>{orc[s.k]}</div>}
             </Card>
           ))}
@@ -590,9 +644,9 @@ export default function ERP(){
               {["Insumo","Qtd","Vl.Unit","Subtotal",""].map(h=><span key={h} style={{fontSize:9,fontWeight:800,textTransform:"uppercase",letterSpacing:".6px",color:"var(--tx3)"}}>{h}</span>)}
             </div>
             {amb.insumos.map(ins=><div key={ins.id} style={{display:"grid",gridTemplateColumns:"2fr 70px 110px 110px 30px",gap:6,padding:"5px 0",alignItems:"center",borderBottom:"1.5px solid var(--bd)"}}>
-              <input value={ins.nome} onChange={e=>updIns(orc.id,amb.id,ins.id,{nome:e.target.value})} placeholder="Material" style={{width:"100%",padding:"7px 9px",borderRadius:8,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:12,fontWeight:500,outline:"none"}}/>
-              <input type="number" value={ins.qtd} onChange={e=>updIns(orc.id,amb.id,ins.id,{qtd:Math.max(0,+e.target.value)})} style={{width:"100%",padding:"7px",borderRadius:8,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:12,outline:"none",textAlign:"center"}}/>
-              <input type="number" value={ins.vu} onChange={e=>updIns(orc.id,amb.id,ins.id,{vu:Math.max(0,+e.target.value)})} step="0.01" style={{width:"100%",padding:"7px",borderRadius:8,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:12,outline:"none"}}/>
+              <BlurInput value={ins.nome} onCommit={v=>updIns(orc.id,amb.id,ins.id,{nome:v})} placeholder="Material" style={{width:"100%",padding:"7px 9px",borderRadius:8,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:12,fontWeight:500,outline:"none"}}/>
+              <BlurInput type="number" value={ins.qtd} onCommit={v=>updIns(orc.id,amb.id,ins.id,{qtd:Math.max(0,+v)})} style={{width:"100%",padding:"7px",borderRadius:8,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:12,outline:"none",textAlign:"center"}}/>
+              <BlurInput type="number" value={ins.vu} onCommit={v=>updIns(orc.id,amb.id,ins.id,{vu:Math.max(0,+v)})} step="0.01" style={{width:"100%",padding:"7px",borderRadius:8,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:12,outline:"none"}}/>
               <span style={{fontSize:12,fontWeight:700,color:"var(--tx)"}}>{R$(ins.qtd*ins.vu)}</span>
               <button onClick={()=>delIns(orc.id,amb.id,ins.id)} style={{background:"none",border:"none",color:"var(--rd)",padding:2}}><I.Trash/></button>
             </div>)}
@@ -739,8 +793,8 @@ export default function ERP(){
         <div style={{background:"var(--bg)",borderRadius:"var(--rl)",padding:20,border:"1.5px solid var(--bd)",textAlign:"left",marginBottom:16}}>
           <Field label="Banco" value={bankSync.banco} onChange={v=>setBankSync({...bankSync,banco:v})} placeholder="Ex: Banco do Brasil, Itaú, Nubank..." options={["","Banco do Brasil","Bradesco","Itaú","Nubank","Santander","Caixa","Sicoob","Inter","C6 Bank"].map(b=>({v:b,l:b||"Selecione..."}))}/>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
-            <Field label="Agência" value={bankSync.agencia} onChange={v=>setBankSync({...bankSync,agencia:v})} placeholder="0000"/>
-            <Field label="Conta" value={bankSync.conta} onChange={v=>setBankSync({...bankSync,conta:v})} placeholder="00000-0"/>
+            <Field label="Agência" value={bankSync.agencia} onChange={v=>setBankSync(p=>({...p,agencia:v}))} placeholder="0000" commitOnBlur/>
+            <Field label="Conta" value={bankSync.conta} onChange={v=>setBankSync(p=>({...p,conta:v}))} placeholder="00000-0" commitOnBlur/>
           </div>
         </div>
         <Btn onClick={()=>showToast("Funcionalidade em breve! API Open Finance será integrada.")} style={{padding:"12px 32px"}}><I.Bank/> Conectar Banco</Btn>
@@ -780,12 +834,12 @@ export default function ERP(){
   // RENDER
   // ══════════════════════════════
   return(
-    <div style={{fontFamily:"var(--ft)",background:"var(--bg)",color:"var(--tx)",minHeight:"100vh",display:"flex"}}>
+    <div className="erp-wrap" style={{fontFamily:"var(--ft)",background:"var(--bg)",color:"var(--tx)",minHeight:"100vh",display:"flex"}}>
       <style>{CSS}</style>
 
       {/* SIDEBAR */}
-      <aside style={{width:205,minHeight:"100vh",background:"var(--cd)",borderRight:"1.5px solid var(--bd)",display:"flex",flexDirection:"column",flexShrink:0,zIndex:20,boxShadow:"2px 0 12px rgba(0,0,0,.03)"}}>
-        <div style={{padding:"18px 16px",borderBottom:"1.5px solid var(--bd)",display:"flex",alignItems:"center",gap:10}}>
+      <aside className="erp-sidebar" style={{width:205,minHeight:"100vh",background:"var(--cd)",borderRight:"1.5px solid var(--bd)",display:"flex",flexDirection:"column",flexShrink:0,zIndex:20,boxShadow:"2px 0 12px rgba(0,0,0,.03)"}}>
+        <div className="sidebar-logo" style={{padding:"18px 16px",borderBottom:"1.5px solid var(--bd)",display:"flex",alignItems:"center",gap:10}}>
           <div style={{width:36,height:36,borderRadius:12,background:"linear-gradient(135deg,#6366f1,#8b5cf6)",display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 2px 8px rgba(99,102,241,.3)"}}><span style={{fontSize:18,filter:"brightness(10)"}}>🪵</span></div>
           <div><span style={{fontSize:16,fontWeight:800,color:"var(--pri)",display:"block",lineHeight:1}}>ERP</span><span style={{fontSize:9,color:"var(--tx3)",fontWeight:800,letterSpacing:"1.5px",textTransform:"uppercase"}}>Marcenaria</span></div>
         </div>
@@ -797,7 +851,7 @@ export default function ERP(){
             </div>
           ))}
         </nav>
-        <div style={{padding:"12px 16px",borderTop:"1.5px solid var(--bd)"}}>
+        <div className="sidebar-user" style={{padding:"12px 16px",borderTop:"1.5px solid var(--bd)"}}>
           <div style={{fontSize:10,color:"var(--tx3)",fontWeight:700,marginBottom:6}}>{user.role==="admin"?"👤 Administrador":"🔧 "+user.nome}</div>
           {user.role==="admin"
             ?<div style={{display:"flex",flexDirection:"column",gap:4}}>
@@ -809,7 +863,7 @@ export default function ERP(){
       </aside>
 
       {/* MAIN */}
-      <main style={{flex:1,padding:"20px 24px",minHeight:"100vh",overflowY:"auto"}}>{tab==="configuracao"?<PgConfig empresa={empresa} saveEmpresa={saveEmpresa}/>:<Pg/>}</main>
+      <main className="erp-main" style={{flex:1,padding:"20px 24px",minHeight:"100vh",overflowY:"auto"}}>{tab==="configuracao"?<PgConfig empresa={empresa} saveEmpresa={saveEmpresa}/>:<Pg/>}</main>
 
       {/* MODALS */}
       {modal?.t==="editCli"&&<Modal onClose={()=>setModal(null)}><ModalEditCli d={modal.d} setModal={setModal} saveCli={saveCli}/></Modal>}

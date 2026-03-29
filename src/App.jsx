@@ -341,6 +341,91 @@ function PgConfig({empresa,saveEmpresa}){
 /* ═══════════════════════════════════════════
    MAIN APP
    ═══════════════════════════════════════════ */
+function ModalDetFin({f:fInit,financeiro,setModal,pagarParcela,editParcela,addParcela,delParcela,showToast}){
+  const f=financeiro.find(x=>x.id===fInit.id)||fInit;
+  const [editId,setEditId]=useState(null);
+  const [editData,setEditData]=useState({});
+  const [payId,setPayId]=useState(null);
+  const [payVal,setPayVal]=useState("");
+  const isCom=!!f.marcId;
+  const pct=f.valor>0?Math.min(100,(f.valorPago/f.valor)*100):0;
+  const inpST=(border)=>({display:"block",padding:"5px 8px",borderRadius:8,border:`1.5px solid ${border}`,background:"var(--sf)",color:"var(--tx)",fontSize:12,outline:"none"});
+  return(<>
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+      <h2 style={{fontSize:15,fontWeight:800,color:"var(--tx)"}}>{f.desc}</h2>
+      {isCom&&<Badge color="purple">Comissão Marceneiro</Badge>}
+    </div>
+    <div style={{display:"flex",gap:10,marginBottom:12}}>
+      <div style={{flex:1,background:"var(--bg)",borderRadius:"var(--r)",padding:12,border:"1.5px solid var(--bd)",textAlign:"center"}}>
+        <div style={{fontSize:9,fontWeight:800,textTransform:"uppercase",color:"var(--tx3)"}}>Total</div>
+        <div style={{fontSize:18,fontWeight:800,color:"var(--tx)",marginTop:2}}>{R$(f.valor)}</div>
+      </div>
+      <div style={{flex:1,background:"var(--gnb)",borderRadius:"var(--r)",padding:12,textAlign:"center"}}>
+        <div style={{fontSize:9,fontWeight:800,textTransform:"uppercase",color:"var(--tx3)"}}>Pago</div>
+        <div style={{fontSize:18,fontWeight:800,color:"var(--gn)",marginTop:2}}>{R$(f.valorPago)}</div>
+      </div>
+      <div style={{flex:1,background:"var(--rdb)",borderRadius:"var(--r)",padding:12,textAlign:"center"}}>
+        <div style={{fontSize:9,fontWeight:800,textTransform:"uppercase",color:"var(--tx3)"}}>Restante</div>
+        <div style={{fontSize:18,fontWeight:800,color:"var(--rd)",marginTop:2}}>{R$(f.valor-f.valorPago)}</div>
+      </div>
+    </div>
+    <div style={{background:"var(--bg)",borderRadius:6,height:8,marginBottom:16,overflow:"hidden"}}>
+      <div style={{background:"var(--gn)",height:"100%",width:`${pct}%`,borderRadius:6,transition:"width .5s"}}/>
+    </div>
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+      <h3 style={{fontSize:13,fontWeight:800}}>Parcelas</h3>
+      <Btn v="ghost" small onClick={()=>addParcela(f.id)}><I.Plus/> Parcela</Btn>
+    </div>
+    {f.parcelas.map((p,i)=>(
+      <div key={p.id} style={{background:"var(--bg)",borderRadius:"var(--r)",border:"1.5px solid var(--bd)",padding:"10px 12px",marginBottom:6}}>
+        {editId===p.id?(
+          <div style={{display:"flex",gap:8,alignItems:"flex-end",flexWrap:"wrap"}}>
+            <div><label style={{fontSize:10,color:"var(--tx3)",display:"block",marginBottom:3}}>Parcela {i+1} — Valor R$</label>
+              <input type="number" value={editData.valor} onChange={e=>setEditData(d=>({...d,valor:+e.target.value}))} step="0.01" style={{...inpST("var(--pri)"),width:130}}/>
+            </div>
+            <div><label style={{fontSize:10,color:"var(--tx3)",display:"block",marginBottom:3}}>Vencimento</label>
+              <input type="date" value={editData.venc||""} onChange={e=>setEditData(d=>({...d,venc:e.target.value}))} style={{...inpST("var(--bd)")}}/>
+            </div>
+            <div style={{display:"flex",gap:4,paddingBottom:1}}>
+              <Btn small onClick={()=>{editParcela(f.id,p.id,editData);setEditId(null);showToast("Parcela atualizada!")}}><I.Check/> Salvar</Btn>
+              <Btn v="ghost" small onClick={()=>setEditId(null)}>Cancelar</Btn>
+            </div>
+          </div>
+        ):payId===p.id?(
+          <div style={{display:"flex",gap:8,alignItems:"flex-end",flexWrap:"wrap"}}>
+            <div><label style={{fontSize:10,color:"var(--tx3)",display:"block",marginBottom:3}}>Parcela {i+1} — Valor sendo pago R$</label>
+              <input type="number" value={payVal} onChange={e=>setPayVal(e.target.value)} step="0.01" autoFocus style={{...inpST("var(--gn)"),width:150}}/>
+            </div>
+            <div style={{display:"flex",gap:4,paddingBottom:1}}>
+              <Btn small v="success" onClick={()=>{pagarParcela(f.id,p.id,+payVal||p.valor);setPayId(null);showToast("Pagamento registrado!")}}><I.Check/> Confirmar</Btn>
+              <Btn v="ghost" small onClick={()=>setPayId(null)}>Cancelar</Btn>
+            </div>
+          </div>
+        ):(
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+            <div>
+              <span style={{fontWeight:700,fontSize:12,color:"var(--tx)"}}>Parcela {i+1}</span>
+              <span style={{fontWeight:800,fontSize:13,color:p.pago?"var(--gn)":"var(--tx)",marginLeft:10}}>{R$(p.valor)}</span>
+              {p.venc&&<span style={{color:"var(--tx3)",marginLeft:8,fontSize:10}}>Venc: {p.venc}</span>}
+            </div>
+            <div style={{display:"flex",alignItems:"center",gap:6}}>
+              {p.pago
+                ?<><Badge color="green">✓ Pago em {p.dataPago}</Badge><button onClick={()=>{editParcela(f.id,p.id,{pago:false,dataPago:""});showToast("Estornado!")}} style={{background:"none",border:"none",color:"var(--tx3)",cursor:"pointer",fontSize:10,padding:4}}>↩</button></>
+                :<><button onClick={()=>{setEditId(p.id);setEditData({valor:p.valor,venc:p.venc||""});setPayId(null)}} style={{background:"none",border:"none",color:"var(--tx3)",cursor:"pointer",padding:4}}><I.Edit/></button>
+                  <Btn v="success" small onClick={()=>{setPayId(p.id);setPayVal(String(p.valor));setEditId(null)}}>$ Baixar</Btn>
+                  <button onClick={()=>delParcela(f.id,p.id)} style={{background:"none",border:"none",color:"var(--rd)",cursor:"pointer",padding:4}}><I.Trash/></button>
+                </>
+              }
+            </div>
+          </div>
+        )}
+      </div>
+    ))}
+    {f.parcelas.length===0&&<div style={{padding:14,textAlign:"center",color:"var(--tx3)",fontSize:12}}>Nenhuma parcela. Clique em "+ Parcela" para adicionar.</div>}
+    <div style={{textAlign:"right",marginTop:14}}><Btn v="ghost" onClick={()=>setModal(null)}>Fechar</Btn></div>
+  </>);
+}
+
 function ModalPDF({o,empresa,getCli,setModal,totalOrcFinal,totalOrc}){
   const [tab,setTab]=useState("proposta");
   const c=getCli(o.clienteId);
@@ -542,6 +627,26 @@ export default function ERP(){
 
   const addParcela=(finId)=>{
     setFinanceiro(prev=>prev.map(f=>f.id===finId?{...f,parcelas:[...f.parcelas,{id:uid(),valor:0,venc:"",pago:false,dataPago:""}]}:f));
+  };
+
+  const editParcela=(finId,parId,data)=>{
+    setFinanceiro(prev=>prev.map(f=>{
+      if(f.id!==finId)return f;
+      const parcelas=f.parcelas.map(p=>p.id===parId?{...p,...data}:p);
+      const valorPago=parcelas.filter(p=>p.pago).reduce((s,p)=>s+p.valor,0);
+      const status=valorPago>=f.valor?"pago":valorPago>0?"parcial":"aberto";
+      return{...f,parcelas,valorPago,status};
+    }));
+  };
+
+  const delParcela=(finId,parId)=>{
+    setFinanceiro(prev=>prev.map(f=>{
+      if(f.id!==finId)return f;
+      const parcelas=f.parcelas.filter(p=>p.id!==parId);
+      const valorPago=parcelas.filter(p=>p.pago).reduce((s,p)=>s+p.valor,0);
+      const status=valorPago>=f.valor?"pago":valorPago>0?"parcial":"aberto";
+      return{...f,parcelas,valorPago,status};
+    }));
   };
 
   // Login
@@ -951,21 +1056,57 @@ export default function ERP(){
         <div style={{fontSize:10,fontWeight:800,textTransform:"uppercase",color:"var(--tx3)",marginBottom:6}}>Arquivos</div>
         {p.arquivos.map(a=><a key={a.id} href={a.url} download={a.nome} style={{display:"flex",alignItems:"center",gap:5,fontSize:11,color:"var(--pri)",fontWeight:600,textDecoration:"none",padding:"2px 0"}}><I.Clip/>{a.nome}</a>)}
       </div>}
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:10}}>
         <div style={{background:"var(--prib)",borderRadius:"var(--r)",padding:10,textAlign:"center"}}><div style={{fontSize:9,fontWeight:800,color:"var(--tx3)",textTransform:"uppercase"}}>Comissão</div><div style={{fontSize:16,fontWeight:800,color:"var(--pri)"}}>{R$(comTotal)}</div></div>
         <div style={{background:"var(--gnb)",borderRadius:"var(--r)",padding:10,textAlign:"center"}}><div style={{fontSize:9,fontWeight:800,color:"var(--tx3)",textTransform:"uppercase"}}>Recebido</div><div style={{fontSize:16,fontWeight:800,color:"var(--gn)"}}>{R$(comPaga)}</div></div>
         <div style={{background:"var(--rdb)",borderRadius:"var(--r)",padding:10,textAlign:"center"}}><div style={{fontSize:9,fontWeight:800,color:"var(--tx3)",textTransform:"uppercase"}}>A Receber</div><div style={{fontSize:16,fontWeight:800,color:"var(--rd)"}}>{R$(comTotal-comPaga)}</div></div>
       </div>
+      {comFin&&comFin.valor>0&&<div style={{background:"var(--bg)",borderRadius:4,height:6,marginBottom:10,overflow:"hidden"}}><div style={{background:"var(--gn)",height:"100%",width:`${Math.min(100,comFin.valor>0?(comPaga/comFin.valor)*100:0)}%`,borderRadius:4,transition:"width .4s"}}/></div>}
+      {comFin?.parcelas?.length>0&&<div style={{border:"1.5px solid var(--bd)",borderRadius:"var(--r)",overflow:"hidden",marginBottom:2}}>
+        <div style={{padding:"5px 10px",background:"var(--prib)",fontSize:9,fontWeight:800,textTransform:"uppercase",color:"var(--pri)"}}>Agenda de Pagamento</div>
+        {comFin.parcelas.map((pa,i)=><div key={pa.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"7px 10px",borderBottom:"1px solid var(--bd)",fontSize:11}}>
+          <div><span style={{fontWeight:700}}>Parcela {i+1}</span>{pa.venc&&<span style={{color:"var(--tx3)",marginLeft:6,fontSize:10}}>Venc: {pa.venc}</span>}</div>
+          <div style={{display:"flex",alignItems:"center",gap:8}}>
+            <span style={{fontWeight:800,color:pa.pago?"var(--gn)":"var(--tx)"}}>{R$(pa.valor)}</span>
+            {pa.pago?<Badge color="green">✓ {pa.dataPago}</Badge>:<Badge color="amber">Pendente</Badge>}
+          </div>
+        </div>)}
+      </div>}
     </Card>)})}{meusP.length===0&&<Card style={{padding:30,textAlign:"center"}}><p style={{color:"var(--tx3)",fontWeight:600}}>Nenhum projeto</p></Card>}</div>);
 
   const PgMeuKanban=()=>(<div style={{animation:"fadeIn .3s"}}><SH title="Meu Kanban"/><div style={{display:"flex",gap:10,overflowX:"auto",paddingBottom:10}}>{KCOLS.map(col=>{const cards=meusP.filter(p=>p.stage===col.id);return(<div key={col.id} style={{minWidth:170,flex:1,background:"var(--bg)",borderRadius:"var(--rl)",border:"1.5px solid var(--bd)"}}><div style={{padding:"10px 12px",borderBottom:"1.5px solid var(--bd)",display:"flex",alignItems:"center",gap:5}}><div style={{width:7,height:7,borderRadius:4,background:col.color}}/><span style={{fontSize:11,fontWeight:800,color:"var(--tx)"}}>{col.label}</span></div><div style={{padding:6,minHeight:60}}>{cards.map(p=>{const c=getCli(p.clienteId);return(<div key={p.id} className="kcard" style={{background:"var(--cd)",border:"1.5px solid var(--bd)",borderRadius:"var(--r)",padding:"8px 10px",marginBottom:5,borderLeft:`3px solid ${col.color}`,boxShadow:"var(--sh)"}}><div style={{fontWeight:800,fontSize:10,color:"var(--pri)"}}>{p.num}</div><div style={{fontSize:10,color:"var(--tx)",fontWeight:600}}>{c?.nome}</div><select value={p.stage} onChange={e=>{updPed(p.id,{stage:e.target.value,status:e.target.value==="concluido"?"concluido":"em_producao"});showToast("Atualizado!")}} onClick={e=>e.stopPropagation()} style={{width:"100%",padding:"3px 5px",borderRadius:6,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:9,fontWeight:700,outline:"none",marginTop:4}}>{KCOLS.map(k=><option key={k.id} value={k.id}>{k.label}</option>)}</select></div>)})}</div></div>)})}</div></div>);
 
   const PgCom=()=>{
+    const [exp,setExp]=useState(null);
     const gcf=p=>financeiro.find(f=>f.pedidoId===p.id&&f.marcId===user.id);
     const tc=meusP.reduce((s,p)=>s+(gcf(p)?.valor||p.comVal),0);
     const tr=meusP.reduce((s,p)=>s+(gcf(p)?.valorPago||0),0);
-    return(<div style={{animation:"fadeIn .3s"}}><SH title="Minhas Comissões"/><div style={{display:"flex",gap:12,marginBottom:18}}><KPI label="Total" value={R$(tc)} icon={<I.Dollar/>} color="pri"/><KPI label="Recebido" value={R$(tr)} icon={<I.Check/>} color="gn"/><KPI label="A Receber" value={R$(tc-tr)} icon={<I.Clock/>} color="rd"/></div>
-    <Card><TH cols={[{l:"Pedido",w:"80px"},{l:"Projeto",w:"1.5fr"},{l:"%",w:"60px"},{l:"Valor",w:"100px"},{l:"Recebido",w:"100px"},{l:"Restante",w:"100px"}]}/>{meusP.map(p=>{const c=getCli(p.clienteId);const cf=gcf(p);const r=cf?.valorPago||0;const v=cf?.valor||p.comVal;return(<div key={p.id} style={{display:"grid",gridTemplateColumns:"80px 1.5fr 60px 100px 100px 100px",gap:6,padding:"10px 18px",borderBottom:"1.5px solid var(--bd)",alignItems:"center",fontSize:12}}><span style={{fontWeight:800,color:"var(--pri)"}}>{p.num}</span><span style={{color:"var(--tx)",fontWeight:600}}>{c?.nome}</span><Badge>{p.comPerc}%</Badge><span style={{fontWeight:700}}>{R$(v)}</span><span style={{color:"var(--gn)",fontWeight:700}}>{R$(r)}</span><span style={{color:"var(--rd)",fontWeight:800}}>{R$(v-r)}</span></div>)})}</Card></div>)};
+    return(<div style={{animation:"fadeIn .3s"}}><SH title="Minhas Comissões"/>
+    <div style={{display:"flex",gap:12,marginBottom:18}}><KPI label="Total" value={R$(tc)} icon={<I.Dollar/>} color="pri"/><KPI label="Recebido" value={R$(tr)} icon={<I.Check/>} color="gn"/><KPI label="A Receber" value={R$(tc-tr)} icon={<I.Clock/>} color="rd"/></div>
+    <Card>
+      <TH cols={[{l:"Pedido",w:"80px"},{l:"Projeto",w:"1.5fr"},{l:"%",w:"60px"},{l:"Valor",w:"100px"},{l:"Recebido",w:"100px"},{l:"Restante",w:"100px"},{l:"",w:"30px"}]}/>
+      {meusP.map(p=>{const c=getCli(p.clienteId);const cf=gcf(p);const r=cf?.valorPago||0;const v=cf?.valor||p.comVal;const op=exp===p.id;return(<div key={p.id}>
+        <div onClick={()=>setExp(op?null:p.id)} className="hr" style={{display:"grid",gridTemplateColumns:"80px 1.5fr 60px 100px 100px 100px 30px",gap:6,padding:"10px 18px",borderBottom:"1.5px solid var(--bd)",alignItems:"center",fontSize:12,cursor:"pointer"}}>
+          <span style={{fontWeight:800,color:"var(--pri)"}}>{p.num}</span>
+          <span style={{color:"var(--tx)",fontWeight:600}}>{c?.nome}</span>
+          <Badge>{p.comPerc}%</Badge>
+          <span style={{fontWeight:700}}>{R$(v)}</span>
+          <span style={{color:"var(--gn)",fontWeight:700}}>{R$(r)}</span>
+          <span style={{color:"var(--rd)",fontWeight:800}}>{R$(v-r)}</span>
+          <I.Chev d={op?"up":"down"}/>
+        </div>
+        {op&&cf&&<div style={{padding:"10px 18px",background:"var(--bg)",borderBottom:"1.5px solid var(--bd)"}}>
+          <div style={{background:"var(--bd)",borderRadius:4,height:5,marginBottom:8,overflow:"hidden"}}><div style={{background:"var(--gn)",height:"100%",width:`${v>0?Math.min(100,(r/v)*100):0}%`,borderRadius:4}}/></div>
+          {cf.parcelas.map((pa,i)=><div key={pa.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"5px 0",borderBottom:"1px solid var(--bd)",fontSize:11}}>
+            <div><span style={{fontWeight:700}}>Parcela {i+1}</span>{pa.venc&&<span style={{color:"var(--tx3)",marginLeft:6,fontSize:10}}>Venc: {pa.venc}</span>}</div>
+            <div style={{display:"flex",alignItems:"center",gap:8}}>
+              <span style={{fontWeight:800,color:pa.pago?"var(--gn)":"var(--tx)"}}>{R$(pa.valor)}</span>
+              {pa.pago?<Badge color="green">✓ {pa.dataPago}</Badge>:<Badge color="amber">Pendente</Badge>}
+            </div>
+          </div>)}
+          {cf.parcelas.length===0&&<span style={{fontSize:11,color:"var(--tx3)"}}>Nenhuma parcela cadastrada</span>}
+        </div>}
+      </div>)})}</Card></div>)};
 
   // PAGE ROUTER
   const pages={dashboard:PgDash,crm:PgCRM,clientes:PgCli,orcamentos:PgOrc,pedidos:PgPed,kanban:PgKanban,marceneiros:PgMarc,financeiro:PgFin,estoque:PgEst,dre:PgDRE,banco:PgBanco,minha_area:PgMinhaArea,meu_kanban:PgMeuKanban,comissoes:PgCom};
@@ -1015,16 +1156,7 @@ export default function ERP(){
 
       {modal?.t==="pdf"&&<Modal onClose={()=>setModal(null)} wide><ModalPDF o={modal.d} empresa={empresa} getCli={getCli} setModal={setModal} totalOrcFinal={totalOrcFinal} totalOrc={totalOrc}/></Modal>}
 
-      {modal?.t==="detFin"&&(()=>{const f=modal.d;return(<Modal onClose={()=>setModal(null)} wide><h2 style={{fontSize:16,fontWeight:800,marginBottom:14}}>Detalhes — {f.desc}</h2>
-        <div style={{display:"flex",gap:12,marginBottom:16}}><div style={{flex:1,background:"var(--bg)",borderRadius:"var(--r)",padding:14,border:"1.5px solid var(--bd)"}}><div style={{fontSize:10,fontWeight:800,textTransform:"uppercase",color:"var(--tx3)"}}>Valor Total</div><div style={{fontSize:18,fontWeight:800,color:"var(--tx)",marginTop:4}}>{R$(f.valor)}</div></div><div style={{flex:1,background:"var(--gnb)",borderRadius:"var(--r)",padding:14}}><div style={{fontSize:10,fontWeight:800,textTransform:"uppercase",color:"var(--tx3)"}}>Pago</div><div style={{fontSize:18,fontWeight:800,color:"var(--gn)",marginTop:4}}>{R$(f.valorPago)}</div></div><div style={{flex:1,background:"var(--rdb)",borderRadius:"var(--r)",padding:14}}><div style={{fontSize:10,fontWeight:800,textTransform:"uppercase",color:"var(--tx3)"}}>Restante</div><div style={{fontSize:18,fontWeight:800,color:"var(--rd)",marginTop:4}}>{R$(f.valor-f.valorPago)}</div></div></div>
-        <h3 style={{fontSize:13,fontWeight:800,marginBottom:10}}>Parcelas</h3>
-        {f.parcelas.map((p,i)=><div key={p.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 0",borderBottom:"1.5px solid var(--bd)",fontSize:12}}>
-          <div><span style={{fontWeight:700}}>Parcela {i+1}</span>{p.venc&&<span style={{color:"var(--tx3)",marginLeft:8,fontSize:10}}>Venc: {p.venc}</span>}</div>
-          <div style={{display:"flex",alignItems:"center",gap:8}}><span style={{fontWeight:700}}>{R$(p.valor)}</span>{p.pago?<Badge color="green">Pago {p.dataPago}</Badge>:<Btn v="success" small onClick={()=>{pagarParcela(f.id,p.id);setModal({t:"detFin",d:financeiro.find(x=>x.id===f.id)||f})}}>Baixar</Btn>}</div>
-        </div>)}
-        <div style={{display:"flex",gap:8,marginTop:12}}><Btn v="ghost" small onClick={()=>{addParcela(f.id);setModal({t:"detFin",d:financeiro.find(x=>x.id===f.id)||f})}}><I.Plus/> Parcela</Btn></div>
-        <div style={{textAlign:"right",marginTop:12}}><Btn v="ghost" onClick={()=>setModal(null)}>Fechar</Btn></div>
-      </Modal>)})()}
+      {modal?.t==="detFin"&&<Modal onClose={()=>setModal(null)} wide><ModalDetFin f={modal.d} financeiro={financeiro} setModal={setModal} pagarParcela={pagarParcela} editParcela={editParcela} addParcela={addParcela} delParcela={delParcela} showToast={showToast}/></Modal>}
 
       {modal?.t==="newFin"&&<Modal onClose={()=>setModal(null)}><ModalNewFin setModal={setModal} setFinanceiro={setFinanceiro} showToast={showToast}/></Modal>}
 

@@ -51,6 +51,7 @@ const hojeISO=()=>new Date().toISOString().split("T")[0];
 const MARKUP=3.2;
 const GARANTIA=`Garantia de 12 meses contra defeitos de fabricação.\nNão cobre: mau uso, umidade excessiva, modificações por terceiros.\nAjustes dentro da garantia sem custo adicional.`;
 const PAGAMENTO=`• 50% na aprovação\n• 30% início fabricação\n• 20% na entrega\n\nPIX (3% desc.), Transf., Boleto, Cartão até 10x.\nValidade: 15 dias.`;
+const ESPECIFICACOES=`Material: MDF 15mm com revestimento melamínico BP.\nFerros: Puxadores e corrediças Blum ou equivalente.\nAcabamento: Faca BP padrão, borda PVC 0,4mm colada a quente.\nMontagem: Inclusa no valor do projeto.`;
 const KCOLS=[{id:"aguardando",label:"Aguardando",color:"#6366f1"},{id:"material",label:"Material",color:"#f59e0b"},{id:"producao",label:"Produção",color:"#3b82f6"},{id:"acabamento",label:"Acabamento",color:"#8b5cf6"},{id:"entrega",label:"Entrega",color:"#10b981"},{id:"concluido",label:"Concluído",color:"#6b7280"}];
 const LEAD_STAGES=["Novo Lead","Contato Feito","Proposta Enviada","Negociação","Fechado/Ganho","Perdido"];
 const LEAD_COLORS=["#6366f1","#3b82f6","#f59e0b","#8b5cf6","#10b981","#ef4444"];
@@ -340,6 +341,91 @@ function PgConfig({empresa,saveEmpresa}){
 /* ═══════════════════════════════════════════
    MAIN APP
    ═══════════════════════════════════════════ */
+function ModalPDF({o,empresa,getCli,setModal,totalOrcFinal,totalOrc}){
+  const [tab,setTab]=useState("proposta");
+  const c=getCli(o.clienteId);
+  const vt=totalOrcFinal(o);const vtB=totalOrc(o);const desc=o.desconto||0;
+  const zoneRef=useRef(null);
+  const print=()=>{
+    const w=window.open('','_blank','width=900,height=750');
+    const s=`body{font-family:Arial,sans-serif;margin:0;padding:30px;font-size:12px;color:#1e293b}.hdr{border-bottom:3px solid #6366f1;padding-bottom:14px;margin-bottom:18px;display:flex;justify-content:space-between;align-items:center}h1{font-size:20px;font-weight:800;margin:0}table{width:100%;border-collapse:collapse;margin:10px 0}th{background:#f8f7ff;padding:7px;text-align:left;font-size:10px;text-transform:uppercase;color:#999;border-bottom:2px solid #e0e0f0}td{padding:7px;border-bottom:1px solid #f0eeff;font-size:11px}.total{background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;padding:13px 18px;border-radius:10px;display:flex;justify-content:space-between;align-items:center;margin:14px 0}.sig{display:grid;grid-template-columns:1fr 1fr;gap:40px;margin-top:50px;padding-top:20px;border-top:1.5px solid #e0e0e0}@page{size:A4;margin:15mm}`;
+    w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><style>${s}</style></head><body>${zoneRef.current?.innerHTML||''}</body></html>`);
+    w.document.close();setTimeout(()=>{w.print();},600);
+  };
+  const fmtR=v=>"R$ "+(v||0).toLocaleString("pt-BR",{minimumFractionDigits:2});
+  const hdrST={fontSize:10,fontWeight:800,textTransform:"uppercase",color:"#999",marginBottom:4};
+  return(<>
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+      <div style={{display:"flex",gap:6}}>
+        {["proposta","os"].map(t=><button key={t} onClick={()=>setTab(t)} style={{padding:"5px 14px",borderRadius:20,border:"1.5px solid "+(tab===t?"var(--pri)":"var(--bd)"),background:tab===t?"var(--prib)":"transparent",color:tab===t?"var(--pri)":"var(--tx3)",fontSize:11,fontWeight:700,cursor:"pointer"}}>{t==="proposta"?"📄 Proposta":"📋 Ordem de Serviço"}</button>)}
+      </div>
+      <div style={{display:"flex",gap:6}}>
+        <Btn v="ghost" small onClick={print}><I.Printer/> Imprimir / PDF</Btn>
+        <Btn v="ghost" small onClick={()=>setModal(null)}><I.X/></Btn>
+      </div>
+    </div>
+    <div ref={zoneRef} style={{background:"#fff",borderRadius:12,padding:"32px 36px",fontSize:12,lineHeight:1.6,maxHeight:"70vh",overflowY:"auto",border:"1.5px solid var(--bd)"}}>
+      {/* CABEÇALHO */}
+      <div style={{borderBottom:"3px solid #6366f1",paddingBottom:14,marginBottom:18,display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+        <div style={{display:"flex",alignItems:"center",gap:12}}>
+          {empresa.logo&&<img src={empresa.logo} alt="logo" style={{height:48,objectFit:"contain"}}/>}
+          <div><h1 style={{fontSize:20,fontWeight:800,margin:0,color:"#1e293b"}}>{empresa.nome||"Empresa"}</h1>
+            {empresa.endereco&&<p style={{color:"#888",fontSize:10,margin:"2px 0"}}>{empresa.endereco}</p>}
+            {empresa.telefone&&<p style={{color:"#888",fontSize:10,margin:"2px 0"}}>{empresa.telefone}{empresa.email?" • "+empresa.email:""}</p>}
+            {empresa.cnpj&&<p style={{color:"#888",fontSize:10,margin:"2px 0"}}>CNPJ: {empresa.cnpj}</p>}
+          </div>
+        </div>
+        <div style={{textAlign:"right"}}>
+          <div style={{fontWeight:800,color:"#6366f1",fontSize:14}}>{tab==="os"?"OS-":"Proposta: "}{o.num}</div>
+          <div style={{color:"#888",fontSize:10}}>{o.data}</div>
+          {tab==="os"&&<div style={{marginTop:4,padding:"2px 8px",borderRadius:12,background:"#fef3c7",color:"#b45309",fontSize:9,fontWeight:800,display:"inline-block"}}>ORDEM DE SERVIÇO</div>}
+        </div>
+      </div>
+      {/* CLIENTE */}
+      <div style={{background:"#f8f7ff",borderRadius:8,padding:"12px 16px",marginBottom:16,border:"1px solid #e8e5f0"}}>
+        <div style={hdrST}>Cliente</div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"2px 20px",fontSize:11}}>
+          <div><strong>Nome:</strong> {c?.nome}</div><div><strong>Doc:</strong> {c?.doc}</div>
+          <div><strong>Tel:</strong> {c?.tel}</div><div><strong>Email:</strong> {c?.email}</div>
+          {c?.endereco&&<div style={{gridColumn:"1/-1"}}><strong>End:</strong> {c.endereco}</div>}
+        </div>
+      </div>
+      {/* AMBIENTES */}
+      {o.ambientes.map((a,i)=><div key={a.id} style={{marginBottom:6,border:"1px solid #e8e5f0",borderRadius:8,overflow:"hidden"}}>
+        <div style={{background:"#f8f7ff",padding:"8px 14px",display:"flex",justifyContent:"space-between"}}>
+          <strong style={{fontSize:12}}>{a.nome||`Ambiente ${i+1}`}</strong>
+          <span style={{fontWeight:800,color:"#6366f1",fontSize:12}}>{fmtR(a.valorTotal)}</span>
+        </div>
+        {a.desc&&<div style={{padding:"6px 14px",fontSize:11,color:"#555",whiteSpace:"pre-line"}}>{a.desc}</div>}
+      </div>)}
+      {/* TOTAL */}
+      <div style={{background:"linear-gradient(135deg,#6366f1,#8b5cf6)",borderRadius:10,padding:"14px 18px",margin:"14px 0",display:"flex",justifyContent:"space-between",alignItems:"center",color:"#fff"}}>
+        <div><span style={{fontWeight:700}}>Valor Total</span>{desc>0&&<div style={{fontSize:10,opacity:.8}}>Desconto {desc}% aplicado</div>}</div>
+        <div style={{textAlign:"right"}}><div style={{fontSize:22,fontWeight:800}}>{fmtR(vt)}</div>{desc>0&&<div style={{fontSize:10,opacity:.8,textDecoration:"line-through"}}>{fmtR(vtB)}</div>}</div>
+      </div>
+      {/* ESPECIFICAÇÕES */}
+      {o.especificacoes&&<div style={{marginBottom:12}}><div style={hdrST}>Especificações dos Materiais</div><div style={{fontSize:11,color:"#555",whiteSpace:"pre-line"}}>{o.especificacoes}</div></div>}
+      {/* GARANTIA */}
+      <div style={{marginBottom:12}}><div style={hdrST}>Garantia</div><div style={{fontSize:11,color:"#555",whiteSpace:"pre-line"}}>{o.garantia}</div></div>
+      {/* PAGAMENTO */}
+      <div style={{marginBottom:tab==="os"?16:0}}><div style={hdrST}>Forma de Pagamento</div><div style={{fontSize:11,color:"#555",whiteSpace:"pre-line"}}>{o.pagamento}</div></div>
+      {/* ASSINATURAS (só na OS) */}
+      {tab==="os"&&<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:32,marginTop:40,paddingTop:20,borderTop:"1.5px solid #e0e0e0"}}>
+        <div><div style={{borderTop:"1.5px solid #555",paddingTop:8,marginTop:50}}>
+          <div style={{fontWeight:700,fontSize:12}}>{empresa.nome}</div>
+          <div style={{fontSize:10,color:"#888"}}>Responsável Técnico / Empresa</div>
+        </div></div>
+        <div><div style={{borderTop:"1.5px solid #555",paddingTop:8,marginTop:50}}>
+          <div style={{fontWeight:700,fontSize:12}}>{c?.nome}</div>
+          <div style={{fontSize:10,color:"#888"}}>Cliente / Contratante</div>
+        </div></div>
+        <div style={{gridColumn:"1/-1",textAlign:"center",marginTop:16,fontSize:10,color:"#aaa"}}>Local e data: _________________________, ___/___/______</div>
+        <div style={{gridColumn:"1/-1",textAlign:"center",fontSize:10,color:"#aaa",marginTop:4}}>Documento gerado em {o.data} • {empresa.nome}</div>
+      </div>}
+    </div>
+  </>);
+}
+
 export default function ERP(){
   const [user,setUser]=useState(()=>{try{const u=localStorage.getItem('erpUser');return u?JSON.parse(u):{role:"admin",nome:"Admin",id:"admin"};}catch{return{role:"admin",nome:"Admin",id:"admin"};}});
   const [loginView,setLoginView]=useState(null);
@@ -400,10 +486,11 @@ export default function ERP(){
   const getCli=id=>clientes.find(c=>c.id===id);
   const getMarc=id=>marceneiros.find(m=>m.id===id);
   const totalOrc=o=>(o?.ambientes||[]).reduce((s,a)=>s+(a.valorTotal||0),0);
+  const totalOrcFinal=o=>{const t=totalOrc(o);return t*(1-(o?.desconto||0)/100);};
 
   const saveCli=c=>{if(!c.nome?.trim())return showToast("Nome obrigatório","red");if(c.id&&clientes.find(x=>x.id===c.id)){setClientes(p=>p.map(x=>x.id===c.id?{...x,...c}:x))}else{setClientes(p=>[...p,{...c,id:uid()}])}setModal(null);showToast("Cliente salvo!")};
 
-  const criarOrc=cid=>{const o={id:uid(),num:`ORC-${String(orcamentos.length+1).padStart(4,"0")}`,clienteId:cid,data:hoje(),status:"rascunho",ambientes:[],garantia:GARANTIA,garantiaE:false,pagamento:PAGAMENTO,pagamentoE:false};setOrcamentos(p=>[...p,o]);setOrcAtivo(o.id);setTab("orcamentos");setModal(null);showToast(o.num+" criado!")};
+  const criarOrc=cid=>{const o={id:uid(),num:`ORC-${String(orcamentos.length+1).padStart(4,"0")}`,clienteId:cid,data:hoje(),status:"rascunho",ambientes:[],garantia:GARANTIA,garantiaE:false,pagamento:PAGAMENTO,pagamentoE:false,markup:MARKUP,desconto:0,especificacoes:ESPECIFICACOES,especificacoesE:false};setOrcamentos(p=>[...p,o]);setOrcAtivo(o.id);setTab("orcamentos");setModal(null);showToast(o.num+" criado!")};
   const updOrc=useCallback((id,fn)=>setOrcamentos(p=>p.map(o=>o.id===id?(typeof fn==="function"?fn(o):{...o,...fn}):o)),[]);
 
   const addAmb=oid=>{const a={id:uid(),nome:"",desc:"",insumos:[],vi:0,valorTotal:0};updOrc(oid,o=>({...o,ambientes:[...o.ambientes,a]}));setAmbAberto(a.id)};
@@ -411,8 +498,9 @@ export default function ERP(){
   const delAmb=(oid,aid)=>{updOrc(oid,o=>({...o,ambientes:o.ambientes.filter(a=>a.id!==aid)}));showToast("Removido","red")};
 
   const addIns=(oid,aid)=>updOrc(oid,o=>({...o,ambientes:o.ambientes.map(a=>a.id===aid?{...a,insumos:[...a.insumos,{id:uid(),nome:"",qtd:1,vu:0}]}:a)}));
-  const updIns=(oid,aid,iid,d)=>updOrc(oid,o=>({...o,ambientes:o.ambientes.map(a=>{if(a.id!==aid)return a;const ins=a.insumos.map(i=>i.id===iid?{...i,...d}:i);const vi=ins.reduce((s,i)=>s+(i.qtd*i.vu),0);return{...a,insumos:ins,vi,valorTotal:vi*MARKUP}})}));
-  const delIns=(oid,aid,iid)=>updOrc(oid,o=>({...o,ambientes:o.ambientes.map(a=>{if(a.id!==aid)return a;const ins=a.insumos.filter(i=>i.id!==iid);const vi=ins.reduce((s,i)=>s+(i.qtd*i.vu),0);return{...a,insumos:ins,vi,valorTotal:vi*MARKUP}})}));
+  const addInsFromEst=(oid,aid,e)=>updOrc(oid,o=>{const mk=o.markup||MARKUP;return{...o,ambientes:o.ambientes.map(a=>{if(a.id!==aid)return a;const ins=[...a.insumos,{id:uid(),nome:e.nome,qtd:1,vu:e.custo}];const vi=ins.reduce((s,i)=>s+(i.qtd*i.vu),0);return{...a,insumos:ins,vi,valorTotal:vi*mk}})};});
+  const updIns=(oid,aid,iid,d)=>updOrc(oid,o=>({...o,ambientes:o.ambientes.map(a=>{if(a.id!==aid)return a;const ins=a.insumos.map(i=>i.id===iid?{...i,...d}:i);const vi=ins.reduce((s,i)=>s+(i.qtd*i.vu),0);return{...a,insumos:ins,vi,valorTotal:vi*(o.markup||MARKUP)}})}));
+  const delIns=(oid,aid,iid)=>updOrc(oid,o=>({...o,ambientes:o.ambientes.map(a=>{if(a.id!==aid)return a;const ins=a.insumos.filter(i=>i.id!==iid);const vi=ins.reduce((s,i)=>s+(i.qtd*i.vu),0);return{...a,insumos:ins,vi,valorTotal:vi*(o.markup||MARKUP)}})}));
 
   const gerarPedido=orc=>{
     const mats=[];orc.ambientes.forEach(a=>a.insumos.forEach(i=>{if(i.nome)mats.push({id:uid(),nome:i.nome,qtd:i.qtd,vu:i.vu,sub:i.qtd*i.vu})}));
@@ -429,7 +517,17 @@ export default function ERP(){
 
   const updPed=useCallback((id,fn)=>setPedidos(p=>p.map(o=>o.id===id?(typeof fn==="function"?fn(o):{...o,...fn}):o)),[]);
 
-  const designarMarc=(pid,mid)=>{const m=getMarc(mid);if(!m)return;updPed(pid,p=>({...p,marcId:mid,comPerc:m.comissao,comVal:p.vt*(m.comissao/100),status:"em_producao"}));showToast(`Designado: ${m.nome}`)};
+  const designarMarc=(pid,mid)=>{
+    const m=getMarc(mid);if(!m)return;
+    const ped=pedidos.find(x=>x.id===pid);
+    const comVal=ped?ped.vt*(m.comissao/100):0;
+    updPed(pid,p=>({...p,marcId:mid,comPerc:m.comissao,comVal,status:"em_producao"}));
+    setFinanceiro(prev=>{
+      if(prev.find(f=>f.pedidoId===pid&&f.tipo==="pagar"&&f.marcId===mid))return prev;
+      return[...prev,{id:uid(),tipo:"pagar",desc:`Comissão ${ped?.num||''} - ${m.nome}`,valor:comVal,valorPago:0,parcelas:[{id:uid(),valor:comVal,venc:"",pago:false,dataPago:""}],pedidoId:pid,marcId:mid,fornecedor:m.nome,status:"aberto"}];
+    });
+    showToast(`Designado: ${m.nome}`);
+  };
 
   const pagarParcela=(finId,parId,valor)=>{
     setFinanceiro(prev=>prev.map(f=>{
@@ -593,14 +691,22 @@ export default function ERP(){
   )};
 
   // ORÇAMENTOS
-  const PgOrc=()=>{
+  const PgOrc=()=>{const [showCat,setShowCat]=useState(false);
     if(orc){const ambs=orc.ambientes;return(
       <div style={{animation:"fadeIn .3s"}}>
         <button onClick={()=>setOrcAtivo(null)} style={{background:"none",border:"none",color:"var(--pri)",fontSize:11,fontWeight:700,marginBottom:6,cursor:"pointer"}}>← Voltar</button>
         <SH title={orc.num} sub={`${cliOrc?.nome} • ${orc.data}`} right={<><select value={orc.status} onChange={e=>updOrc(orc.id,{status:e.target.value})} style={{padding:"8px 12px",borderRadius:10,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:11,fontWeight:700,outline:"none"}}><option value="rascunho">Rascunho</option><option value="enviado">Enviado</option><option value="aprovado">Aprovado</option><option value="rejeitado">Rejeitado</option></select><Btn v="ghost" small onClick={()=>setModal({t:"pdf",d:orc})}><I.Printer/></Btn>{orc.status!=="aprovado"&&<Btn small onClick={()=>gerarPedido(orc)}>Aprovar → Pedido</Btn>}</>}/>
         <div style={{background:"linear-gradient(135deg,#6366f1,#8b5cf6)",borderRadius:"var(--rl)",padding:"20px 24px",marginBottom:18,display:"flex",justifyContent:"space-between",alignItems:"center",color:"#fff",boxShadow:"0 4px 20px rgba(99,102,241,.3)"}}>
-          <div><span style={{fontSize:10,fontWeight:800,textTransform:"uppercase",opacity:.8}}>Valor Total</span><div style={{fontSize:28,fontWeight:800,marginTop:2}}>{R$(totalOrc(orc))}</div></div>
-          <div style={{textAlign:"right"}}><span style={{fontSize:11,opacity:.8}}>{ambs.length} ambiente{ambs.length!==1?"s":""}</span></div>
+          <div><span style={{fontSize:10,fontWeight:800,textTransform:"uppercase",opacity:.8}}>Valor Total</span><div style={{fontSize:28,fontWeight:800,marginTop:2}}>{R$(totalOrcFinal(orc))}</div>{(orc.desconto>0)&&<div style={{fontSize:11,opacity:.8}}>Sem desconto: {R$(totalOrc(orc))}</div>}</div>
+          <div style={{textAlign:"right",display:"flex",flexDirection:"column",gap:8,alignItems:"flex-end"}}>
+            <span style={{fontSize:11,opacity:.8}}>{ambs.length} ambiente{ambs.length!==1?"s":""}</span>
+            <div style={{display:"flex",gap:8,alignItems:"center"}}>
+              <span style={{fontSize:10,opacity:.7}}>Markup ×</span>
+              <BlurInput type="number" value={orc.markup||MARKUP} onCommit={v=>updOrc(orc.id,{markup:Math.max(1,+v||MARKUP)})} step="0.1" style={{width:58,padding:"3px 6px",borderRadius:6,border:"none",background:"rgba(255,255,255,.2)",color:"#fff",fontSize:12,fontWeight:700,textAlign:"center",outline:"none"}}/>
+              <span style={{fontSize:10,opacity:.7}}>Desc%</span>
+              <BlurInput type="number" value={orc.desconto||0} onCommit={v=>updOrc(orc.id,{desconto:Math.min(100,Math.max(0,+v||0))})} step="1" style={{width:48,padding:"3px 6px",borderRadius:6,border:"none",background:"rgba(255,255,255,.2)",color:"#fff",fontSize:12,fontWeight:700,textAlign:"center",outline:"none"}}/>
+            </div>
+          </div>
         </div>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}><h3 style={{fontSize:14,fontWeight:800,color:"var(--tx)"}}>Ambientes</h3><Btn small onClick={()=>addAmb(orc.id)}><I.Plus/> Ambiente</Btn></div>
         {ambs.map((a,i)=>{const op=ambAberto===a.id;return(
@@ -613,7 +719,7 @@ export default function ERP(){
               <Field label="Nome" value={a.nome} onChange={v=>updAmb(orc.id,a.id,{nome:v})} placeholder="Ex: Cozinha, Closet..." commitOnBlur/>
               <Field label="Descrição" value={a.desc} onChange={v=>updAmb(orc.id,a.id,{desc:v})} placeholder="Medidas, acabamentos..." rows={2} commitOnBlur/>
               <div style={{background:"var(--bg)",borderRadius:"var(--r)",padding:"12px 14px",border:"1.5px solid var(--bd)",display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
-                <div style={{fontSize:12}}><span style={{color:"var(--tx3)",fontWeight:600}}>Custo: </span><span style={{fontWeight:700,color:"var(--tx2)"}}>{R$(a.vi)}</span><span style={{color:"var(--tx3)",fontWeight:600,marginLeft:4}}>× {MARKUP} = </span><span style={{fontWeight:800,color:"var(--pri)"}}>{R$(a.valorTotal)}</span></div>
+                <div style={{fontSize:12}}><span style={{color:"var(--tx3)",fontWeight:600}}>Custo: </span><span style={{fontWeight:700,color:"var(--tx2)"}}>{R$(a.vi)}</span><span style={{color:"var(--tx3)",fontWeight:600,marginLeft:4}}>× {orc.markup||MARKUP} = </span><span style={{fontWeight:800,color:"var(--pri)"}}>{R$(a.valorTotal)}</span></div>
                 <Btn small v="secondary" onClick={()=>setInsModal(a.id)}><I.Calc/> Insumos</Btn>
               </div>
               <div style={{textAlign:"right"}}><Btn v="danger" small onClick={()=>delAmb(orc.id,a.id)}><I.Trash/></Btn></div>
@@ -621,8 +727,8 @@ export default function ERP(){
           </Card>
         )})}
         {/* Garantia/Pagamento */}
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginTop:20}}>
-          {[{k:"garantia",l:"Garantia",ek:"garantiaE",pd:GARANTIA},{k:"pagamento",l:"Pagamento",ek:"pagamentoE",pd:PAGAMENTO}].map(s=>(
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:14,marginTop:20}}>
+          {[{k:"garantia",l:"Garantia",ek:"garantiaE",pd:GARANTIA},{k:"pagamento",l:"Pagamento",ek:"pagamentoE",pd:PAGAMENTO},{k:"especificacoes",l:"Especificações",ek:"especificacoesE",pd:ESPECIFICACOES}].map(s=>(
             <Card key={s.k} style={{padding:16}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
                 <h4 style={{fontSize:12,fontWeight:800,color:"var(--tx)",textTransform:"uppercase"}}>{s.l}</h4>
@@ -650,11 +756,24 @@ export default function ERP(){
               <span style={{fontSize:12,fontWeight:700,color:"var(--tx)"}}>{R$(ins.qtd*ins.vu)}</span>
               <button onClick={()=>delIns(orc.id,amb.id,ins.id)} style={{background:"none",border:"none",color:"var(--rd)",padding:2}}><I.Trash/></button>
             </div>)}
-            <Btn v="ghost" small onClick={()=>addIns(orc.id,amb.id)} style={{marginTop:8}}><I.Plus/> Insumo</Btn>
+            <div style={{display:"flex",gap:6,marginTop:8}}>
+              <Btn v="ghost" small onClick={()=>addIns(orc.id,amb.id)}><I.Plus/> Insumo</Btn>
+              <Btn v="ghost" small onClick={()=>setShowCat(!showCat)}><I.Layers/> Catálogo</Btn>
+            </div>
+            {showCat&&<div style={{background:"var(--bg)",borderRadius:"var(--r)",padding:12,border:"1.5px dashed var(--bd)",marginTop:8}}>
+              <div style={{fontSize:10,fontWeight:800,color:"var(--tx3)",textTransform:"uppercase",marginBottom:8}}>Catálogo — clique para adicionar</div>
+              <div style={{maxHeight:160,overflowY:"auto"}}>
+                {estoque.map(e=><div key={e.id} onClick={()=>{addInsFromEst(orc.id,amb.id,e);showToast(`${e.nome} adicionado!`)}} className="hr" style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 4px",borderBottom:"1px solid var(--bd)",fontSize:11,cursor:"pointer"}}>
+                  <span style={{fontWeight:600,color:"var(--tx)"}}>{e.nome} <span style={{color:"var(--tx3)"}}>({e.un})</span></span>
+                  <span style={{color:"var(--pri)",fontWeight:700}}>{R$(e.custo)}</span>
+                </div>)}
+                {estoque.length===0&&<span style={{fontSize:11,color:"var(--tx3)"}}>Nenhum item no estoque cadastrado</span>}
+              </div>
+            </div>}
             <div style={{background:"var(--bg)",borderRadius:"var(--r)",padding:"14px 16px",marginTop:14,border:"1.5px solid var(--bd)"}}>
-              <div style={{display:"flex",justifyContent:"space-between",fontSize:12,fontWeight:600,marginBottom:6,color:"var(--tx2)"}}><span>Total</span><span>{R$(amb.vi)}</span></div>
-              <div style={{display:"flex",justifyContent:"space-between",fontSize:12,fontWeight:600,marginBottom:6,color:"var(--tx2)"}}><span>Markup</span><span style={{color:"var(--pri)"}}>× {MARKUP}</span></div>
-              <div style={{borderTop:"1.5px solid var(--bd)",paddingTop:8,display:"flex",justifyContent:"space-between",fontWeight:800,fontSize:16}}><span style={{color:"var(--tx)"}}>Final</span><span style={{color:"var(--pri)"}}>{R$(amb.vi*MARKUP)}</span></div>
+              <div style={{display:"flex",justifyContent:"space-between",fontSize:12,fontWeight:600,marginBottom:6,color:"var(--tx2)"}}><span>Total Insumos</span><span>{R$(amb.vi)}</span></div>
+              <div style={{display:"flex",justifyContent:"space-between",fontSize:12,fontWeight:600,marginBottom:6,color:"var(--tx2)"}}><span>Markup</span><span style={{color:"var(--pri)"}}>× {orc.markup||MARKUP}</span></div>
+              <div style={{borderTop:"1.5px solid var(--bd)",paddingTop:8,display:"flex",justifyContent:"space-between",fontWeight:800,fontSize:16}}><span style={{color:"var(--tx)"}}>Final Ambiente</span><span style={{color:"var(--pri)"}}>{R$(amb.valorTotal)}</span></div>
             </div>
             <div style={{textAlign:"right",marginTop:12}}><Btn onClick={()=>setInsModal(null)}><I.Check/> OK</Btn></div>
           </Modal>
@@ -691,7 +810,21 @@ export default function ERP(){
         {fin&&<div style={{marginTop:8,display:"flex",justifyContent:"space-between",fontWeight:800,fontSize:13,paddingTop:8,borderTop:"1.5px solid var(--bd)"}}><span>Pago: <span style={{color:"var(--gn)"}}>{R$(fin.valorPago)}</span></span><span>Restante: <span style={{color:"var(--rd)"}}>{R$(fin.valor-fin.valorPago)}</span></span></div>}
         </div></Card>
       </div>
-      <Card style={{marginTop:14}}><CardHead title="Arquivos" right={<Btn v="ghost" small onClick={()=>{const n=prompt("Nome do arquivo:");if(n){updPed(p.id,pp=>({...pp,arquivos:[...pp.arquivos,{id:uid(),nome:n,data:hoje()}]}));showToast("Anexado!")}}}><I.Clip/> Anexar</Btn>}/><div style={{padding:14}}>{p.arquivos.length===0?<span style={{fontSize:12,color:"var(--tx3)"}}>Nenhum</span>:p.arquivos.map(a=><div key={a.id} style={{display:"flex",alignItems:"center",gap:6,padding:"4px 0",fontSize:12,color:"var(--tx2)"}}><I.Clip/>{a.nome}<span style={{fontSize:10,color:"var(--tx3)"}}>{a.data}</span></div>)}</div></Card>
+      <Card style={{marginTop:14}}><CardHead title={`Arquivos (${p.arquivos.length})`} right={
+        <label style={{cursor:"pointer",display:"flex",alignItems:"center",gap:5,padding:"5px 10px",borderRadius:"var(--r)",border:"1.5px solid var(--bd)",background:"var(--sf)",fontSize:11,fontWeight:700,color:"var(--tx2)"}}>
+          <I.Clip/> Anexar
+          <input type="file" multiple style={{display:"none"}} onChange={e=>{Array.from(e.target.files||[]).forEach(f=>{if(f.size>10485760){showToast("Máx 10MB por arquivo","red");return;}const r=new FileReader();r.onload=ev=>updPed(p.id,pp=>({...pp,arquivos:[...pp.arquivos,{id:uid(),nome:f.name,data:hoje(),url:ev.target.result}]}));r.readAsDataURL(f)});e.target.value="";showToast("Arquivo(s) anexado(s)!")}}/>
+        </label>
+      }/>
+      <div style={{padding:14}}>
+        {p.arquivos.length===0?<span style={{fontSize:12,color:"var(--tx3)"}}>Nenhum arquivo anexado</span>
+        :p.arquivos.map(a=><div key={a.id} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 0",borderBottom:"1px solid var(--bd)"}}>
+          <I.Clip/>
+          {a.url?<a href={a.url} download={a.nome} style={{fontSize:12,color:"var(--pri)",fontWeight:600,textDecoration:"none",flex:1}}>{a.nome}</a>:<span style={{fontSize:12,color:"var(--tx2)",flex:1}}>{a.nome}</span>}
+          <span style={{fontSize:10,color:"var(--tx3)"}}>{a.data}</span>
+          <button onClick={()=>updPed(p.id,pp=>({...pp,arquivos:pp.arquivos.filter(x=>x.id!==a.id)}))} style={{background:"none",border:"none",color:"var(--rd)",padding:2,cursor:"pointer"}}><I.Trash/></button>
+        </div>)}
+      </div></Card>
     </div>)}
     const [fP,setFP]=useState("todos");const list=pedidos.filter(p=>fP==="todos"||p.status===fP);
     return(<div style={{animation:"fadeIn .3s"}}><SH title="Pedidos" sub={`${pedidos.length} total`}/>
@@ -806,7 +939,7 @@ export default function ERP(){
   </div>);
 
   // ÁREA DO MARCENEIRO
-  const PgMinhaArea=()=>(<div style={{animation:"fadeIn .3s"}}><SH title="Meus Projetos" sub={`${meusP.length} designados`}/>{meusP.map(p=>{const c=getCli(p.clienteId);const comPaga=p.pags?.filter(pg=>pg.desc?.includes("[COM]")).reduce((s,pg)=>s+pg.valor,0)||0;return(
+  const PgMinhaArea=()=>(<div style={{animation:"fadeIn .3s"}}><SH title="Meus Projetos" sub={`${meusP.length} designados`}/>{meusP.map(p=>{const c=getCli(p.clienteId);const comFin=financeiro.find(f=>f.pedidoId===p.id&&f.marcId===user.id);const comPaga=comFin?.valorPago||0;const comTotal=comFin?.valor||p.comVal;return(
     <Card key={p.id} style={{marginBottom:12,padding:18}}>
       <div style={{display:"flex",justifyContent:"space-between",marginBottom:12}}><div><h3 style={{fontSize:16,fontWeight:800,color:"var(--pri)"}}>{p.num}</h3><p style={{fontSize:12,color:"var(--tx2)",fontWeight:600}}>{c?.nome}</p></div><div style={{textAlign:"right"}}><Badge color={p.stage==="concluido"?"green":"amber"}>{KCOLS.find(k=>k.id===p.stage)?.label}</Badge>{p.dataEntrega&&<div style={{fontSize:10,color:"var(--rd)",fontWeight:700,marginTop:4}}><I.Clock/> {p.dataEntrega}</div>}</div></div>
       {p.ambs.map((a,i)=><div key={i} style={{padding:"6px 0",borderBottom:"1px solid var(--bd)"}}><strong style={{fontSize:12}}>{a.nome||`Amb ${i+1}`}</strong>{a.desc&&<div style={{fontSize:11,color:"var(--tx3)",whiteSpace:"pre-line"}}>{a.desc}</div>}</div>)}
@@ -814,17 +947,25 @@ export default function ERP(){
         <div style={{fontSize:10,fontWeight:800,textTransform:"uppercase",color:"var(--tx3)",marginBottom:6}}>Materiais</div>
         {p.mats.map(m=><div key={m.id} style={{display:"flex",justifyContent:"space-between",fontSize:11,padding:"2px 0",color:"var(--tx2)"}}><span>{m.nome}</span><span>×{m.qtd}</span></div>)}
       </div>
+      {p.arquivos?.length>0&&<div style={{marginBottom:10,padding:10,background:"var(--bg)",borderRadius:"var(--r)",border:"1.5px solid var(--bd)"}}>
+        <div style={{fontSize:10,fontWeight:800,textTransform:"uppercase",color:"var(--tx3)",marginBottom:6}}>Arquivos</div>
+        {p.arquivos.map(a=><a key={a.id} href={a.url} download={a.nome} style={{display:"flex",alignItems:"center",gap:5,fontSize:11,color:"var(--pri)",fontWeight:600,textDecoration:"none",padding:"2px 0"}}><I.Clip/>{a.nome}</a>)}
+      </div>}
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}>
-        <div style={{background:"var(--prib)",borderRadius:"var(--r)",padding:10,textAlign:"center"}}><div style={{fontSize:9,fontWeight:800,color:"var(--tx3)",textTransform:"uppercase"}}>Comissão</div><div style={{fontSize:16,fontWeight:800,color:"var(--pri)"}}>{R$(p.comVal)}</div></div>
+        <div style={{background:"var(--prib)",borderRadius:"var(--r)",padding:10,textAlign:"center"}}><div style={{fontSize:9,fontWeight:800,color:"var(--tx3)",textTransform:"uppercase"}}>Comissão</div><div style={{fontSize:16,fontWeight:800,color:"var(--pri)"}}>{R$(comTotal)}</div></div>
         <div style={{background:"var(--gnb)",borderRadius:"var(--r)",padding:10,textAlign:"center"}}><div style={{fontSize:9,fontWeight:800,color:"var(--tx3)",textTransform:"uppercase"}}>Recebido</div><div style={{fontSize:16,fontWeight:800,color:"var(--gn)"}}>{R$(comPaga)}</div></div>
-        <div style={{background:"var(--rdb)",borderRadius:"var(--r)",padding:10,textAlign:"center"}}><div style={{fontSize:9,fontWeight:800,color:"var(--tx3)",textTransform:"uppercase"}}>A Receber</div><div style={{fontSize:16,fontWeight:800,color:"var(--rd)"}}>{R$(p.comVal-comPaga)}</div></div>
+        <div style={{background:"var(--rdb)",borderRadius:"var(--r)",padding:10,textAlign:"center"}}><div style={{fontSize:9,fontWeight:800,color:"var(--tx3)",textTransform:"uppercase"}}>A Receber</div><div style={{fontSize:16,fontWeight:800,color:"var(--rd)"}}>{R$(comTotal-comPaga)}</div></div>
       </div>
     </Card>)})}{meusP.length===0&&<Card style={{padding:30,textAlign:"center"}}><p style={{color:"var(--tx3)",fontWeight:600}}>Nenhum projeto</p></Card>}</div>);
 
   const PgMeuKanban=()=>(<div style={{animation:"fadeIn .3s"}}><SH title="Meu Kanban"/><div style={{display:"flex",gap:10,overflowX:"auto",paddingBottom:10}}>{KCOLS.map(col=>{const cards=meusP.filter(p=>p.stage===col.id);return(<div key={col.id} style={{minWidth:170,flex:1,background:"var(--bg)",borderRadius:"var(--rl)",border:"1.5px solid var(--bd)"}}><div style={{padding:"10px 12px",borderBottom:"1.5px solid var(--bd)",display:"flex",alignItems:"center",gap:5}}><div style={{width:7,height:7,borderRadius:4,background:col.color}}/><span style={{fontSize:11,fontWeight:800,color:"var(--tx)"}}>{col.label}</span></div><div style={{padding:6,minHeight:60}}>{cards.map(p=>{const c=getCli(p.clienteId);return(<div key={p.id} className="kcard" style={{background:"var(--cd)",border:"1.5px solid var(--bd)",borderRadius:"var(--r)",padding:"8px 10px",marginBottom:5,borderLeft:`3px solid ${col.color}`,boxShadow:"var(--sh)"}}><div style={{fontWeight:800,fontSize:10,color:"var(--pri)"}}>{p.num}</div><div style={{fontSize:10,color:"var(--tx)",fontWeight:600}}>{c?.nome}</div><select value={p.stage} onChange={e=>{updPed(p.id,{stage:e.target.value,status:e.target.value==="concluido"?"concluido":"em_producao"});showToast("Atualizado!")}} onClick={e=>e.stopPropagation()} style={{width:"100%",padding:"3px 5px",borderRadius:6,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:9,fontWeight:700,outline:"none",marginTop:4}}>{KCOLS.map(k=><option key={k.id} value={k.id}>{k.label}</option>)}</select></div>)})}</div></div>)})}</div></div>);
 
-  const PgCom=()=>{const tc=meusP.reduce((s,p)=>s+p.comVal,0);const tr=meusP.reduce((s,p)=>s+(p.pags?.filter(pg=>pg.desc?.includes("[COM]")).reduce((ss,pg)=>ss+pg.valor,0)||0),0);return(<div style={{animation:"fadeIn .3s"}}><SH title="Minhas Comissões"/><div style={{display:"flex",gap:12,marginBottom:18}}><KPI label="Total" value={R$(tc)} icon={<I.Dollar/>} color="pri"/><KPI label="Recebido" value={R$(tr)} icon={<I.Check/>} color="gn"/><KPI label="A Receber" value={R$(tc-tr)} icon={<I.Clock/>} color="rd"/></div>
-    <Card><TH cols={[{l:"Pedido",w:"80px"},{l:"Projeto",w:"1.5fr"},{l:"%",w:"60px"},{l:"Valor",w:"100px"},{l:"Recebido",w:"100px"},{l:"Restante",w:"100px"}]}/>{meusP.map(p=>{const c=getCli(p.clienteId);const r=p.pags?.filter(pg=>pg.desc?.includes("[COM]")).reduce((s,pg)=>s+pg.valor,0)||0;return(<div key={p.id} style={{display:"grid",gridTemplateColumns:"80px 1.5fr 60px 100px 100px 100px",gap:6,padding:"10px 18px",borderBottom:"1.5px solid var(--bd)",alignItems:"center",fontSize:12}}><span style={{fontWeight:800,color:"var(--pri)"}}>{p.num}</span><span style={{color:"var(--tx)",fontWeight:600}}>{c?.nome}</span><Badge>{p.comPerc}%</Badge><span style={{fontWeight:700}}>{R$(p.comVal)}</span><span style={{color:"var(--gn)",fontWeight:700}}>{R$(r)}</span><span style={{color:"var(--rd)",fontWeight:800}}>{R$(p.comVal-r)}</span></div>)})}</Card></div>)};
+  const PgCom=()=>{
+    const gcf=p=>financeiro.find(f=>f.pedidoId===p.id&&f.marcId===user.id);
+    const tc=meusP.reduce((s,p)=>s+(gcf(p)?.valor||p.comVal),0);
+    const tr=meusP.reduce((s,p)=>s+(gcf(p)?.valorPago||0),0);
+    return(<div style={{animation:"fadeIn .3s"}}><SH title="Minhas Comissões"/><div style={{display:"flex",gap:12,marginBottom:18}}><KPI label="Total" value={R$(tc)} icon={<I.Dollar/>} color="pri"/><KPI label="Recebido" value={R$(tr)} icon={<I.Check/>} color="gn"/><KPI label="A Receber" value={R$(tc-tr)} icon={<I.Clock/>} color="rd"/></div>
+    <Card><TH cols={[{l:"Pedido",w:"80px"},{l:"Projeto",w:"1.5fr"},{l:"%",w:"60px"},{l:"Valor",w:"100px"},{l:"Recebido",w:"100px"},{l:"Restante",w:"100px"}]}/>{meusP.map(p=>{const c=getCli(p.clienteId);const cf=gcf(p);const r=cf?.valorPago||0;const v=cf?.valor||p.comVal;return(<div key={p.id} style={{display:"grid",gridTemplateColumns:"80px 1.5fr 60px 100px 100px 100px",gap:6,padding:"10px 18px",borderBottom:"1.5px solid var(--bd)",alignItems:"center",fontSize:12}}><span style={{fontWeight:800,color:"var(--pri)"}}>{p.num}</span><span style={{color:"var(--tx)",fontWeight:600}}>{c?.nome}</span><Badge>{p.comPerc}%</Badge><span style={{fontWeight:700}}>{R$(v)}</span><span style={{color:"var(--gn)",fontWeight:700}}>{R$(r)}</span><span style={{color:"var(--rd)",fontWeight:800}}>{R$(v-r)}</span></div>)})}</Card></div>)};
 
   // PAGE ROUTER
   const pages={dashboard:PgDash,crm:PgCRM,clientes:PgCli,orcamentos:PgOrc,pedidos:PgPed,kanban:PgKanban,marceneiros:PgMarc,financeiro:PgFin,estoque:PgEst,dre:PgDRE,banco:PgBanco,minha_area:PgMinhaArea,meu_kanban:PgMeuKanban,comissoes:PgCom};
@@ -872,22 +1013,7 @@ export default function ERP(){
 
       {modal?.t==="editLead"&&<Modal onClose={()=>setModal(null)}><ModalEditLead d={modal.d} setModal={setModal} setLeads={setLeads} showToast={showToast}/></Modal>}
 
-      {modal?.t==="pdf"&&(()=>{const o=modal.d;const c=getCli(o.clienteId);return(<Modal onClose={()=>setModal(null)} wide><div style={{display:"flex",justifyContent:"space-between",marginBottom:14}}><h2 style={{fontSize:16,fontWeight:800}}>Proposta Comercial</h2><Btn v="ghost" small onClick={()=>setModal(null)}><I.X/></Btn></div>
-        <div style={{background:"#fff",borderRadius:12,padding:"36px 40px",fontSize:13,lineHeight:1.6,maxHeight:"70vh",overflowY:"auto",border:"1.5px solid var(--bd)"}}>
-          <div style={{borderBottom:"3px solid #6366f1",paddingBottom:16,marginBottom:20,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-            <div style={{display:"flex",alignItems:"center",gap:12}}>
-              {empresa.logo&&<img src={empresa.logo} alt="logo" style={{height:52,objectFit:"contain"}}/>}
-              <div><h1 style={{fontSize:22,fontWeight:800,margin:0,color:"#1e293b"}}>{empresa.nome||"Proposta Comercial"}</h1><p style={{color:"#888",fontSize:11}}>{empresa.endereco}</p>{empresa.telefone&&<p style={{color:"#888",fontSize:11}}>{empresa.telefone}{empresa.email?" • "+empresa.email:""}</p>}{empresa.cnpj&&<p style={{color:"#888",fontSize:11}}>CNPJ: {empresa.cnpj}</p>}</div>
-            </div>
-            <div style={{textAlign:"right"}}><div style={{fontWeight:800,color:"#6366f1",fontSize:15}}>{o.num}</div><div style={{color:"#888",fontSize:11}}>{o.data}</div></div>
-          </div>
-          <div style={{background:"#f8f7ff",borderRadius:10,padding:"14px 18px",marginBottom:20,border:"1px solid #e8e5f0"}}><div style={{fontSize:10,fontWeight:800,textTransform:"uppercase",color:"#999",marginBottom:6}}>Cliente</div><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"2px 20px",fontSize:12}}><div><strong>Nome:</strong> {c?.nome}</div><div><strong>Doc:</strong> {c?.doc}</div><div><strong>Tel:</strong> {c?.tel}</div><div><strong>Email:</strong> {c?.email}</div></div></div>
-          {o.ambientes.map((a,i)=><div key={a.id} style={{marginBottom:8,border:"1px solid #e8e5f0",borderRadius:8,overflow:"hidden"}}><div style={{background:"#f8f7ff",padding:"10px 16px",display:"flex",justifyContent:"space-between"}}><strong>{a.nome||`Amb ${i+1}`}</strong><span style={{fontWeight:800,color:"#6366f1"}}>{R$(a.valorTotal)}</span></div>{a.desc&&<div style={{padding:"8px 16px",fontSize:12,color:"#555",whiteSpace:"pre-line"}}>{a.desc}</div>}</div>)}
-          <div style={{background:"linear-gradient(135deg,#6366f1,#8b5cf6)",borderRadius:10,padding:"16px 20px",margin:"16px 0 20px",display:"flex",justifyContent:"space-between",alignItems:"center",color:"#fff"}}><span style={{fontWeight:700}}>Valor Total</span><span style={{fontSize:24,fontWeight:800}}>{R$(totalOrc(o))}</span></div>
-          <div style={{marginBottom:14}}><div style={{fontSize:10,fontWeight:800,textTransform:"uppercase",color:"#999",marginBottom:4}}>Garantia</div><div style={{fontSize:11,color:"#555",whiteSpace:"pre-line"}}>{o.garantia}</div></div>
-          <div><div style={{fontSize:10,fontWeight:800,textTransform:"uppercase",color:"#999",marginBottom:4}}>Pagamento</div><div style={{fontSize:11,color:"#555",whiteSpace:"pre-line"}}>{o.pagamento}</div></div>
-        </div>
-      </Modal>)})()}
+      {modal?.t==="pdf"&&<Modal onClose={()=>setModal(null)} wide><ModalPDF o={modal.d} empresa={empresa} getCli={getCli} setModal={setModal} totalOrcFinal={totalOrcFinal} totalOrc={totalOrc}/></Modal>}
 
       {modal?.t==="detFin"&&(()=>{const f=modal.d;return(<Modal onClose={()=>setModal(null)} wide><h2 style={{fontSize:16,fontWeight:800,marginBottom:14}}>Detalhes — {f.desc}</h2>
         <div style={{display:"flex",gap:12,marginBottom:16}}><div style={{flex:1,background:"var(--bg)",borderRadius:"var(--r)",padding:14,border:"1.5px solid var(--bd)"}}><div style={{fontSize:10,fontWeight:800,textTransform:"uppercase",color:"var(--tx3)"}}>Valor Total</div><div style={{fontSize:18,fontWeight:800,color:"var(--tx)",marginTop:4}}>{R$(f.valor)}</div></div><div style={{flex:1,background:"var(--gnb)",borderRadius:"var(--r)",padding:14}}><div style={{fontSize:10,fontWeight:800,textTransform:"uppercase",color:"var(--tx3)"}}>Pago</div><div style={{fontSize:18,fontWeight:800,color:"var(--gn)",marginTop:4}}>{R$(f.valorPago)}</div></div><div style={{flex:1,background:"var(--rdb)",borderRadius:"var(--r)",padding:14}}><div style={{fontSize:10,fontWeight:800,textTransform:"uppercase",color:"var(--tx3)"}}>Restante</div><div style={{fontSize:18,fontWeight:800,color:"var(--rd)",marginTop:4}}>{R$(f.valor-f.valorPago)}</div></div></div>

@@ -532,6 +532,8 @@ export default function ERP(){
   const [financeiro,setFinanceiro]=useState(()=>LS('financeiro')||[]);
   const [leads,setLeads]=useState(()=>LS('leads')||DEMO_LEADS);
   const [bankSync,setBankSync]=useState({connected:false,banco:"",agencia:"",conta:"",lastSync:""});
+  const [biblioteca,setBiblioteca]=useState(()=>LS('biblioteca')||[]);
+  const [recebimentos,setRecebimentos]=useState(()=>LS('recebimentos')||[]);
   const [dbLoaded,setDbLoaded]=useState(false);
   const [empresa,setEmpresa]=useState(()=>{try{return JSON.parse(localStorage.getItem('erpEmpresa'))||{nome:"Marcenaria",endereco:"",telefone:"",email:"",cnpj:"",logo:"",loginAdmin:"admin",senhaAdmin:"admin123"};}catch{return{nome:"Marcenaria",endereco:"",telefone:"",email:"",cnpj:"",logo:"",loginAdmin:"admin",senhaAdmin:"admin123"};}});
 
@@ -548,8 +550,8 @@ export default function ERP(){
   // Load from Supabase on mount (overrides localStorage if cloud has data)
   useEffect(()=>{
     const load=async()=>{
-      const keys=['clientes','orcamentos','pedidos','marceneiros','estoque','financeiro','leads','empresa'];
-      const setters={clientes:setClientes,orcamentos:setOrcamentos,pedidos:setPedidos,marceneiros:setMarceneiros,estoque:setEstoque,financeiro:setFinanceiro,leads:setLeads,empresa:setEmpresa};
+      const keys=['clientes','orcamentos','pedidos','marceneiros','estoque','financeiro','leads','biblioteca','recebimentos','empresa'];
+      const setters={clientes:setClientes,orcamentos:setOrcamentos,pedidos:setPedidos,marceneiros:setMarceneiros,estoque:setEstoque,financeiro:setFinanceiro,leads:setLeads,biblioteca:setBiblioteca,recebimentos:setRecebimentos,empresa:setEmpresa};
       for(const k of keys){
         const cloud=await dbGet(k);
         if(cloud!==null) setters[k](cloud);
@@ -566,6 +568,8 @@ export default function ERP(){
   useEffect(()=>{if(dbLoaded)syncCloud('estoque',estoque);},[estoque,dbLoaded]);
   useEffect(()=>{if(dbLoaded)syncCloud('financeiro',financeiro);},[financeiro,dbLoaded]);
   useEffect(()=>{if(dbLoaded)syncCloud('leads',leads);},[leads,dbLoaded]);
+  useEffect(()=>{if(dbLoaded)syncCloud('biblioteca',biblioteca);},[biblioteca,dbLoaded]);
+  useEffect(()=>{if(dbLoaded)syncCloud('recebimentos',recebimentos);},[recebimentos,dbLoaded]);
 
   // ── CRUD ──
   const getCli=id=>clientes.find(c=>c.id===id);
@@ -584,8 +588,12 @@ export default function ERP(){
 
   const addIns=(oid,aid)=>updOrc(oid,o=>({...o,ambientes:o.ambientes.map(a=>a.id===aid?{...a,insumos:[...a.insumos,{id:uid(),nome:"",qtd:1,vu:0}]}:a)}));
   const addInsFromEst=(oid,aid,e)=>updOrc(oid,o=>{const mk=o.markup||MARKUP;return{...o,ambientes:o.ambientes.map(a=>{if(a.id!==aid)return a;const ins=[...a.insumos,{id:uid(),nome:e.nome,qtd:1,vu:e.custo}];const vi=ins.reduce((s,i)=>s+(i.qtd*i.vu),0);return{...a,insumos:ins,vi,valorTotal:vi*mk}})};});
+  const addInsFromBib=(oid,aid,b)=>updOrc(oid,o=>{const mk=o.markup||MARKUP;return{...o,ambientes:o.ambientes.map(a=>{if(a.id!==aid)return a;const ins=[...a.insumos,{id:uid(),nome:b.nome,qtd:1,vu:b.custo}];const vi=ins.reduce((s,i)=>s+(i.qtd*i.vu),0);return{...a,insumos:ins,vi,valorTotal:vi*mk}})};});
   const updIns=(oid,aid,iid,d)=>updOrc(oid,o=>({...o,ambientes:o.ambientes.map(a=>{if(a.id!==aid)return a;const ins=a.insumos.map(i=>i.id===iid?{...i,...d}:i);const vi=ins.reduce((s,i)=>s+(i.qtd*i.vu),0);return{...a,insumos:ins,vi,valorTotal:vi*(o.markup||MARKUP)}})}));
   const delIns=(oid,aid,iid)=>updOrc(oid,o=>({...o,ambientes:o.ambientes.map(a=>{if(a.id!==aid)return a;const ins=a.insumos.filter(i=>i.id!==iid);const vi=ins.reduce((s,i)=>s+(i.qtd*i.vu),0);return{...a,insumos:ins,vi,valorTotal:vi*(o.markup||MARKUP)}})}));
+  const updMat=(pid,mid,d)=>setPedidos(prev=>prev.map(p=>{if(p.id!==pid)return p;const mats=p.mats.map(m=>{if(m.id!==mid)return m;const nm={...m,...d};return{...nm,sub:nm.qtd*nm.vu};});const cm=mats.reduce((s,m)=>s+m.sub,0);return{...p,mats,cm};}));
+  const addMat=(pid)=>setPedidos(prev=>prev.map(p=>p.id===pid?{...p,mats:[...p.mats,{id:uid(),nome:"",qtd:1,vu:0,sub:0}]}:p));
+  const delMat=(pid,mid)=>setPedidos(prev=>prev.map(p=>{if(p.id!==pid)return p;const mats=p.mats.filter(m=>m.id!==mid);const cm=mats.reduce((s,m)=>s+m.sub,0);return{...p,mats,cm};}));
 
   const gerarPedido=orc=>{
     const mats=[];orc.ambientes.forEach(a=>a.insumos.forEach(i=>{if(i.nome)mats.push({id:uid(),nome:i.nome,qtd:i.qtd,vu:i.vu,sub:i.qtd*i.vu})}));
@@ -696,6 +704,7 @@ export default function ERP(){
     {k:"kanban",l:"Produção",i:<I.Kanban/>},
     {k:"marceneiros",l:"Marceneiros",i:<I.Hammer/>},
     {k:"financeiro",l:"Financeiro",i:<I.Wallet/>},
+    {k:"recebimentos",l:"Recebimentos",i:<I.Dollar/>},
     {k:"estoque",l:"Estoque",i:<I.Box/>},
     {k:"dre",l:"DRE",i:<I.DRE/>},
     {k:"banco",l:"Banco",i:<I.Bank/>},
@@ -796,7 +805,7 @@ export default function ERP(){
   )};
 
   // ORÇAMENTOS
-  const PgOrc=()=>{const [showCat,setShowCat]=useState(false);
+  const PgOrc=()=>{const [catMode,setCatMode]=useState(null);const [bibForm,setBibForm]=useState(null);
     if(orc){const ambs=orc.ambientes;return(
       <div style={{animation:"fadeIn .3s"}}>
         <button onClick={()=>setOrcAtivo(null)} style={{background:"none",border:"none",color:"var(--pri)",fontSize:11,fontWeight:700,marginBottom:6,cursor:"pointer"}}>← Voltar</button>
@@ -863,17 +872,43 @@ export default function ERP(){
             </div>)}
             <div style={{display:"flex",gap:6,marginTop:8}}>
               <Btn v="ghost" small onClick={()=>addIns(orc.id,amb.id)}><I.Plus/> Insumo</Btn>
-              <Btn v="ghost" small onClick={()=>setShowCat(!showCat)}><I.Layers/> Catálogo</Btn>
+              <Btn v="ghost" small onClick={()=>setCatMode(catMode?null:"estoque")}><I.Layers/> Catálogo</Btn>
             </div>
-            {showCat&&<div style={{background:"var(--bg)",borderRadius:"var(--r)",padding:12,border:"1.5px dashed var(--bd)",marginTop:8}}>
-              <div style={{fontSize:10,fontWeight:800,color:"var(--tx3)",textTransform:"uppercase",marginBottom:8}}>Catálogo — clique para adicionar</div>
-              <div style={{maxHeight:160,overflowY:"auto"}}>
+            {catMode&&<div style={{background:"var(--bg)",borderRadius:"var(--r)",border:"1.5px dashed var(--bd)",marginTop:8,overflow:"hidden"}}>
+              <div style={{display:"flex",borderBottom:"1.5px solid var(--bd)"}}>
+                {["estoque","biblioteca"].map(t=><button key={t} onClick={()=>setCatMode(t)} style={{flex:1,padding:"7px 0",background:catMode===t?"var(--prib)":"transparent",color:catMode===t?"var(--pri)":"var(--tx3)",fontSize:11,fontWeight:700,border:"none",borderBottom:catMode===t?"2px solid var(--pri)":"2px solid transparent",cursor:"pointer"}}>{t==="estoque"?"📦 Estoque":"📚 Minha Biblioteca"}</button>)}
+              </div>
+              {catMode==="estoque"&&<div style={{padding:8,maxHeight:160,overflowY:"auto"}}>
                 {estoque.map(e=><div key={e.id} onClick={()=>{addInsFromEst(orc.id,amb.id,e);showToast(`${e.nome} adicionado!`)}} className="hr" style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 4px",borderBottom:"1px solid var(--bd)",fontSize:11,cursor:"pointer"}}>
                   <span style={{fontWeight:600,color:"var(--tx)"}}>{e.nome} <span style={{color:"var(--tx3)"}}>({e.un})</span></span>
                   <span style={{color:"var(--pri)",fontWeight:700}}>{R$(e.custo)}</span>
                 </div>)}
-                {estoque.length===0&&<span style={{fontSize:11,color:"var(--tx3)"}}>Nenhum item no estoque cadastrado</span>}
-              </div>
+                {estoque.length===0&&<span style={{fontSize:11,color:"var(--tx3)",display:"block",padding:"8px 4px"}}>Nenhum item no estoque</span>}
+              </div>}
+              {catMode==="biblioteca"&&<div style={{padding:8}}>
+                <div style={{maxHeight:140,overflowY:"auto"}}>
+                  {biblioteca.map(b=><div key={b.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"5px 4px",borderBottom:"1px solid var(--bd)",fontSize:11}}>
+                    <div onClick={()=>{addInsFromBib(orc.id,amb.id,b);showToast(`${b.nome} adicionado!`)}} className="hr" style={{flex:1,cursor:"pointer",borderRadius:4,padding:"2px 4px"}}>
+                      <span style={{fontWeight:600,color:"var(--tx)"}}>{b.nome}</span>
+                      {b.un&&<span style={{color:"var(--tx3)",marginLeft:4}}>({b.un})</span>}
+                      <span style={{color:"var(--pri)",fontWeight:700,marginLeft:8}}>{R$(b.custo)}</span>
+                    </div>
+                    <div style={{display:"flex",gap:3,marginLeft:6}}>
+                      <button onClick={()=>setBibForm({...b})} style={{background:"none",border:"none",color:"var(--tx3)",padding:2,cursor:"pointer"}}><I.Edit/></button>
+                      <button onClick={()=>{setBiblioteca(p=>p.filter(x=>x.id!==b.id));showToast("Removido","red")}} style={{background:"none",border:"none",color:"var(--rd)",padding:2,cursor:"pointer"}}><I.Trash/></button>
+                    </div>
+                  </div>)}
+                  {biblioteca.length===0&&<span style={{fontSize:11,color:"var(--tx3)",display:"block",padding:"8px 4px"}}>Biblioteca vazia. Adicione seus insumos frequentes.</span>}
+                </div>
+                {bibForm!==null&&<div style={{borderTop:"1.5px solid var(--bd)",padding:"8px 4px",display:"flex",gap:5,alignItems:"flex-end",flexWrap:"wrap"}}>
+                  <div><label style={{fontSize:9,color:"var(--tx3)",display:"block",marginBottom:2}}>Nome</label><input value={bibForm.nome||""} onChange={e=>setBibForm(f=>({...f,nome:e.target.value}))} placeholder="Ex: MDF 15mm" style={{padding:"5px 8px",borderRadius:6,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:11,outline:"none",width:140}}/></div>
+                  <div><label style={{fontSize:9,color:"var(--tx3)",display:"block",marginBottom:2}}>Un.</label><input value={bibForm.un||""} onChange={e=>setBibForm(f=>({...f,un:e.target.value}))} placeholder="un" style={{padding:"5px 8px",borderRadius:6,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:11,outline:"none",width:48}}/></div>
+                  <div><label style={{fontSize:9,color:"var(--tx3)",display:"block",marginBottom:2}}>Custo R$</label><input type="number" value={bibForm.custo||0} onChange={e=>setBibForm(f=>({...f,custo:+e.target.value}))} step="0.01" style={{padding:"5px 8px",borderRadius:6,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:11,outline:"none",width:78}}/></div>
+                  <Btn small onClick={()=>{if(!bibForm.nome?.trim())return showToast("Nome!","red");if(bibForm.id)setBiblioteca(p=>p.map(x=>x.id===bibForm.id?{...x,...bibForm}:x));else setBiblioteca(p=>[...p,{...bibForm,id:uid()}]);setBibForm(null);showToast("Salvo!")}}><I.Check/></Btn>
+                  <Btn v="ghost" small onClick={()=>setBibForm(null)}>✕</Btn>
+                </div>}
+                {bibForm===null&&<button onClick={()=>setBibForm({nome:"",un:"un",custo:0})} style={{display:"block",width:"100%",padding:"6px 0",background:"none",border:"none",borderTop:"1.5px solid var(--bd)",color:"var(--pri)",fontSize:11,fontWeight:700,cursor:"pointer",marginTop:4}}><I.Plus/> Novo item na biblioteca</button>}
+              </div>}
             </div>}
             <div style={{background:"var(--bg)",borderRadius:"var(--r)",padding:"14px 16px",marginTop:14,border:"1.5px solid var(--bd)"}}>
               <div style={{display:"flex",justifyContent:"space-between",fontSize:12,fontWeight:600,marginBottom:6,color:"var(--tx2)"}}><span>Total Insumos</span><span>{R$(amb.vi)}</span></div>
@@ -907,7 +942,19 @@ export default function ERP(){
         <Card style={{padding:16}}><span style={{fontSize:10,fontWeight:800,textTransform:"uppercase",color:"var(--tx3)"}}>Entrega</span><input type="date" value={p.dataEntrega} onChange={e=>updPed(p.id,{dataEntrega:e.target.value})} style={{width:"100%",padding:"7px",borderRadius:8,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:12,outline:"none",marginTop:6}}/></Card>
       </div>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
-        <Card><CardHead title="Materiais"/><div style={{padding:14}}>{p.mats.map(m=><div key={m.id} style={{display:"flex",justifyContent:"space-between",padding:"5px 0",borderBottom:"1px solid var(--bd)",fontSize:12}}><span style={{color:"var(--tx)",fontWeight:600}}>{m.nome} <span style={{color:"var(--tx3)"}}>×{m.qtd}</span></span><span style={{fontWeight:700,color:"var(--tx)"}}>{R$(m.sub)}</span></div>)}<div style={{display:"flex",justifyContent:"space-between",paddingTop:8,fontWeight:800,fontSize:13}}><span>Total</span><span style={{color:"var(--pri)"}}>{R$(p.cm)}</span></div></div></Card>
+        <Card><CardHead title="Materiais" right={<Btn v="ghost" small onClick={()=>addMat(p.id)}><I.Plus/> Item</Btn>}/><div style={{padding:14}}>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 55px 80px 70px 20px",gap:4,marginBottom:6}}>
+            {["Material","Qtd","Vl.Un","Sub",""].map(h=><span key={h} style={{fontSize:9,fontWeight:800,textTransform:"uppercase",color:"var(--tx3)",letterSpacing:".5px"}}>{h}</span>)}
+          </div>
+          {p.mats.map(m=><div key={m.id} style={{display:"grid",gridTemplateColumns:"1fr 55px 80px 70px 20px",gap:4,alignItems:"center",marginBottom:4}}>
+            <BlurInput value={m.nome} onCommit={v=>updMat(p.id,m.id,{nome:v})} placeholder="Material" style={{width:"100%",padding:"5px 7px",borderRadius:6,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:11,outline:"none"}}/>
+            <BlurInput type="number" value={m.qtd} onCommit={v=>updMat(p.id,m.id,{qtd:Math.max(0,+v)})} style={{width:"100%",padding:"5px",borderRadius:6,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:11,outline:"none",textAlign:"center"}}/>
+            <BlurInput type="number" value={m.vu} onCommit={v=>updMat(p.id,m.id,{vu:Math.max(0,+v)})} step="0.01" style={{width:"100%",padding:"5px",borderRadius:6,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:11,outline:"none"}}/>
+            <span style={{fontWeight:700,fontSize:11,color:"var(--tx)"}}>{R$(m.sub)}</span>
+            <button onClick={()=>delMat(p.id,m.id)} style={{background:"none",border:"none",color:"var(--rd)",padding:1,cursor:"pointer"}}><I.Trash/></button>
+          </div>)}
+          <div style={{display:"flex",justifyContent:"space-between",paddingTop:8,fontWeight:800,fontSize:13,borderTop:"1.5px solid var(--bd)",marginTop:4}}><span>Total Materiais</span><span style={{color:"var(--pri)"}}>{R$(p.cm)}</span></div>
+        </div></Card>
         <Card><CardHead title="Parcelas do Cliente" right={fin&&<Btn v="ghost" small onClick={()=>addParcela(fin.id)}><I.Plus/></Btn>}/><div style={{padding:14}}>{fin?fin.parcelas.map((pa,i)=><div key={pa.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 0",borderBottom:"1px solid var(--bd)",fontSize:12}}>
           <div><span style={{fontWeight:700,color:"var(--tx)"}}>Parcela {i+1}</span>{pa.venc&&<span style={{color:"var(--tx3)",marginLeft:6,fontSize:10}}>Venc: {pa.venc}</span>}</div>
           <div style={{display:"flex",alignItems:"center",gap:6}}><span style={{fontWeight:700,color:pa.pago?"var(--gn)":"var(--tx)"}}>{R$(pa.valor)}</span>{pa.pago?<Badge color="green">Pago {pa.dataPago}</Badge>:<Btn v="success" small onClick={()=>pagarParcela(fin.id,pa.id)}>Baixar</Btn>}</div>
@@ -1108,8 +1155,108 @@ export default function ERP(){
         </div>}
       </div>)})}</Card></div>)};
 
+  // RECEBIMENTOS PARCELADOS
+  const PgRecebimentos=()=>{
+    const [newNome,setNewNome]=useState("");
+    const [addingMes,setAddingMes]=useState(false);
+    const [newMes,setNewMes]=useState(hojeISO().slice(0,7));
+    const allMeses=[...new Set(recebimentos.flatMap(r=>r.parcelas.map(p=>p.mes)))].sort();
+    const fmtMes=m=>{const[y,mo]=m.split("-");const ms=["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];return`${ms[+mo-1]}/${y.slice(2)}`;};
+    const totalGeral=recebimentos.reduce((s,r)=>s+r.valorTotal,0);
+    const totalPago=recebimentos.reduce((s,r)=>s+r.parcelas.filter(p=>p.pago).reduce((ss,p)=>ss+p.valor,0),0);
+    const updRec=(id,fn)=>setRecebimentos(prev=>prev.map(r=>r.id===id?fn(r):r));
+    const setParc=(rid,mes,d)=>updRec(rid,r=>({...r,parcelas:r.parcelas.map(p=>p.mes===mes?{...p,...d}:p)}));
+    const togglePago=(rid,mes)=>updRec(rid,r=>({...r,parcelas:r.parcelas.map(p=>p.mes!==mes?p:{...p,pago:!p.pago,dataPago:!p.pago?hoje():""})}));
+    const addCliente=()=>{
+      if(!newNome.trim())return;
+      const parcelas=allMeses.map(m=>({id:uid(),mes:m,valor:0,pago:false,dataPago:""}));
+      setRecebimentos(prev=>[...prev,{id:uid(),cliente:newNome.trim(),valorTotal:0,parcelas}]);
+      setNewNome("");
+    };
+    const addMesCol=()=>{
+      if(!newMes)return;
+      setRecebimentos(prev=>prev.map(r=>{
+        if(r.parcelas.find(p=>p.mes===newMes))return r;
+        return{...r,parcelas:[...r.parcelas,{id:uid(),mes:newMes,valor:0,pago:false,dataPago:""}]};
+      }));
+      setAddingMes(false);
+    };
+    const delMesCol=mes=>setRecebimentos(prev=>prev.map(r=>({...r,parcelas:r.parcelas.filter(p=>p.mes!==mes)})));
+    const thST={padding:"7px 8px",background:"var(--bg)",fontWeight:800,fontSize:9,textTransform:"uppercase",letterSpacing:".5px",color:"var(--tx3)",borderBottom:"1.5px solid var(--bd)",whiteSpace:"nowrap",textAlign:"left"};
+    const tdST={padding:"5px 8px",borderBottom:"1px solid var(--bd)",fontSize:12,verticalAlign:"middle"};
+    const inpST={width:"100%",padding:"4px 6px",borderRadius:6,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:11,outline:"none",textAlign:"right"};
+    return(<div style={{animation:"fadeIn .3s"}}>
+      <SH title="Recebimentos Parcelados" sub={`${recebimentos.length} clientes`} right={
+        <div style={{display:"flex",gap:8,alignItems:"center"}}>
+          {addingMes?<><input type="month" value={newMes} onChange={e=>setNewMes(e.target.value)} style={{padding:"7px 10px",borderRadius:8,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:12,outline:"none"}}/><Btn small onClick={addMesCol}><I.Check/> OK</Btn><Btn v="ghost" small onClick={()=>setAddingMes(false)}>✕</Btn></>:<Btn v="secondary" small onClick={()=>setAddingMes(true)}><I.Plus/> Mês</Btn>}
+        </div>
+      }/>
+      <div style={{display:"flex",gap:12,marginBottom:18,flexWrap:"wrap"}}>
+        <KPI label="Total Contratado" value={R$(totalGeral)} icon={<I.Dollar/>} color="pri"/>
+        <KPI label="Total Recebido" value={R$(totalPago)} icon={<I.Check/>} color="gn"/>
+        <KPI label="Saldo a Receber" value={R$(totalGeral-totalPago)} icon={<I.Clock/>} color="rd"/>
+      </div>
+      <Card style={{overflowX:"auto"}}>
+        <table style={{width:"100%",borderCollapse:"collapse",minWidth:500}}>
+          <thead><tr>
+            <th style={{...thST,minWidth:160,position:"sticky",left:0,zIndex:2,background:"var(--bg)"}}>Cliente</th>
+            <th style={{...thST,minWidth:100,textAlign:"right"}}>Total R$</th>
+            <th style={{...thST,minWidth:90,textAlign:"right",color:"var(--gn)"}}>Recebido</th>
+            <th style={{...thST,minWidth:90,textAlign:"right",color:"var(--rd)"}}>Saldo</th>
+            {allMeses.map(m=><th key={m} style={{...thST,minWidth:110,textAlign:"center"}}>
+              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:4}}>
+                <span>{fmtMes(m)}</span>
+                <button onClick={()=>delMesCol(m)} title="Remover mês" style={{background:"none",border:"none",color:"var(--rd)",cursor:"pointer",fontSize:9,padding:0,lineHeight:1}}>✕</button>
+              </div>
+            </th>)}
+            <th style={{...thST,width:28}}></th>
+          </tr></thead>
+          <tbody>
+            {recebimentos.map(r=>{
+              const pagoPorMes=r.parcelas.filter(p=>p.pago).reduce((s,p)=>s+p.valor,0);
+              const saldo=r.valorTotal-pagoPorMes;
+              return(<tr key={r.id}>
+                <td style={{...tdST,position:"sticky",left:0,background:"var(--cd)",zIndex:1,minWidth:160}}>
+                  <BlurInput value={r.cliente} onCommit={v=>updRec(r.id,x=>({...x,cliente:v}))} style={{width:"100%",padding:"4px 6px",borderRadius:6,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:12,fontWeight:600,outline:"none"}}/>
+                </td>
+                <td style={{...tdST,textAlign:"right"}}>
+                  <BlurInput type="number" value={r.valorTotal} onCommit={v=>updRec(r.id,x=>({...x,valorTotal:+v}))} step="0.01" style={{...inpST,width:90}}/>
+                </td>
+                <td style={{...tdST,textAlign:"right",fontWeight:700,color:"var(--gn)"}}>{R$(pagoPorMes)}</td>
+                <td style={{...tdST,textAlign:"right",fontWeight:700,color:saldo>0?"var(--rd)":"var(--gn)"}}>{R$(saldo)}</td>
+                {allMeses.map(m=>{const parc=r.parcelas.find(p=>p.mes===m);return(<td key={m} style={{...tdST,background:parc?.pago?"var(--gnb)":parc?.valor>0?"rgba(59,130,246,.06)":"transparent",textAlign:"center",padding:"4px 6px"}}>
+                  {parc?<div style={{display:"flex",flexDirection:"column",gap:2,alignItems:"center"}}>
+                    <BlurInput type="number" value={parc.valor} onCommit={v=>setParc(r.id,m,{valor:+v})} step="0.01" style={{width:80,padding:"4px 6px",borderRadius:6,border:"1.5px solid "+(parc.pago?"var(--gn)":"var(--bd)"),background:"var(--sf)",color:parc.pago?"var(--gn)":"var(--tx)",fontSize:11,fontWeight:700,outline:"none",textAlign:"right"}}/>
+                    <button onClick={()=>togglePago(r.id,m)} style={{fontSize:9,fontWeight:700,background:parc.pago?"var(--gnb)":"var(--blb)",color:parc.pago?"var(--gn)":"var(--bl)",border:"none",borderRadius:4,padding:"2px 6px",cursor:"pointer",whiteSpace:"nowrap"}}>{parc.pago?`✓ ${parc.dataPago}`:"Marcar pago"}</button>
+                  </div>:<span style={{fontSize:10,color:"var(--tx3)"}}>—</span>}
+                </td>);})}
+                <td style={{...tdST,textAlign:"center"}}><button onClick={()=>setRecebimentos(prev=>prev.filter(x=>x.id!==r.id))} title="Remover cliente" style={{background:"none",border:"none",color:"var(--rd)",cursor:"pointer",padding:2}}><I.Trash/></button></td>
+              </tr>);
+            })}
+            {allMeses.length>0&&<tr style={{background:"var(--prib)",fontWeight:800}}>
+              <td style={{...tdST,fontWeight:800,color:"var(--pri)",position:"sticky",left:0,background:"var(--prib)",zIndex:1}}>TOTAIS</td>
+              <td style={{...tdST,textAlign:"right",fontWeight:800}}>{R$(totalGeral)}</td>
+              <td style={{...tdST,textAlign:"right",color:"var(--gn)",fontWeight:800}}>{R$(totalPago)}</td>
+              <td style={{...tdST,textAlign:"right",color:"var(--rd)",fontWeight:800}}>{R$(totalGeral-totalPago)}</td>
+              {allMeses.map(m=>{const tv=recebimentos.reduce((s,r)=>{const p=r.parcelas.find(x=>x.mes===m);return s+(p?.valor||0);},0);const tp=recebimentos.reduce((s,r)=>{const p=r.parcelas.find(x=>x.mes===m);return s+(p?.pago?p.valor:0);},0);return(<td key={m} style={{...tdST,textAlign:"center",background:"var(--prib)"}}>
+                <div style={{fontWeight:800,fontSize:11,color:"var(--gn)"}}>{R$(tp)}</div>
+                {tv-tp>0&&<div style={{fontSize:9,color:"var(--rd)",fontWeight:600}}>{R$(tv-tp)} rest.</div>}
+              </td>);})}
+              <td style={tdST}></td>
+            </tr>}
+            {recebimentos.length===0&&<tr><td colSpan={5+allMeses.length} style={{padding:30,textAlign:"center",color:"var(--tx3)",fontSize:12,fontWeight:600}}>Nenhum cliente. Adicione abaixo.</td></tr>}
+          </tbody>
+        </table>
+      </Card>
+      <div style={{marginTop:12,display:"flex",gap:8,alignItems:"center"}}>
+        <input value={newNome} onChange={e=>setNewNome(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addCliente()} placeholder="Nome do cliente..." style={{flex:1,padding:"9px 12px",borderRadius:8,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:12,outline:"none"}}/>
+        <Btn onClick={addCliente}><I.Plus/> Adicionar Cliente</Btn>
+      </div>
+    </div>);
+  };
+
   // PAGE ROUTER
-  const pages={dashboard:PgDash,crm:PgCRM,clientes:PgCli,orcamentos:PgOrc,pedidos:PgPed,kanban:PgKanban,marceneiros:PgMarc,financeiro:PgFin,estoque:PgEst,dre:PgDRE,banco:PgBanco,minha_area:PgMinhaArea,meu_kanban:PgMeuKanban,comissoes:PgCom};
+  const pages={dashboard:PgDash,crm:PgCRM,clientes:PgCli,orcamentos:PgOrc,pedidos:PgPed,kanban:PgKanban,marceneiros:PgMarc,financeiro:PgFin,estoque:PgEst,dre:PgDRE,banco:PgBanco,recebimentos:PgRecebimentos,minha_area:PgMinhaArea,meu_kanban:PgMeuKanban,comissoes:PgCom};
   const Pg=pages[tab]||PgDash;
 
   // ══════════════════════════════

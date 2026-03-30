@@ -856,13 +856,10 @@ export default function ERP(){
   const notifyMarceneiro=async(pedido,marcId)=>{
     const m=getMarc(marcId);
     if(!m)return;
-    const url=import.meta.env.VITE_SUPABASE_URL;
-    const key=import.meta.env.VITE_SUPABASE_ANON_KEY;
-    if(!url||!key)return;
     try{
-      await fetch(`${url}/functions/v1/notify`,{
+      await fetch("/api/notify",{
         method:"POST",
-        headers:{"Content-Type":"application/json","Authorization":`Bearer ${key}`},
+        headers:{"Content-Type":"application/json"},
         body:JSON.stringify({marceId:marcId,title:"🔨 Novo pedido atribuído",body:`${pedido.num||"Pedido"} — ${getCli(pedido.clienteId)?.nome||""}`}),
       });
     }catch{}

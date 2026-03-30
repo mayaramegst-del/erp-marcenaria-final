@@ -342,6 +342,13 @@ function PgConfig({empresa,saveEmpresa}){
         </div>
         <p style={{fontSize:11,color:"var(--tx3)",fontWeight:600}}>Use essas credenciais para entrar como administrador no sistema.</p>
       </Card>
+      <Card style={{padding:24,marginBottom:16}}>
+        <h3 style={{fontSize:13,fontWeight:800,color:"var(--tx)",marginBottom:4,textTransform:"uppercase",letterSpacing:".5px"}}>Textos Padrão dos Orçamentos</h3>
+        <p style={{fontSize:11,color:"var(--tx3)",fontWeight:600,marginBottom:16}}>Estes textos são usados automaticamente em todos os novos orçamentos. Você pode editar individualmente em cada orçamento.</p>
+        <Field label="Garantia (padrão)" value={f.garantia||GARANTIA} onChange={v=>u("garantia",v)} rows={4} commitOnBlur/>
+        <Field label="Forma de Pagamento (padrão)" value={f.pagamento||PAGAMENTO} onChange={v=>u("pagamento",v)} rows={4} commitOnBlur/>
+        <Field label="Especificações dos Materiais (padrão)" value={f.especificacoes||ESPECIFICACOES} onChange={v=>u("especificacoes",v)} rows={4} commitOnBlur/>
+      </Card>
       <Btn onClick={()=>saveEmpresa(f)} style={{width:"100%",justifyContent:"center",padding:14}}><I.Check/> Salvar Configurações</Btn>
     </div>
   );
@@ -467,82 +474,146 @@ function ModalPDF({o,empresa,getCli,setModal,totalOrcFinal,totalOrc}){
   const c=getCli(o.clienteId);
   const vt=totalOrcFinal(o);const vtB=totalOrc(o);const desc=o.desconto||0;
   const zoneRef=useRef(null);
+  const fmtR=v=>"R$ "+(v||0).toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2});
+  const printCSS=`
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:'Inter',Arial,sans-serif;background:#fff;color:#1a1a2e;font-size:11px;line-height:1.5}
+    .doc{max-width:800px;margin:0 auto;padding:0}
+    /* HEADER */
+    .hdr{background:linear-gradient(135deg,#1e293b 0%,#334155 100%);color:#fff;padding:32px 40px;display:flex;justify-content:space-between;align-items:center}
+    .hdr-logo{height:72px;max-width:200px;object-fit:contain;filter:brightness(0) invert(1)}
+    .hdr-nome{font-size:26px;font-weight:900;letter-spacing:-0.5px;color:#fff}
+    .hdr-info{font-size:10px;color:rgba(255,255,255,.6);margin-top:3px;line-height:1.7}
+    .hdr-right{text-align:right}
+    .doc-tipo{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:rgba(255,255,255,.5);margin-bottom:4px}
+    .doc-num{font-size:22px;font-weight:900;color:#a5b4fc}
+    .doc-data{font-size:10px;color:rgba(255,255,255,.5);margin-top:4px}
+    /* STRIP */
+    .strip{background:#6366f1;height:4px}
+    /* BODY */
+    .body{padding:32px 40px}
+    /* CLIENTE */
+    .section-label{font-size:8px;font-weight:800;text-transform:uppercase;letter-spacing:2px;color:#6366f1;margin-bottom:10px;display:flex;align-items:center;gap:6px}
+    .section-label::after{content:'';flex:1;height:1px;background:#e2e8f0}
+    .cli-box{background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:16px 20px;margin-bottom:24px;display:grid;grid-template-columns:1fr 1fr;gap:6px 24px}
+    .cli-box .field{font-size:11px;color:#475569}.cli-box .field strong{color:#1e293b;font-weight:600}
+    /* AMBIENTES */
+    .amb-row{border:1px solid #e2e8f0;border-radius:10px;margin-bottom:8px;overflow:hidden}
+    .amb-head{background:#f8fafc;padding:11px 18px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #e2e8f0}
+    .amb-head-nome{font-size:13px;font-weight:700;color:#1e293b}
+    .amb-head-val{font-size:14px;font-weight:800;color:#6366f1}
+    .amb-desc{padding:10px 18px;font-size:10.5px;color:#64748b;white-space:pre-line}
+    /* TOTAL */
+    .total-box{background:linear-gradient(135deg,#1e293b,#334155);border-radius:12px;padding:20px 28px;display:flex;justify-content:space-between;align-items:center;margin:24px 0;color:#fff}
+    .total-label{font-size:12px;font-weight:600;color:rgba(255,255,255,.7)}
+    .total-label-sub{font-size:10px;color:rgba(255,255,255,.45);margin-top:2px}
+    .total-val{font-size:28px;font-weight:900;color:#a5b4fc;letter-spacing:-1px}
+    .total-val-old{font-size:11px;color:rgba(255,255,255,.4);text-decoration:line-through;text-align:right}
+    /* TEXTOS */
+    .txt-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:24px}
+    .txt-card{background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:14px 16px}
+    .txt-card h4{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:1.5px;color:#6366f1;margin-bottom:8px}
+    .txt-card p{font-size:10.5px;color:#475569;white-space:pre-line;line-height:1.6}
+    /* ASSINATURAS */
+    .sig{display:grid;grid-template-columns:1fr 1fr;gap:48px;margin-top:48px}
+    .sig-line{border-top:1.5px solid #94a3b8;padding-top:8px;margin-top:48px}
+    .sig-nome{font-size:11px;font-weight:700;color:#1e293b}
+    .sig-role{font-size:9px;color:#94a3b8;margin-top:2px}
+    .footer{text-align:center;font-size:9px;color:#94a3b8;padding:16px 0 8px;border-top:1px solid #e2e8f0;margin-top:24px}
+    @page{size:A4;margin:0}
+    @media print{body{padding:0}.doc{max-width:100%}}
+  `;
   const print=()=>{
-    const w=window.open('','_blank','width=900,height=750');
-    const s=`body{font-family:Arial,sans-serif;margin:0;padding:30px;font-size:12px;color:#1e293b}.hdr{border-bottom:3px solid #6366f1;padding-bottom:14px;margin-bottom:18px;display:flex;justify-content:space-between;align-items:center}h1{font-size:20px;font-weight:800;margin:0}table{width:100%;border-collapse:collapse;margin:10px 0}th{background:#f8f7ff;padding:7px;text-align:left;font-size:10px;text-transform:uppercase;color:#999;border-bottom:2px solid #e0e0f0}td{padding:7px;border-bottom:1px solid #f0eeff;font-size:11px}.total{background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;padding:13px 18px;border-radius:10px;display:flex;justify-content:space-between;align-items:center;margin:14px 0}.sig{display:grid;grid-template-columns:1fr 1fr;gap:40px;margin-top:50px;padding-top:20px;border-top:1.5px solid #e0e0e0}@page{size:A4;margin:15mm}`;
-    w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><style>${s}</style></head><body>${zoneRef.current?.innerHTML||''}</body></html>`);
-    w.document.close();setTimeout(()=>{w.print();},600);
+    const w=window.open('','_blank','width=860,height=750');
+    w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><style>${printCSS}</style></head><body><div class="doc">${zoneRef.current?.innerHTML||''}</div></body></html>`);
+    w.document.close();setTimeout(()=>{w.print();},800);
   };
-  const fmtR=v=>"R$ "+(v||0).toLocaleString("pt-BR",{minimumFractionDigits:2});
-  const hdrST={fontSize:10,fontWeight:800,textTransform:"uppercase",color:"#999",marginBottom:4};
+  const isOS=tab==="os";
   return(<>
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
       <div style={{display:"flex",gap:6}}>
-        {["proposta","os"].map(t=><button key={t} onClick={()=>setTab(t)} style={{padding:"5px 14px",borderRadius:20,border:"1.5px solid "+(tab===t?"var(--pri)":"var(--bd)"),background:tab===t?"var(--prib)":"transparent",color:tab===t?"var(--pri)":"var(--tx3)",fontSize:11,fontWeight:700,cursor:"pointer"}}>{t==="proposta"?"📄 Proposta":"📋 Ordem de Serviço"}</button>)}
+        {["proposta","os"].map(t=><button key={t} onClick={()=>setTab(t)} style={{padding:"6px 16px",borderRadius:20,border:"1.5px solid "+(tab===t?"var(--pri)":"var(--bd)"),background:tab===t?"var(--prib)":"transparent",color:tab===t?"var(--pri)":"var(--tx3)",fontSize:11,fontWeight:700,cursor:"pointer"}}>{t==="proposta"?"📄 Proposta Comercial":"📋 Ordem de Serviço"}</button>)}
       </div>
       <div style={{display:"flex",gap:6}}>
         <Btn v="ghost" small onClick={print}><I.Printer/> Imprimir / PDF</Btn>
         <Btn v="ghost" small onClick={()=>setModal(null)}><I.X/></Btn>
       </div>
     </div>
-    <div ref={zoneRef} style={{background:"#fff",borderRadius:12,padding:"32px 36px",fontSize:12,lineHeight:1.6,maxHeight:"70vh",overflowY:"auto",border:"1.5px solid var(--bd)"}}>
-      {/* CABEÇALHO */}
-      <div style={{borderBottom:"3px solid #6366f1",paddingBottom:14,marginBottom:18,display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
-        <div style={{display:"flex",alignItems:"center",gap:12}}>
-          {empresa.logo&&<img src={empresa.logo} alt="logo" style={{height:48,objectFit:"contain"}}/>}
-          <div><h1 style={{fontSize:20,fontWeight:800,margin:0,color:"#1e293b"}}>{empresa.nome||"Empresa"}</h1>
-            {empresa.endereco&&<p style={{color:"#888",fontSize:10,margin:"2px 0"}}>{empresa.endereco}</p>}
-            {empresa.telefone&&<p style={{color:"#888",fontSize:10,margin:"2px 0"}}>{empresa.telefone}{empresa.email?" • "+empresa.email:""}</p>}
-            {empresa.cnpj&&<p style={{color:"#888",fontSize:10,margin:"2px 0"}}>CNPJ: {empresa.cnpj}</p>}
+    {/* PREVIEW */}
+    <div ref={zoneRef} style={{background:"#fff",borderRadius:12,overflow:"hidden",fontSize:11,lineHeight:1.6,maxHeight:"72vh",overflowY:"auto",border:"1.5px solid var(--bd)",boxShadow:"var(--sh2)"}}>
+      <style>{printCSS}</style>
+      {/* HEADER DARK */}
+      <div className="hdr">
+        <div style={{display:"flex",alignItems:"center",gap:20}}>
+          {empresa.logo
+            ?<img src={empresa.logo} className="hdr-logo" alt="logo"/>
+            :<div style={{width:72,height:72,borderRadius:16,background:"rgba(255,255,255,.1)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:32,flexShrink:0}}>🪵</div>
+          }
+          <div>
+            <div className="hdr-nome">{empresa.nome||"Marcenaria"}</div>
+            <div className="hdr-info">
+              {empresa.endereco&&<div>{empresa.endereco}</div>}
+              {empresa.telefone&&<span>{empresa.telefone}</span>}{empresa.email&&<span>{empresa.telefone?" · ":""}{empresa.email}</span>}
+              {empresa.cnpj&&<div>CNPJ {empresa.cnpj}</div>}
+            </div>
           </div>
         </div>
-        <div style={{textAlign:"right"}}>
-          <div style={{fontWeight:800,color:"#6366f1",fontSize:14}}>{tab==="os"?"OS-":"Proposta: "}{o.num}</div>
-          <div style={{color:"#888",fontSize:10}}>{o.data}</div>
-          {tab==="os"&&<div style={{marginTop:4,padding:"2px 8px",borderRadius:12,background:"#fef3c7",color:"#b45309",fontSize:9,fontWeight:800,display:"inline-block"}}>ORDEM DE SERVIÇO</div>}
+        <div className="hdr-right">
+          <div className="doc-tipo">{isOS?"Ordem de Serviço":"Proposta Comercial"}</div>
+          <div className="doc-num">{o.num}</div>
+          <div className="doc-data">Emitido em {o.data}</div>
+          {isOS&&<div style={{marginTop:8,padding:"3px 10px",borderRadius:20,background:"#f59e0b",color:"#1e293b",fontSize:9,fontWeight:800,display:"inline-block",letterSpacing:"1px"}}>EM PRODUÇÃO</div>}
         </div>
       </div>
-      {/* CLIENTE */}
-      <div style={{background:"#f8f7ff",borderRadius:8,padding:"12px 16px",marginBottom:16,border:"1px solid #e8e5f0"}}>
-        <div style={hdrST}>Cliente</div>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"2px 20px",fontSize:11}}>
-          <div><strong>Nome:</strong> {c?.nome}</div><div><strong>Doc:</strong> {c?.doc}</div>
-          <div><strong>Tel:</strong> {c?.tel}</div><div><strong>Email:</strong> {c?.email}</div>
-          {c?.endereco&&<div style={{gridColumn:"1/-1"}}><strong>End:</strong> {c.endereco}</div>}
+      <div className="strip"/>
+      {/* BODY */}
+      <div className="body">
+        {/* CLIENTE */}
+        <div className="section-label">Dados do Cliente</div>
+        <div className="cli-box">
+          <div className="field"><strong>Nome: </strong>{c?.nome||"—"}</div>
+          <div className="field"><strong>CPF/CNPJ: </strong>{c?.doc||"—"}</div>
+          <div className="field"><strong>Telefone: </strong>{c?.tel||"—"}</div>
+          <div className="field"><strong>E-mail: </strong>{c?.email||"—"}</div>
+          {c?.endereco&&<div className="field" style={{gridColumn:"1/-1"}}><strong>Endereço: </strong>{c.endereco}</div>}
         </div>
-      </div>
-      {/* AMBIENTES */}
-      {o.ambientes.map((a,i)=><div key={a.id} style={{marginBottom:6,border:"1px solid #e8e5f0",borderRadius:8,overflow:"hidden"}}>
-        <div style={{background:"#f8f7ff",padding:"8px 14px",display:"flex",justifyContent:"space-between"}}>
-          <strong style={{fontSize:12}}>{a.nome||`Ambiente ${i+1}`}</strong>
-          <span style={{fontWeight:800,color:"#6366f1",fontSize:12}}>{fmtR(a.valorTotal)}</span>
+        {/* ESCOPO */}
+        <div className="section-label">Escopo do Projeto — {o.ambientes.length} ambiente{o.ambientes.length!==1?"s":""}</div>
+        {o.ambientes.map((a,i)=><div key={a.id} className="amb-row">
+          <div className="amb-head">
+            <span className="amb-head-nome">{a.nome||`Ambiente ${i+1}`}</span>
+            <span className="amb-head-val">{fmtR(a.valorTotal)}</span>
+          </div>
+          {a.desc&&<div className="amb-desc">{a.desc}</div>}
+        </div>)}
+        {/* TOTAL */}
+        <div className="total-box">
+          <div>
+            <div className="total-label">Valor Total do Projeto</div>
+            {desc>0&&<div className="total-label-sub">Desconto de {desc}% aplicado</div>}
+          </div>
+          <div style={{textAlign:"right"}}>
+            <div className="total-val">{fmtR(vt)}</div>
+            {desc>0&&<div className="total-val-old">{fmtR(vtB)}</div>}
+          </div>
         </div>
-        {a.desc&&<div style={{padding:"6px 14px",fontSize:11,color:"#555",whiteSpace:"pre-line"}}>{a.desc}</div>}
-      </div>)}
-      {/* TOTAL */}
-      <div style={{background:"linear-gradient(135deg,#6366f1,#8b5cf6)",borderRadius:10,padding:"14px 18px",margin:"14px 0",display:"flex",justifyContent:"space-between",alignItems:"center",color:"#fff"}}>
-        <div><span style={{fontWeight:700}}>Valor Total</span>{desc>0&&<div style={{fontSize:10,opacity:.8}}>Desconto {desc}% aplicado</div>}</div>
-        <div style={{textAlign:"right"}}><div style={{fontSize:22,fontWeight:800}}>{fmtR(vt)}</div>{desc>0&&<div style={{fontSize:10,opacity:.8,textDecoration:"line-through"}}>{fmtR(vtB)}</div>}</div>
+        {/* TEXTOS EM 3 COLUNAS */}
+        <div className="txt-grid">
+          {o.especificacoes&&<div className="txt-card"><h4>Especificações</h4><p>{o.especificacoes}</p></div>}
+          <div className="txt-card"><h4>Garantia</h4><p>{o.garantia}</p></div>
+          <div className="txt-card"><h4>Forma de Pagamento</h4><p>{o.pagamento}</p></div>
+        </div>
+        {/* ASSINATURAS (OS) */}
+        {isOS&&<>
+          <div className="sig">
+            <div><div className="sig-line"><div className="sig-nome">{empresa.nome}</div><div className="sig-role">Responsável Técnico / Empresa</div></div></div>
+            <div><div className="sig-line"><div className="sig-nome">{c?.nome}</div><div className="sig-role">Cliente / Contratante</div></div></div>
+            <div style={{gridColumn:"1/-1",textAlign:"center",fontSize:10,color:"#94a3b8",marginTop:8}}>Local e data: _________________________, ____/____/________</div>
+          </div>
+        </>}
+        <div className="footer">Documento gerado em {o.data} · {empresa.nome}{empresa.cnpj?" · CNPJ "+empresa.cnpj:""}</div>
       </div>
-      {/* ESPECIFICAÇÕES */}
-      {o.especificacoes&&<div style={{marginBottom:12}}><div style={hdrST}>Especificações dos Materiais</div><div style={{fontSize:11,color:"#555",whiteSpace:"pre-line"}}>{o.especificacoes}</div></div>}
-      {/* GARANTIA */}
-      <div style={{marginBottom:12}}><div style={hdrST}>Garantia</div><div style={{fontSize:11,color:"#555",whiteSpace:"pre-line"}}>{o.garantia}</div></div>
-      {/* PAGAMENTO */}
-      <div style={{marginBottom:tab==="os"?16:0}}><div style={hdrST}>Forma de Pagamento</div><div style={{fontSize:11,color:"#555",whiteSpace:"pre-line"}}>{o.pagamento}</div></div>
-      {/* ASSINATURAS (só na OS) */}
-      {tab==="os"&&<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:32,marginTop:40,paddingTop:20,borderTop:"1.5px solid #e0e0e0"}}>
-        <div><div style={{borderTop:"1.5px solid #555",paddingTop:8,marginTop:50}}>
-          <div style={{fontWeight:700,fontSize:12}}>{empresa.nome}</div>
-          <div style={{fontSize:10,color:"#888"}}>Responsável Técnico / Empresa</div>
-        </div></div>
-        <div><div style={{borderTop:"1.5px solid #555",paddingTop:8,marginTop:50}}>
-          <div style={{fontWeight:700,fontSize:12}}>{c?.nome}</div>
-          <div style={{fontSize:10,color:"#888"}}>Cliente / Contratante</div>
-        </div></div>
-        <div style={{gridColumn:"1/-1",textAlign:"center",marginTop:16,fontSize:10,color:"#aaa"}}>Local e data: _________________________, ___/___/______</div>
-        <div style={{gridColumn:"1/-1",textAlign:"center",fontSize:10,color:"#aaa",marginTop:4}}>Documento gerado em {o.data} • {empresa.nome}</div>
-      </div>}
     </div>
   </>);
 }
@@ -886,7 +957,7 @@ export default function ERP(){
 
   const saveCli=c=>{if(!c.nome?.trim())return showToast("Nome obrigatório","red");if(c.id&&clientes.find(x=>x.id===c.id)){setClientes(p=>p.map(x=>x.id===c.id?{...x,...c}:x))}else{setClientes(p=>[...p,{...c,id:uid()}])}setModal(null);showToast("Cliente salvo!")};
 
-  const criarOrc=cid=>{const o={id:uid(),num:`ORC-${String(orcamentos.length+1).padStart(4,"0")}`,clienteId:cid,data:hoje(),status:"rascunho",ambientes:[],garantia:GARANTIA,garantiaE:false,pagamento:PAGAMENTO,pagamentoE:false,markup:MARKUP,desconto:0,especificacoes:ESPECIFICACOES,especificacoesE:false};setOrcamentos(p=>[...p,o]);setOrcAtivo(o.id);setTab("orcamentos");setModal(null);showToast(o.num+" criado!")};
+  const criarOrc=cid=>{const o={id:uid(),num:`ORC-${String(orcamentos.length+1).padStart(4,"0")}`,clienteId:cid,data:hoje(),status:"rascunho",ambientes:[],garantia:empresa.garantia||GARANTIA,garantiaE:false,pagamento:empresa.pagamento||PAGAMENTO,pagamentoE:false,markup:MARKUP,desconto:0,especificacoes:empresa.especificacoes||ESPECIFICACOES,especificacoesE:false};setOrcamentos(p=>[...p,o]);setOrcAtivo(o.id);setTab("orcamentos");setModal(null);showToast(o.num+" criado!")};
   const updOrc=useCallback((id,fn)=>setOrcamentos(p=>p.map(o=>o.id===id?(typeof fn==="function"?fn(o):{...o,...fn}):o)),[]);
 
   const addAmb=oid=>{const a={id:uid(),nome:"",desc:"",insumos:[],vi:0,valorTotal:0};updOrc(oid,o=>({...o,ambientes:[...o.ambientes,a]}));setAmbAberto(a.id)};

@@ -49,6 +49,7 @@ const R$=v=>(v||0).toLocaleString("pt-BR",{style:"currency",currency:"BRL"});
 const hoje=()=>new Date().toLocaleDateString("pt-BR");
 const hojeISO=()=>new Date().toISOString().split("T")[0];
 const MARKUP=3.2;
+const CATS={pagar:["Aluguel","Folha/Comissão","Fornecedores","Marketing","Manutenção","Impostos","Utilidades","Outros"],receber:["Venda Móveis","Serviços","Outros"]};
 const GARANTIA=`Garantia de 12 meses contra defeitos de fabricação.\nNão cobre: mau uso, umidade excessiva, modificações por terceiros.\nAjustes dentro da garantia sem custo adicional.`;
 const PAGAMENTO=`• 50% na aprovação\n• 30% início fabricação\n• 20% na entrega\n\nPIX (3% desc.), Transf., Boleto, Cartão até 10x.\nValidade: 15 dias.`;
 const ESPECIFICACOES=`Material: MDF 15mm com revestimento melamínico BP.\nFerros: Puxadores e corrediças Blum ou equivalente.\nAcabamento: Faca BP padrão, borda PVC 0,4mm colada a quente.\nMontagem: Inclusa no valor do projeto.`;
@@ -258,22 +259,30 @@ function ModalEditLead({d,setModal,setLeads,showToast}){
 }
 
 function ModalNewFin({setModal,setFinanceiro,showToast}){
-  const [f,setF]=useState({tipo:"pagar",desc:"",valor:0,fornecedor:"",numParc:1});
+  const [f,setF]=useState({tipo:"pagar",desc:"",valor:0,fornecedor:"",numParc:1,categoria:"Outros",venc:""});
+  const cats=CATS[f.tipo]||CATS.pagar;
   return(<><h2 style={{fontSize:16,fontWeight:800,marginBottom:16}}>Nova Conta</h2>
-    <Field label="Tipo" value={f.tipo} onChange={v=>setF(p=>({...p,tipo:v}))} options={[{v:"pagar",l:"A Pagar"},{v:"receber",l:"A Receber"}]}/>
-    <Field label="Descrição" value={f.desc} onChange={v=>setF(p=>({...p,desc:v}))} placeholder="Descrição da conta"/>
     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+      <Field label="Tipo" value={f.tipo} onChange={v=>setF(p=>({...p,tipo:v,categoria:"Outros"}))} options={[{v:"pagar",l:"A Pagar"},{v:"receber",l:"A Receber"}]}/>
+      <Field label="Categoria" value={f.categoria} onChange={v=>setF(p=>({...p,categoria:v}))} options={cats}/>
+    </div>
+    <Field label="Descrição" value={f.desc} onChange={v=>setF(p=>({...p,desc:v}))} placeholder="Descrição da conta"/>
+    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10}}>
       <Field label="Valor Total" type="number" value={f.valor} onChange={v=>setF(p=>({...p,valor:+v}))}/>
       <Field label="Nº Parcelas" type="number" value={f.numParc} onChange={v=>setF(p=>({...p,numParc:Math.max(1,+v)}))}/>
+      <Field label="1º Vencimento" type="date" value={f.venc} onChange={v=>setF(p=>({...p,venc:v}))}/>
     </div>
-    {f.tipo==="pagar"&&<Field label="Fornecedor" value={f.fornecedor} onChange={v=>setF(p=>({...p,fornecedor:v}))}/>}
+    {f.tipo==="pagar"&&<Field label="Fornecedor/Credor" value={f.fornecedor} onChange={v=>setF(p=>({...p,fornecedor:v}))}/>}
     <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:8}}>
       <Btn v="ghost" onClick={()=>setModal(null)}>Cancelar</Btn>
       <Btn onClick={()=>{
         if(!f.desc)return showToast("Descrição!","red");
-        const vParc=f.valor/f.numParc;
-        const parcelas=Array.from({length:f.numParc},(_,i)=>({id:uid(),valor:vParc,venc:"",pago:false,dataPago:""}));
-        setFinanceiro(prev=>[...prev,{id:uid(),tipo:f.tipo,desc:f.desc,valor:f.valor,valorPago:0,parcelas,fornecedor:f.fornecedor,status:"aberto"}]);
+        const vParc=f.valor/Math.max(1,f.numParc);
+        const parcelas=Array.from({length:Math.max(1,f.numParc)},(_,i)=>{
+          let vd="";if(f.venc){const d=new Date(f.venc+"T12:00:00");d.setMonth(d.getMonth()+i);vd=d.toISOString().split("T")[0];}
+          return{id:uid(),valor:vParc,venc:vd,pago:false,dataPago:""};
+        });
+        setFinanceiro(prev=>[...prev,{id:uid(),tipo:f.tipo,desc:f.desc,valor:f.valor,valorPago:0,parcelas,fornecedor:f.fornecedor,categoria:f.categoria||"Outros",status:"aberto"}]);
         setModal(null);showToast("Conta criada!");
       }}><I.Check/> Criar</Btn>
     </div>
@@ -341,19 +350,46 @@ function PgConfig({empresa,saveEmpresa}){
 /* ═══════════════════════════════════════════
    MAIN APP
    ═══════════════════════════════════════════ */
-function ModalDetFin({f:fInit,financeiro,setModal,pagarParcela,editParcela,addParcela,delParcela,showToast}){
+function ModalDetFin({f:fInit,financeiro,setModal,pagarParcela,editParcela,addParcela,delParcela,updFin,showToast}){
   const f=financeiro.find(x=>x.id===fInit.id)||fInit;
   const [editId,setEditId]=useState(null);
   const [editData,setEditData]=useState({});
   const [payId,setPayId]=useState(null);
   const [payVal,setPayVal]=useState("");
+  const [editMeta,setEditMeta]=useState(false);
+  const [meta,setMeta]=useState({desc:f.desc,categoria:f.categoria||"Outros",fornecedor:f.fornecedor||""});
+  const cats=CATS[f.tipo]||CATS.pagar;
   const isCom=!!f.marcId;
   const pct=f.valor>0?Math.min(100,(f.valorPago/f.valor)*100):0;
   const inpST=(border)=>({display:"block",padding:"5px 8px",borderRadius:8,border:`1.5px solid ${border}`,background:"var(--sf)",color:"var(--tx)",fontSize:12,outline:"none"});
   return(<>
-    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
-      <h2 style={{fontSize:15,fontWeight:800,color:"var(--tx)"}}>{f.desc}</h2>
-      {isCom&&<Badge color="purple">Comissão Marceneiro</Badge>}
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+      <div style={{flex:1}}>
+        {editMeta?(
+          <div style={{display:"flex",flexDirection:"column",gap:6}}>
+            <input value={meta.desc} onChange={e=>setMeta(m=>({...m,desc:e.target.value}))} style={{padding:"6px 10px",borderRadius:8,border:"1.5px solid var(--pri)",background:"var(--sf)",color:"var(--tx)",fontSize:14,fontWeight:700,outline:"none",width:"100%"}}/>
+            <div style={{display:"flex",gap:6}}>
+              <select value={meta.categoria} onChange={e=>setMeta(m=>({...m,categoria:e.target.value}))} style={{flex:1,padding:"5px 8px",borderRadius:8,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:12,fontWeight:600,outline:"none"}}>
+                {cats.map(c=><option key={c} value={c}>{c}</option>)}
+              </select>
+              <input value={meta.fornecedor} onChange={e=>setMeta(m=>({...m,fornecedor:e.target.value}))} placeholder="Fornecedor/Credor" style={{flex:1,padding:"5px 8px",borderRadius:8,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:12,outline:"none"}}/>
+            </div>
+            <div style={{display:"flex",gap:5}}>
+              <Btn small onClick={()=>{updFin(f.id,meta);setEditMeta(false);showToast("Conta atualizada!")}}><I.Check/> Salvar</Btn>
+              <Btn v="ghost" small onClick={()=>setEditMeta(false)}>Cancelar</Btn>
+            </div>
+          </div>
+        ):(
+          <div>
+            <div style={{display:"flex",alignItems:"center",gap:8}}>
+              <h2 style={{fontSize:15,fontWeight:800,color:"var(--tx)"}}>{f.desc}</h2>
+              <button onClick={()=>setEditMeta(true)} style={{background:"none",border:"none",color:"var(--tx3)",cursor:"pointer",padding:2}}><I.Edit/></button>
+            </div>
+            {(f.categoria||f.fornecedor)&&<div style={{fontSize:11,color:"var(--tx3)",marginTop:2,fontWeight:600}}>{[f.categoria,f.fornecedor].filter(Boolean).join(" • ")}</div>}
+          </div>
+        )}
+      </div>
+      {!editMeta&&isCom&&<Badge color="purple">Comissão Marceneiro</Badge>}
     </div>
     <div style={{display:"flex",gap:10,marginBottom:12}}>
       <div style={{flex:1,background:"var(--bg)",borderRadius:"var(--r)",padding:12,border:"1.5px solid var(--bd)",textAlign:"center"}}>
@@ -534,7 +570,11 @@ export default function ERP(){
   const [bankSync,setBankSync]=useState({connected:false,banco:"",agencia:"",conta:"",lastSync:""});
   const [biblioteca,setBiblioteca]=useState(()=>LS('biblioteca')||[]);
   const [recebimentos,setRecebimentos]=useState(()=>LS('recebimentos')||[]);
+  const [recorrentes,setRecorrentes]=useState(()=>LS('recorrentes')||[]);
+  const [dreAno,setDreAno]=useState(new Date().getFullYear());
   const [dbLoaded,setDbLoaded]=useState(false);
+  const recNomeRef=useRef("");const recMesRef=useRef(hojeISO().slice(0,7));const [recAddingMes,setRecAddingMes]=useState(false);
+  const recorrentesRef=useRef(recorrentes);useEffect(()=>{recorrentesRef.current=recorrentes;},[recorrentes]);
   const [empresa,setEmpresa]=useState(()=>{try{return JSON.parse(localStorage.getItem('erpEmpresa'))||{nome:"Marcenaria",endereco:"",telefone:"",email:"",cnpj:"",logo:"",loginAdmin:"admin",senhaAdmin:"admin123"};}catch{return{nome:"Marcenaria",endereco:"",telefone:"",email:"",cnpj:"",logo:"",loginAdmin:"admin",senhaAdmin:"admin123"};}});
 
   const showToast=useCallback((msg,type="success")=>{setToast({msg,type});setTimeout(()=>setToast(null),2500)},[]);
@@ -550,8 +590,8 @@ export default function ERP(){
   // Load from Supabase on mount (overrides localStorage if cloud has data)
   useEffect(()=>{
     const load=async()=>{
-      const keys=['clientes','orcamentos','pedidos','marceneiros','estoque','financeiro','leads','biblioteca','recebimentos','empresa'];
-      const setters={clientes:setClientes,orcamentos:setOrcamentos,pedidos:setPedidos,marceneiros:setMarceneiros,estoque:setEstoque,financeiro:setFinanceiro,leads:setLeads,biblioteca:setBiblioteca,recebimentos:setRecebimentos,empresa:setEmpresa};
+      const keys=['clientes','orcamentos','pedidos','marceneiros','estoque','financeiro','leads','biblioteca','recebimentos','recorrentes','empresa'];
+      const setters={clientes:setClientes,orcamentos:setOrcamentos,pedidos:setPedidos,marceneiros:setMarceneiros,estoque:setEstoque,financeiro:setFinanceiro,leads:setLeads,biblioteca:setBiblioteca,recebimentos:setRecebimentos,recorrentes:setRecorrentes,empresa:setEmpresa};
       for(const k of keys){
         const cloud=await dbGet(k);
         if(cloud!==null) setters[k](cloud);
@@ -570,6 +610,19 @@ export default function ERP(){
   useEffect(()=>{if(dbLoaded)syncCloud('leads',leads);},[leads,dbLoaded]);
   useEffect(()=>{if(dbLoaded)syncCloud('biblioteca',biblioteca);},[biblioteca,dbLoaded]);
   useEffect(()=>{if(dbLoaded)syncCloud('recebimentos',recebimentos);},[recebimentos,dbLoaded]);
+  useEffect(()=>{if(dbLoaded)syncCloud('recorrentes',recorrentes);},[recorrentes,dbLoaded]);
+  // Auto-gerar contas recorrentes no mês atual
+  useEffect(()=>{
+    if(!dbLoaded)return;
+    const mes=hojeISO().slice(0,7);
+    if(localStorage.getItem('recGerado_'+mes))return;
+    const recs=recorrentesRef.current.filter(r=>r.ativo);
+    if(!recs.length)return;
+    const novas=recs.map(r=>({id:uid(),tipo:r.tipo||"pagar",desc:`${r.desc} ${mes}`,valor:r.valor,valorPago:0,parcelas:[{id:uid(),valor:r.valor,venc:`${mes}-${String(r.dia||1).padStart(2,"0")}`,pago:false,dataPago:""}],categoria:r.categoria||"Outros",recorrenteId:r.id,fornecedor:r.fornecedor||"",status:"aberto"}));
+    setFinanceiro(prev=>[...prev,...novas]);
+    localStorage.setItem('recGerado_'+mes,'1');
+    showToast(`${novas.length} conta(s) recorrente(s) gerada(s)!`);
+  },[dbLoaded]);
 
   // ── CRUD ──
   const getCli=id=>clientes.find(c=>c.id===id);
@@ -656,6 +709,7 @@ export default function ERP(){
       return{...f,parcelas,valorPago,status};
     }));
   };
+  const updFin=(id,d)=>setFinanceiro(prev=>prev.map(f=>f.id===id?{...f,...d}:f));
 
   // Login
   const handleLogin=(l,s)=>{
@@ -1023,27 +1077,69 @@ export default function ERP(){
     </div>)})}</Card></div>)};
 
   // FINANCEIRO
-  const PgFin=()=>{const [fTipo,setFTipo]=useState("todos");const list=financeiro.filter(f=>fTipo==="todos"||f.tipo===fTipo);
+  const PgFin=()=>{
+    const [fTipo,setFTipo]=useState("todos");
+    const [showRec,setShowRec]=useState(false);
+    const [recForm,setRecForm]=useState(null);
+    const list=financeiro.filter(f=>fTipo==="todos"||f.tipo===fTipo);
     const totalAR=financeiro.filter(f=>f.tipo==="receber").reduce((s,f)=>s+(f.valor-f.valorPago),0);
     const totalAP=financeiro.filter(f=>f.tipo==="pagar").reduce((s,f)=>s+(f.valor-f.valorPago),0);
-    return(<div style={{animation:"fadeIn .3s"}}><SH title="Financeiro" sub="Contas a Pagar e Receber" right={<Btn onClick={()=>setModal({t:"newFin"})}><I.Plus/> Nova Conta</Btn>}/>
+    const inpST={padding:"5px 8px",borderRadius:6,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:11,outline:"none"};
+    return(<div style={{animation:"fadeIn .3s"}}>
+      <SH title="Financeiro" sub="Contas a Pagar e Receber" right={<div style={{display:"flex",gap:6}}><Btn v="secondary" small onClick={()=>setShowRec(!showRec)}>🔄 Recorrentes</Btn><Btn onClick={()=>setModal({t:"newFin"})}><I.Plus/> Nova Conta</Btn></div>}/>
       <div style={{display:"flex",gap:12,marginBottom:18,flexWrap:"wrap"}}>
         <KPI label="A Receber" value={R$(totalAR)} icon={<I.Dollar/>} color="gn"/>
         <KPI label="A Pagar" value={R$(totalAP)} icon={<I.Wallet/>} color="rd"/>
         <KPI label="Saldo" value={R$(totalAR-totalAP)} icon={<I.DRE/>} color={totalAR-totalAP>=0?"gn":"rd"}/>
       </div>
+      {/* RECORRENTES */}
+      {showRec&&<Card style={{marginBottom:16,padding:16}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+          <h3 style={{fontSize:13,fontWeight:800,color:"var(--tx)"}}>Contas Recorrentes (Auto-geração mensal)</h3>
+          <Btn small onClick={()=>setRecForm({desc:"",valor:0,dia:1,tipo:"pagar",categoria:"Aluguel",fornecedor:"",ativo:true})}><I.Plus/> Nova</Btn>
+        </div>
+        {recForm&&<div style={{background:"var(--bg)",borderRadius:"var(--r)",padding:12,border:"1.5px solid var(--bd)",marginBottom:12,display:"flex",gap:8,flexWrap:"wrap",alignItems:"flex-end"}}>
+          <div><label style={{fontSize:9,color:"var(--tx3)",display:"block",marginBottom:2}}>Descrição</label><input value={recForm.desc} onChange={e=>setRecForm(f=>({...f,desc:e.target.value}))} placeholder="Ex: Aluguel galpão" style={{...inpST,width:160}}/></div>
+          <div><label style={{fontSize:9,color:"var(--tx3)",display:"block",marginBottom:2}}>Tipo</label><select value={recForm.tipo} onChange={e=>setRecForm(f=>({...f,tipo:e.target.value,categoria:"Outros"}))} style={{...inpST,width:90}}><option value="pagar">Pagar</option><option value="receber">Receber</option></select></div>
+          <div><label style={{fontSize:9,color:"var(--tx3)",display:"block",marginBottom:2}}>Categoria</label><select value={recForm.categoria} onChange={e=>setRecForm(f=>({...f,categoria:e.target.value}))} style={{...inpST,width:110}}>{(CATS[recForm.tipo]||CATS.pagar).map(c=><option key={c} value={c}>{c}</option>)}</select></div>
+          <div><label style={{fontSize:9,color:"var(--tx3)",display:"block",marginBottom:2}}>Valor R$</label><input type="number" value={recForm.valor} onChange={e=>setRecForm(f=>({...f,valor:+e.target.value}))} step="0.01" style={{...inpST,width:90}}/></div>
+          <div><label style={{fontSize:9,color:"var(--tx3)",display:"block",marginBottom:2}}>Dia venc.</label><input type="number" min="1" max="31" value={recForm.dia} onChange={e=>setRecForm(f=>({...f,dia:+e.target.value}))} style={{...inpST,width:55}}/></div>
+          <div><label style={{fontSize:9,color:"var(--tx3)",display:"block",marginBottom:2}}>Fornecedor</label><input value={recForm.fornecedor||""} onChange={e=>setRecForm(f=>({...f,fornecedor:e.target.value}))} style={{...inpST,width:110}}/></div>
+          <Btn small onClick={()=>{if(!recForm.desc||!recForm.valor)return showToast("Preencha desc. e valor","red");if(recForm.id)setRecorrentes(p=>p.map(r=>r.id===recForm.id?{...r,...recForm}:r));else setRecorrentes(p=>[...p,{...recForm,id:uid()}]);setRecForm(null);showToast("Recorrente salvo!")}}><I.Check/></Btn>
+          <Btn v="ghost" small onClick={()=>setRecForm(null)}>✕</Btn>
+        </div>}
+        {recorrentes.length===0?<p style={{fontSize:12,color:"var(--tx3)",fontWeight:600}}>Nenhuma conta recorrente. Adicione contas que se repetem todo mês (aluguel, água, luz, etc.).</p>
+        :<div>{recorrentes.map(r=><div key={r.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 4px",borderBottom:"1px solid var(--bd)",fontSize:12}}>
+          <div style={{display:"flex",alignItems:"center",gap:8}}>
+            <button onClick={()=>setRecorrentes(p=>p.map(x=>x.id===r.id?{...x,ativo:!x.ativo}:x))} style={{width:20,height:20,borderRadius:5,border:"2px solid "+(r.ativo?"var(--gn)":"var(--bd)"),background:r.ativo?"var(--gn)":"transparent",cursor:"pointer"}}/>
+            <div><span style={{fontWeight:700,color:"var(--tx)"}}>{r.desc}</span><span style={{color:"var(--tx3)",marginLeft:6}}>dia {r.dia} • {r.categoria}</span></div>
+          </div>
+          <div style={{display:"flex",alignItems:"center",gap:8}}>
+            <span style={{fontWeight:800,color:r.tipo==="pagar"?"var(--rd)":"var(--gn)"}}>{R$(r.valor)}</span>
+            <button onClick={()=>setRecForm({...r})} style={{background:"none",border:"none",color:"var(--tx3)",cursor:"pointer",padding:2}}><I.Edit/></button>
+            <button onClick={()=>{setRecorrentes(p=>p.filter(x=>x.id!==r.id));showToast("Removido","red")}} style={{background:"none",border:"none",color:"var(--rd)",cursor:"pointer",padding:2}}><I.Trash/></button>
+          </div>
+        </div>)}</div>}
+        <p style={{fontSize:10,color:"var(--tx3)",marginTop:8,fontWeight:600}}>💡 As contas marcadas ativas são geradas automaticamente no início de cada mês.</p>
+      </Card>}
       <div style={{display:"flex",gap:6,marginBottom:14}}>{[{k:"todos",l:"Todos"},{k:"receber",l:"A Receber"},{k:"pagar",l:"A Pagar"}].map(t=><button key={t.k} onClick={()=>setFTipo(t.k)} style={{padding:"6px 14px",borderRadius:20,border:"1.5px solid "+(fTipo===t.k?"var(--pri)":"var(--bd)"),background:fTipo===t.k?"var(--prib)":"transparent",color:fTipo===t.k?"var(--pri)":"var(--tx3)",fontSize:11,fontWeight:700}}>{t.l}</button>)}</div>
-      <Card><TH cols={[{l:"Tipo",w:"80px"},{l:"Descrição",w:"2fr"},{l:"Valor",w:"110px"},{l:"Pago",w:"110px"},{l:"Restante",w:"110px"},{l:"Status",w:"80px"},{l:"Parcelas",w:"60px"}]}/>
-      {list.map(f=><div key={f.id} onClick={()=>setModal({t:"detFin",d:f})} className="hr" style={{display:"grid",gridTemplateColumns:"80px 2fr 110px 110px 110px 80px 60px",gap:6,padding:"10px 18px",borderBottom:"1.5px solid var(--bd)",alignItems:"center",cursor:"pointer",fontSize:12}}>
+      <Card><TH cols={[{l:"Tipo",w:"70px"},{l:"Descrição / Categoria",w:"2fr"},{l:"Valor",w:"100px"},{l:"Pago",w:"100px"},{l:"Restante",w:"100px"},{l:"Status",w:"75px"},{l:"",w:"50px"}]}/>
+      {list.map(f=><div key={f.id} style={{display:"grid",gridTemplateColumns:"70px 2fr 100px 100px 100px 75px 50px",gap:6,padding:"9px 18px",borderBottom:"1.5px solid var(--bd)",alignItems:"center",fontSize:12}}>
         <Badge color={f.tipo==="receber"?"green":"red"}>{f.tipo==="receber"?"Receber":"Pagar"}</Badge>
-        <span style={{color:"var(--tx)",fontWeight:600}}>{f.desc}</span>
+        <div onClick={()=>setModal({t:"detFin",d:f})} style={{cursor:"pointer"}}>
+          <div style={{color:"var(--tx)",fontWeight:700}}>{f.desc}</div>
+          {f.categoria&&<div style={{fontSize:10,color:"var(--tx3)",fontWeight:600}}>{f.categoria}{f.fornecedor?" • "+f.fornecedor:""}</div>}
+        </div>
         <span style={{fontWeight:700,color:"var(--tx)"}}>{R$(f.valor)}</span>
         <span style={{fontWeight:600,color:"var(--gn)"}}>{R$(f.valorPago)}</span>
         <span style={{fontWeight:700,color:"var(--rd)"}}>{R$(f.valor-f.valorPago)}</span>
         <Badge color={f.status==="pago"?"green":f.status==="parcial"?"amber":"blue"}>{f.status}</Badge>
-        <span style={{textAlign:"center",fontWeight:700,color:"var(--tx)"}}>{f.parcelas.length}</span>
+        <div style={{display:"flex",gap:2}}>
+          <button onClick={()=>setModal({t:"detFin",d:f})} style={{background:"none",border:"none",color:"var(--tx3)",padding:2,cursor:"pointer"}}><I.Edit/></button>
+          <button onClick={e=>{e.stopPropagation();setFinanceiro(p=>p.filter(x=>x.id!==f.id));showToast("Removido","red")}} style={{background:"none",border:"none",color:"var(--rd)",padding:2,cursor:"pointer"}}><I.Trash/></button>
+        </div>
       </div>)}{list.length===0&&<div style={{padding:30,textAlign:"center",color:"var(--tx3)",fontSize:12,fontWeight:600}}>Nenhuma conta</div>}</Card>
-    </div>)};
+    </div>);};
 
   // ESTOQUE
   const PgEst=()=>{const [eE,setEE]=useState(null);return(<div style={{animation:"fadeIn .3s"}}><SH title="Estoque" sub={`${estoque.length} itens • ${R$(stats.estVal)}`} right={<Btn onClick={()=>setEE({nome:"",un:"un",qtd:0,custo:0})}><I.Plus/> Novo</Btn>}/>
@@ -1055,18 +1151,63 @@ export default function ERP(){
 
   // DRE
   const PgDRE=()=>{
-    const rec=pedidos.reduce((s,p)=>s+p.vt,0);const cm=pedidos.reduce((s,p)=>s+p.cm,0);const cc=pedidos.reduce((s,p)=>s+p.comVal,0);const lb=rec-cm;const ll=lb-cc;const mg=rec>0?((ll/rec)*100).toFixed(1):0;
-    const rows=[{l:"(+) Receita Bruta",v:rec,c:"gn",b:true},{l:"(−) Custo Materiais",v:-cm,c:"rd"},{l:"= Lucro Bruto",v:lb,c:lb>=0?"gn":"rd",b:true,line:true},{l:"(−) Comissões",v:-cc,c:"rd"},{l:"= Resultado Líquido",v:ll,c:ll>=0?"gn":"rd",b:true,line:true}];
-    const chartData=[{name:"Receita",value:rec},{name:"Materiais",value:cm},{name:"Comissões",value:cc},{name:"Lucro Líq.",value:Math.max(0,ll)}];
-    const byPed=pedidos.map(p=>({name:p.num,receita:p.vt,custo:p.cm,comissao:p.comVal,lucro:p.vt-p.cm-p.comVal}));
-    return(<div style={{animation:"fadeIn .3s"}}><SH title="DRE — Demonstração de Resultados"/>
+    const anos=[...new Set([...pedidos.map(p=>p.data?.split("/")[2]||new Date().getFullYear().toString()),...financeiro.map(f=>f.parcelas?.[0]?.venc?.slice(0,4)).filter(Boolean)])].sort().reverse();
+    const anoStr=String(dreAno);
+    const pedAno=pedidos.filter(p=>p.data?.endsWith(anoStr));
+    const finAno=financeiro.filter(f=>f.parcelas?.some(p=>p.venc?.startsWith(anoStr)));
+    const rec=pedAno.reduce((s,p)=>s+p.vt,0);const cm=pedAno.reduce((s,p)=>s+p.cm,0);const cc=pedAno.reduce((s,p)=>s+p.comVal,0);
+    const despesasFin=financeiro.filter(f=>f.tipo==="pagar"&&f.parcelas?.some(p=>p.venc?.startsWith(anoStr)&&p.pago)).reduce((s,f)=>s+f.parcelas.filter(p=>p.venc?.startsWith(anoStr)&&p.pago).reduce((ss,p)=>ss+p.valor,0),0);
+    const lb=rec-cm;const ll=lb-cc-despesasFin;const mg=rec>0?((ll/rec)*100).toFixed(1):0;
+    const rows=[{l:"(+) Receita Bruta",v:rec,c:"gn",b:true},{l:"(−) Custo Materiais",v:-cm,c:"rd"},{l:"= Lucro Bruto",v:lb,c:lb>=0?"gn":"rd",b:true,line:true},{l:"(−) Comissões",v:-cc,c:"rd"},{l:"(−) Despesas Financeiro",v:-despesasFin,c:"rd"},{l:"= Resultado Líquido",v:ll,c:ll>=0?"gn":"rd",b:true,line:true}];
+    const chartData=[{name:"Receita",value:rec},{name:"Materiais",value:cm},{name:"Comissões",value:cc},{name:"Despesas",value:despesasFin},{name:"Lucro Líq.",value:Math.max(0,ll)}];
+    const byPed=pedAno.map(p=>({name:p.num,receita:p.vt,custo:p.cm,comissao:p.comVal,lucro:p.vt-p.cm-p.comVal}));
+    // Mensal para fechamento anual
+    const MESES=["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
+    const mensalData=MESES.map((m,i)=>{
+      const mm=String(i+1).padStart(2,"0");const prefx=`${anoStr}-${mm}`;
+      const recM=pedidos.filter(p=>{const[d,mo,a]=p.data?.split("/")||[];return a===anoStr&&mo===mm;}).reduce((s,p)=>s+p.vt,0);
+      const pagM=financeiro.filter(f=>f.tipo==="pagar").reduce((s,f)=>s+f.parcelas.filter(p=>p.venc?.startsWith(prefx)&&p.pago).reduce((ss,p)=>ss+p.valor,0),0);
+      return{name:m,receita:recM,despesas:pagM,resultado:recM-pagM};
+    });
+    // Categorias de despesa para o ano
+    const byCat={};financeiro.filter(f=>f.tipo==="pagar").forEach(f=>{const pags=f.parcelas.filter(p=>p.venc?.startsWith(anoStr)&&p.pago);if(!pags.length)return;const v=pags.reduce((s,p)=>s+p.valor,0);const c=f.categoria||"Outros";byCat[c]=(byCat[c]||0)+v;});
+    const catData=Object.entries(byCat).map(([name,value])=>({name,value})).sort((a,b)=>b.value-a.value);
+    const print=()=>{const w=window.open('','_blank','width=900,height=700');const s=`body{font-family:Arial,sans-serif;padding:30px;font-size:12px;color:#1e293b}h1{font-size:20px;font-weight:800;color:#6366f1}table{width:100%;border-collapse:collapse;margin:12px 0}th{background:#f8f7ff;padding:7px;font-size:10px;text-transform:uppercase;color:#999;border-bottom:2px solid #e0e0f0;text-align:left}td{padding:8px;border-bottom:1px solid #f0eeff}.total{font-weight:800;font-size:14px}.green{color:#10b981}.red{color:#ef4444}`;w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><style>${s}</style></head><body><h1>DRE — Fechamento ${dreAno}</h1><p style="color:#888">Empresa: ${empresa.nome} • Gerado em ${hoje()}</p><table><tr>${rows.map(r=>`<tr><td>${r.l}</td><td class="${r.v>=0?'green':'red'} ${r.b?'total':''}">${R$(r.v)}</td></tr>`).join('')}</table><h2 style="font-size:14px;margin-top:20px">Resultado Mensal</h2><table><tr><th>Mês</th><th>Receita</th><th>Despesas</th><th>Resultado</th></tr>${mensalData.map(m=>`<tr><td>${m.name}</td><td class="green">${R$(m.receita)}</td><td class="red">${R$(m.despesas)}</td><td class="${m.resultado>=0?'green':'red'}">${R$(m.resultado)}</td></tr>`).join('')}</table></body></html>`);w.document.close();setTimeout(()=>w.print(),400);};
+    return(<div style={{animation:"fadeIn .3s"}}><SH title="DRE — Demonstração de Resultados" right={<div style={{display:"flex",gap:8,alignItems:"center"}}><select value={dreAno} onChange={e=>setDreAno(+e.target.value)} style={{padding:"7px 12px",borderRadius:10,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:12,fontWeight:700,outline:"none"}}>{[...new Set([dreAno,new Date().getFullYear(),new Date().getFullYear()-1])].sort().reverse().map(a=><option key={a} value={a}>{a}</option>)}</select><Btn v="ghost" small onClick={print}><I.Printer/> Fechar Ano</Btn></div>}/>
       <div style={{display:"flex",gap:12,marginBottom:20,flexWrap:"wrap"}}><KPI label="Receita" value={R$(rec)} icon={<I.Dollar/>} color="gn"/><KPI label="Materiais" value={R$(cm)} icon={<I.Package/>} color="rd"/><KPI label="Comissões" value={R$(cc)} icon={<I.Percent/>} color="am"/><KPI label="Margem Líq." value={`${mg}%`} icon={<I.DRE/>} color={ll>=0?"gn":"rd"}/></div>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:14}}>
         <Card style={{maxWidth:500}}>{rows.map((r,i)=><div key={i} style={{padding:"12px 20px",borderTop:r.line?"2px solid var(--bd)":"1.5px solid var(--bd)",display:"flex",justifyContent:"space-between",alignItems:"center"}}><span style={{fontSize:13,fontWeight:r.b?800:600,color:"var(--tx)"}}>{r.l}</span><span style={{fontSize:r.b?18:14,fontWeight:800,color:`var(--${r.c})`}}>{R$(r.v)}</span></div>)}</Card>
         <Card><CardHead title="Composição"/><div style={{padding:16,height:220}}><ResponsiveContainer><PieChart><Pie data={chartData} cx="50%" cy="50%" innerRadius={45} outerRadius={70} dataKey="value" paddingAngle={3}>{chartData.map((e,i)=><Cell key={i} fill={["#10b981","#ef4444","#f59e0b","#6366f1"][i]}/>)}</Pie><Tooltip formatter={v=>R$(v)}/><Legend iconType="circle" wrapperStyle={{fontSize:10,fontWeight:700}}/></PieChart></ResponsiveContainer></div></Card>
       </div>
-      {byPed.length>0&&<Card><CardHead title="Resultado por Pedido"/><div style={{padding:16,height:250}}><ResponsiveContainer><BarChart data={byPed}><CartesianGrid strokeDasharray="3 3" stroke="var(--bd)"/><XAxis dataKey="name" tick={{fontSize:10,fontWeight:700,fill:"var(--tx2)"}}/><YAxis tick={{fontSize:10,fill:"var(--tx3)"}}/><Tooltip formatter={v=>R$(v)}/><Legend iconType="circle" wrapperStyle={{fontSize:10,fontWeight:700}}/><Bar dataKey="receita" fill="#10b981" radius={[4,4,0,0]} name="Receita"/><Bar dataKey="custo" fill="#ef4444" radius={[4,4,0,0]} name="Custo"/><Bar dataKey="lucro" fill="#6366f1" radius={[4,4,0,0]} name="Lucro"/></BarChart></ResponsiveContainer></div></Card>}
-    </div>)};
+      {/* FECHAMENTO MENSAL */}
+      <Card style={{marginBottom:14}}><CardHead title={`Resultado Mensal — ${dreAno}`}/>
+        <div style={{overflowX:"auto"}}>
+          <table style={{width:"100%",borderCollapse:"collapse",minWidth:700}}>
+            <thead><tr style={{background:"var(--bg)"}}>
+              {["Mês","Receita","Despesas","Resultado"].map(h=><th key={h} style={{padding:"8px 12px",fontSize:9,fontWeight:800,textTransform:"uppercase",color:"var(--tx3)",borderBottom:"1.5px solid var(--bd)",textAlign:"right",firstChild:{textAlign:"left"}}}>{h}</th>)}
+            </tr></thead>
+            <tbody>
+              {mensalData.map((m,i)=><tr key={i} style={{background:i%2===0?"transparent":"var(--bg)"}}>
+                <td style={{padding:"8px 12px",fontWeight:700,color:"var(--tx)",fontSize:12}}>{m.name}/{dreAno}</td>
+                <td style={{padding:"8px 12px",textAlign:"right",fontWeight:700,color:"var(--gn)",fontSize:12}}>{m.receita>0?R$(m.receita):"—"}</td>
+                <td style={{padding:"8px 12px",textAlign:"right",fontWeight:700,color:"var(--rd)",fontSize:12}}>{m.despesas>0?R$(m.despesas):"—"}</td>
+                <td style={{padding:"8px 12px",textAlign:"right",fontWeight:800,color:m.resultado>=0?"var(--gn)":"var(--rd)",fontSize:13}}>{m.receita+m.despesas>0?R$(m.resultado):"—"}</td>
+              </tr>)}
+              <tr style={{background:"var(--prib)",borderTop:"2px solid var(--bd)"}}>
+                <td style={{padding:"10px 12px",fontWeight:800,color:"var(--pri)",fontSize:12}}>TOTAL {dreAno}</td>
+                <td style={{padding:"10px 12px",textAlign:"right",fontWeight:800,color:"var(--gn)",fontSize:13}}>{R$(rec)}</td>
+                <td style={{padding:"10px 12px",textAlign:"right",fontWeight:800,color:"var(--rd)",fontSize:13}}>{R$(despesasFin)}</td>
+                <td style={{padding:"10px 12px",textAlign:"right",fontWeight:800,color:ll>=0?"var(--gn)":"var(--rd)",fontSize:14}}>{R$(ll)}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </Card>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:14}}>
+        {byPed.length>0&&<Card><CardHead title="Resultado por Pedido"/><div style={{padding:16,height:220}}><ResponsiveContainer><BarChart data={byPed}><CartesianGrid strokeDasharray="3 3" stroke="var(--bd)"/><XAxis dataKey="name" tick={{fontSize:10,fontWeight:700,fill:"var(--tx2)"}}/><YAxis tick={{fontSize:10,fill:"var(--tx3)"}}/><Tooltip formatter={v=>R$(v)}/><Legend iconType="circle" wrapperStyle={{fontSize:10,fontWeight:700}}/><Bar dataKey="receita" fill="#10b981" radius={[4,4,0,0]} name="Receita"/><Bar dataKey="custo" fill="#ef4444" radius={[4,4,0,0]} name="Custo"/><Bar dataKey="lucro" fill="#6366f1" radius={[4,4,0,0]} name="Lucro"/></BarChart></ResponsiveContainer></div></Card>}
+        {catData.length>0&&<Card><CardHead title="Despesas por Categoria"/><div style={{padding:14}}>{catData.map((c,i)=><div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 0",borderBottom:"1px solid var(--bd)",fontSize:12}}><span style={{fontWeight:600,color:"var(--tx)"}}>{c.name}</span><span style={{fontWeight:800,color:"var(--rd)"}}>{R$(c.value)}</span></div>)}</div></Card>}
+      </div>
+    </div>);};
 
   // BANCO (placeholder)
   const PgBanco=()=>(<div style={{animation:"fadeIn .3s"}}><SH title="Integração Bancária" sub="Sincronize sua conta bancária com o ERP"/>
@@ -1157,9 +1298,7 @@ export default function ERP(){
 
   // RECEBIMENTOS PARCELADOS
   const PgRecebimentos=()=>{
-    const [newNome,setNewNome]=useState("");
-    const [addingMes,setAddingMes]=useState(false);
-    const [newMes,setNewMes]=useState(hojeISO().slice(0,7));
+    // Estados locais com bug de remount → usar refs do ERP scope (recNomeRef, recMesRef, recAddingMes)
     const allMeses=[...new Set(recebimentos.flatMap(r=>r.parcelas.map(p=>p.mes)))].sort();
     const fmtMes=m=>{const[y,mo]=m.split("-");const ms=["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];return`${ms[+mo-1]}/${y.slice(2)}`;};
     const totalGeral=recebimentos.reduce((s,r)=>s+r.valorTotal,0);
@@ -1168,18 +1307,20 @@ export default function ERP(){
     const setParc=(rid,mes,d)=>updRec(rid,r=>({...r,parcelas:r.parcelas.map(p=>p.mes===mes?{...p,...d}:p)}));
     const togglePago=(rid,mes)=>updRec(rid,r=>({...r,parcelas:r.parcelas.map(p=>p.mes!==mes?p:{...p,pago:!p.pago,dataPago:!p.pago?hoje():""})}));
     const addCliente=()=>{
-      if(!newNome.trim())return;
+      const nome=recNomeRef.current;
+      if(!nome?.trim())return showToast("Digite o nome do cliente","red");
       const parcelas=allMeses.map(m=>({id:uid(),mes:m,valor:0,pago:false,dataPago:""}));
-      setRecebimentos(prev=>[...prev,{id:uid(),cliente:newNome.trim(),valorTotal:0,parcelas}]);
-      setNewNome("");
+      setRecebimentos(prev=>[...prev,{id:uid(),cliente:nome.trim(),valorTotal:0,parcelas}]);
+      recNomeRef.current="";
     };
     const addMesCol=()=>{
-      if(!newMes)return;
+      const mes=recMesRef.current;
+      if(!mes)return;
       setRecebimentos(prev=>prev.map(r=>{
-        if(r.parcelas.find(p=>p.mes===newMes))return r;
-        return{...r,parcelas:[...r.parcelas,{id:uid(),mes:newMes,valor:0,pago:false,dataPago:""}]};
+        if(r.parcelas.find(p=>p.mes===mes))return r;
+        return{...r,parcelas:[...r.parcelas,{id:uid(),mes,valor:0,pago:false,dataPago:""}]};
       }));
-      setAddingMes(false);
+      setRecAddingMes(false);
     };
     const delMesCol=mes=>setRecebimentos(prev=>prev.map(r=>({...r,parcelas:r.parcelas.filter(p=>p.mes!==mes)})));
     const thST={padding:"7px 8px",background:"var(--bg)",fontWeight:800,fontSize:9,textTransform:"uppercase",letterSpacing:".5px",color:"var(--tx3)",borderBottom:"1.5px solid var(--bd)",whiteSpace:"nowrap",textAlign:"left"};
@@ -1188,7 +1329,9 @@ export default function ERP(){
     return(<div style={{animation:"fadeIn .3s"}}>
       <SH title="Recebimentos Parcelados" sub={`${recebimentos.length} clientes`} right={
         <div style={{display:"flex",gap:8,alignItems:"center"}}>
-          {addingMes?<><input type="month" value={newMes} onChange={e=>setNewMes(e.target.value)} style={{padding:"7px 10px",borderRadius:8,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:12,outline:"none"}}/><Btn small onClick={addMesCol}><I.Check/> OK</Btn><Btn v="ghost" small onClick={()=>setAddingMes(false)}>✕</Btn></>:<Btn v="secondary" small onClick={()=>setAddingMes(true)}><I.Plus/> Mês</Btn>}
+          {recAddingMes
+            ?<><input type="month" defaultValue={recMesRef.current} onChange={e=>{recMesRef.current=e.target.value;}} style={{padding:"7px 10px",borderRadius:8,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:12,outline:"none"}}/><Btn small onClick={addMesCol}><I.Check/> OK</Btn><Btn v="ghost" small onClick={()=>setRecAddingMes(false)}>✕</Btn></>
+            :<Btn v="secondary" small onClick={()=>setRecAddingMes(true)}><I.Plus/> Mês</Btn>}
         </div>
       }/>
       <div style={{display:"flex",gap:12,marginBottom:18,flexWrap:"wrap"}}>
@@ -1249,7 +1392,7 @@ export default function ERP(){
         </table>
       </Card>
       <div style={{marginTop:12,display:"flex",gap:8,alignItems:"center"}}>
-        <input value={newNome} onChange={e=>setNewNome(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addCliente()} placeholder="Nome do cliente..." style={{flex:1,padding:"9px 12px",borderRadius:8,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:12,outline:"none"}}/>
+        <input defaultValue={recNomeRef.current} onChange={e=>{recNomeRef.current=e.target.value;}} onKeyDown={e=>e.key==="Enter"&&addCliente()} placeholder="Nome do cliente..." style={{flex:1,padding:"9px 12px",borderRadius:8,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:12,outline:"none"}}/>
         <Btn onClick={addCliente}><I.Plus/> Adicionar Cliente</Btn>
       </div>
     </div>);
@@ -1303,7 +1446,7 @@ export default function ERP(){
 
       {modal?.t==="pdf"&&<Modal onClose={()=>setModal(null)} wide><ModalPDF o={modal.d} empresa={empresa} getCli={getCli} setModal={setModal} totalOrcFinal={totalOrcFinal} totalOrc={totalOrc}/></Modal>}
 
-      {modal?.t==="detFin"&&<Modal onClose={()=>setModal(null)} wide><ModalDetFin f={modal.d} financeiro={financeiro} setModal={setModal} pagarParcela={pagarParcela} editParcela={editParcela} addParcela={addParcela} delParcela={delParcela} showToast={showToast}/></Modal>}
+      {modal?.t==="detFin"&&<Modal onClose={()=>setModal(null)} wide><ModalDetFin f={modal.d} financeiro={financeiro} setModal={setModal} pagarParcela={pagarParcela} editParcela={editParcela} addParcela={addParcela} delParcela={delParcela} updFin={updFin} showToast={showToast}/></Modal>}
 
       {modal?.t==="newFin"&&<Modal onClose={()=>setModal(null)}><ModalNewFin setModal={setModal} setFinanceiro={setFinanceiro} showToast={showToast}/></Modal>}
 

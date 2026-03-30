@@ -53,7 +53,7 @@ const CATS={pagar:["Aluguel","Folha/Comissão","Fornecedores","Marketing","Manut
 const GARANTIA=`Garantia de 12 meses contra defeitos de fabricação.\nNão cobre: mau uso, umidade excessiva, modificações por terceiros.\nAjustes dentro da garantia sem custo adicional.`;
 const PAGAMENTO=`• 50% na aprovação\n• 30% início fabricação\n• 20% na entrega\n\nPIX (3% desc.), Transf., Boleto, Cartão até 10x.\nValidade: 15 dias.`;
 const ESPECIFICACOES=`Material: MDF 15mm com revestimento melamínico BP.\nFerros: Puxadores e corrediças Blum ou equivalente.\nAcabamento: Faca BP padrão, borda PVC 0,4mm colada a quente.\nMontagem: Inclusa no valor do projeto.`;
-const KCOLS=[{id:"aguardando",label:"Aguardando",color:"#6366f1"},{id:"material",label:"Material",color:"#f59e0b"},{id:"producao",label:"Produção",color:"#3b82f6"},{id:"acabamento",label:"Acabamento",color:"#8b5cf6"},{id:"entrega",label:"Entrega",color:"#10b981"},{id:"concluido",label:"Concluído",color:"#6b7280"}];
+const KCOLS=[{id:"aguardando",label:"Aguardando Aceite",color:"#94a3b8"},{id:"corte",label:"Plano de Corte",color:"#f59e0b"},{id:"montagem",label:"Montagem",color:"#3b82f6"},{id:"instalacao",label:"Instalação",color:"#8b5cf6"},{id:"concluido",label:"Concluído",color:"#10b981"}];
 const LEAD_STAGES=["Novo Lead","Contato Feito","Proposta Enviada","Negociação","Fechado/Ganho","Perdido"];
 const LEAD_COLORS=["#6366f1","#3b82f6","#f59e0b","#8b5cf6","#10b981","#ef4444"];
 const LS=k=>{try{const v=localStorage.getItem('erp_'+k);return v?JSON.parse(v):null;}catch{return null;}};
@@ -655,9 +655,12 @@ function InstallPrompt(){
    MARCENEIRO APP — TELA MOBILE
    ═══════════════════════════════════════════ */
 function MarceneiroApp({user,pedidos,setPedidos,clientes,financeiro,showToast,onLogout}){
-  const [nav,setNav]=useState("pedidos"); // pedidos | comissoes
+  const [nav,setNav]=useState("pedidos");
   const [filtro,setFiltro]=useState("andamento");
   const [expandId,setExpandId]=useState(null);
+  const [instPid,setInstPid]=useState(null);
+  const [instData,setInstData]=useState("");
+  const [instDias,setInstDias]=useState("");
   const meusP=pedidos.filter(p=>p.marcId===user.id);
   const getCli=id=>clientes.find(c=>c.id===id);
   const getComFin=p=>financeiro?.find(f=>f.pedidoId===p.id&&f.marcId===user.id&&f.tipo==="pagar");
@@ -665,7 +668,8 @@ function MarceneiroApp({user,pedidos,setPedidos,clientes,financeiro,showToast,on
   const totalCom=meusP.reduce((s,p)=>{const f=getComFin(p);return s+(f?.valor||p.comVal||0);},0);
   const totalPago=meusP.reduce((s,p)=>{const f=getComFin(p);return s+(f?.valorPago||0);},0);
   const totalPend=totalCom-totalPago;
-  const updStage=(pid,stage)=>{setPedidos(prev=>prev.map(p=>p.id===pid?{...p,stage}:p));showToast("Etapa atualizada!");setExpandId(null);};
+  const setStage=(pid,stage,extra={})=>{setPedidos(prev=>prev.map(p=>p.id===pid?{...p,stage,...extra}:p));showToast("Etapa atualizada!");setExpandId(null);setInstPid(null);};
+  const dlFile=(url,nome)=>{try{const a=document.createElement("a");a.href=url;a.download=nome||"arquivo";a.target="_blank";document.body.appendChild(a);a.click();setTimeout(()=>document.body.removeChild(a),100);}catch{window.open(url,"_blank");}};
   const filtrados=meusP.filter(p=>{
     if(filtro==="andamento")return p.stage!=="concluido";
     if(filtro==="concluido")return p.stage==="concluido";
@@ -749,14 +753,46 @@ function MarceneiroApp({user,pedidos,setPedidos,clientes,financeiro,showToast,on
                   </div>
                 </div>
                 {exp&&<div style={{borderTop:"1.5px solid var(--bd)",padding:"14px 16px",animation:"fadeIn .2s"}}>
-                  <div style={{fontSize:11,fontWeight:700,color:"var(--tx3)",textTransform:"uppercase",letterSpacing:".5px",marginBottom:10}}>Atualizar Etapa</div>
-                  <div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:14}}>
-                    {KCOLS.map(s=>(
-                      <button key={s.id} onClick={()=>updStage(p.id,s.id)} style={{padding:"8px 14px",borderRadius:20,border:`2px solid ${p.stage===s.id?s.color:"var(--bd)"}`,background:p.stage===s.id?s.color+"18":"transparent",color:p.stage===s.id?s.color:"var(--tx2)",fontSize:11,fontWeight:700,cursor:"pointer"}}>
-                        {p.stage===s.id?"✓ ":""}{s.label}
-                      </button>
-                    ))}
-                  </div>
+                  {/* ETAPA ATUAL + AÇÃO */}
+                  {p.stage==="aguardando"&&<button onClick={()=>setStage(p.id,"corte")} style={{width:"100%",padding:"14px",borderRadius:14,border:"none",background:"linear-gradient(135deg,#10b981,#34d399)",color:"#fff",fontSize:14,fontWeight:800,cursor:"pointer",marginBottom:12}}>✅ Aceitar este Pedido</button>}
+                  {p.stage==="corte"&&<div style={{marginBottom:12}}>
+                    <div style={{fontSize:12,fontWeight:700,color:"var(--am)",marginBottom:8}}>📐 Plano de Corte em andamento</div>
+                    <button onClick={()=>setStage(p.id,"montagem")} style={{width:"100%",padding:"11px",borderRadius:12,border:"none",background:"var(--bl)",color:"#fff",fontSize:13,fontWeight:700,cursor:"pointer"}}>Avançar para Montagem →</button>
+                  </div>}
+                  {p.stage==="montagem"&&<div style={{marginBottom:12}}>
+                    <div style={{fontSize:12,fontWeight:700,color:"var(--bl)",marginBottom:8}}>🔧 Montagem em andamento</div>
+                    {instPid===p.id
+                      ?<div style={{background:"var(--ppb)",borderRadius:12,padding:"12px 14px"}}>
+                        <div style={{fontSize:11,fontWeight:800,color:"var(--pp)",marginBottom:10}}>📅 Agendar Instalação</div>
+                        <label style={{fontSize:10,fontWeight:700,color:"var(--tx3)",display:"block",marginBottom:3}}>Data prevista de instalação</label>
+                        <input type="date" value={instData} onChange={e=>setInstData(e.target.value)} style={{width:"100%",padding:"8px 10px",borderRadius:8,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:12,outline:"none",marginBottom:8}}/>
+                        <label style={{fontSize:10,fontWeight:700,color:"var(--tx3)",display:"block",marginBottom:3}}>Dias previstos para finalizar</label>
+                        <input type="number" min="1" value={instDias} onChange={e=>setInstDias(e.target.value)} placeholder="Ex: 3" style={{width:"100%",padding:"8px 10px",borderRadius:8,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:12,outline:"none",marginBottom:10}}/>
+                        <div style={{display:"flex",gap:8}}>
+                          <button onClick={()=>setInstPid(null)} style={{flex:1,padding:"9px",borderRadius:10,border:"1.5px solid var(--bd)",background:"none",color:"var(--tx3)",fontSize:12,fontWeight:700,cursor:"pointer"}}>Cancelar</button>
+                          <button onClick={()=>{if(!instData||!instDias)return showToast("Preencha data e dias!","red");setStage(p.id,"instalacao",{dataInstalacao:instData,diasPrevistos:+instDias});setInstData("");setInstDias("");}} style={{flex:2,padding:"9px",borderRadius:10,border:"none",background:"var(--pp)",color:"#fff",fontSize:12,fontWeight:800,cursor:"pointer"}}>✓ Confirmar Agendamento</button>
+                        </div>
+                      </div>
+                      :<button onClick={()=>{setInstPid(p.id);setInstData(p.dataInstalacao||"");setInstDias(p.diasPrevistos||"");}} style={{width:"100%",padding:"11px",borderRadius:12,border:"none",background:"var(--pp)",color:"#fff",fontSize:13,fontWeight:700,cursor:"pointer"}}>📅 Agendar Instalação →</button>
+                    }
+                  </div>}
+                  {p.stage==="instalacao"&&<div style={{marginBottom:12}}>
+                    <div style={{background:"var(--ppb)",borderRadius:12,padding:"12px 14px",marginBottom:8}}>
+                      <div style={{fontSize:11,fontWeight:800,color:"var(--pp)",marginBottom:6}}>📅 Instalação Agendada</div>
+                      <div style={{fontSize:13,fontWeight:700,color:"var(--tx)"}}>{p.dataInstalacao||"—"} <span style={{fontSize:11,color:"var(--tx3)",fontWeight:500}}>• {p.diasPrevistos||"?"} dia(s)</span></div>
+                      <button onClick={()=>{setInstPid(p.id);setInstData(p.dataInstalacao||"");setInstDias(p.diasPrevistos||"");}} style={{fontSize:11,color:"var(--pp)",background:"none",border:"none",cursor:"pointer",marginTop:4,fontWeight:700,padding:0}}>✏ Alterar data/dias</button>
+                    </div>
+                    {instPid===p.id&&<div style={{background:"var(--ppb)",borderRadius:12,padding:"12px 14px",marginBottom:8}}>
+                      <input type="date" value={instData} onChange={e=>setInstData(e.target.value)} style={{width:"100%",padding:"8px",borderRadius:8,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:12,outline:"none",marginBottom:6}}/>
+                      <input type="number" min="1" value={instDias} onChange={e=>setInstDias(e.target.value)} placeholder="Dias" style={{width:"100%",padding:"8px",borderRadius:8,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:12,outline:"none",marginBottom:8}}/>
+                      <button onClick={()=>{if(!instData||!instDias)return showToast("Preencha tudo!","red");setPedidos(prev=>prev.map(x=>x.id===p.id?{...x,dataInstalacao:instData,diasPrevistos:+instDias}:x));setInstPid(null);showToast("Atualizado!");}} style={{width:"100%",padding:"8px",borderRadius:10,border:"none",background:"var(--pp)",color:"#fff",fontSize:12,fontWeight:800,cursor:"pointer"}}>✓ Salvar</button>
+                    </div>}
+                    <button onClick={()=>setStage(p.id,"concluido")} style={{width:"100%",padding:"11px",borderRadius:12,border:"none",background:"linear-gradient(135deg,#10b981,#34d399)",color:"#fff",fontSize:13,fontWeight:800,cursor:"pointer"}}>✅ Marcar como Concluído</button>
+                  </div>}
+                  {p.stage==="concluido"&&<div style={{background:"var(--gnb)",borderRadius:12,padding:"12px 14px",marginBottom:12,textAlign:"center"}}>
+                    <div style={{fontSize:14,fontWeight:800,color:"var(--gn)"}}>✓ Projeto Concluído</div>
+                    <button onClick={()=>setStage(p.id,"instalacao")} style={{fontSize:11,color:"var(--tx3)",background:"none",border:"none",cursor:"pointer",marginTop:4}}>Desfazer</button>
+                  </div>}
                   {p.mats?.filter(m=>m.nome).length>0&&<div style={{background:"var(--bg)",borderRadius:12,padding:"10px 14px",marginBottom:10}}>
                     <div style={{fontSize:10,fontWeight:800,color:"var(--tx3)",textTransform:"uppercase",letterSpacing:".5px",marginBottom:7}}>Materiais</div>
                     {p.mats.filter(m=>m.nome).map(m=>(
@@ -772,9 +808,9 @@ function MarceneiroApp({user,pedidos,setPedidos,clientes,financeiro,showToast,on
                   {p.arquivos?.length>0&&<div style={{background:"var(--blb)",borderRadius:12,padding:"10px 14px"}}>
                     <div style={{fontSize:10,fontWeight:800,color:"var(--bl)",marginBottom:8}}>📎 Anexos do Projeto</div>
                     {p.arquivos.map(a=>(
-                      <a key={a.id} href={a.url} download={a.nome} style={{display:"flex",alignItems:"center",gap:8,fontSize:12,color:"var(--bl)",fontWeight:600,textDecoration:"none",padding:"5px 0",borderBottom:"1px solid rgba(59,130,246,.15)"}}>
-                        <I.Clip/><span style={{flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{a.nome}</span><span style={{fontSize:10,color:"var(--tx3)",flexShrink:0}}>↓</span>
-                      </a>
+                      <button key={a.id} onClick={()=>dlFile(a.url,a.nome)} style={{display:"flex",alignItems:"center",gap:8,width:"100%",fontSize:12,color:"var(--bl)",fontWeight:600,background:"none",border:"none",cursor:"pointer",padding:"6px 0",borderBottom:"1px solid rgba(59,130,246,.15)",textAlign:"left"}}>
+                        <I.Clip/><span style={{flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{a.nome}</span><span style={{fontSize:11,fontWeight:800,flexShrink:0}}>⬇</span>
+                      </button>
                     ))}
                   </div>}
                 </div>}
@@ -1433,7 +1469,7 @@ export default function ERP(){
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:12,marginBottom:16}}>
         <Card style={{padding:16}}><span style={{fontSize:10,fontWeight:800,textTransform:"uppercase",color:"var(--tx3)"}}>Valor</span><div style={{fontSize:22,fontWeight:800,color:"var(--pri)",marginTop:4}}>{R$(p.vt)}</div></Card>
         <Card style={{padding:16}}><span style={{fontSize:10,fontWeight:800,textTransform:"uppercase",color:"var(--tx3)"}}>Marceneiro</span>{m?<div style={{fontSize:14,fontWeight:700,color:"var(--tx)",marginTop:4}}>{m.nome} <Badge color="pri">{p.comPerc}%</Badge></div>:<select onChange={e=>{if(e.target.value)designarMarc(p.id,e.target.value)}} value="" style={{width:"100%",padding:"7px",borderRadius:8,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:12,outline:"none",marginTop:6}}><option value="">Selecionar...</option>{marceneiros.filter(x=>x.ativo).map(x=><option key={x.id} value={x.id}>{x.nome} ({x.comissao}%)</option>)}</select>}</Card>
-        <Card style={{padding:16}}><span style={{fontSize:10,fontWeight:800,textTransform:"uppercase",color:"var(--tx3)"}}>Entrega</span><input type="date" value={p.dataEntrega} onChange={e=>updPed(p.id,{dataEntrega:e.target.value})} style={{width:"100%",padding:"7px",borderRadius:8,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:12,outline:"none",marginTop:6}}/></Card>
+        <Card style={{padding:16}}><span style={{fontSize:10,fontWeight:800,textTransform:"uppercase",color:"var(--tx3)"}}>Prazo de Entrega (admin)</span><input type="date" value={p.dataEntrega} onChange={e=>updPed(p.id,{dataEntrega:e.target.value})} style={{width:"100%",padding:"7px",borderRadius:8,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:12,outline:"none",marginTop:6}}/>{p.dataInstalacao&&<div style={{marginTop:8,padding:"8px 10px",background:"var(--ppb)",borderRadius:8}}><div style={{fontSize:9,fontWeight:800,color:"var(--pp)",textTransform:"uppercase",marginBottom:3}}>📅 Instalação (marceneiro)</div><div style={{fontSize:12,fontWeight:700,color:"var(--pp)"}}>{p.dataInstalacao} • {p.diasPrevistos||"?"} dia(s)</div></div>}</Card>
       </div>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
         <Card><CardHead title="Materiais" right={<Btn v="ghost" small onClick={()=>addMat(p.id)}><I.Plus/> Item</Btn>}/><div style={{padding:14}}>
@@ -1485,21 +1521,87 @@ export default function ERP(){
   };
 
   // KANBAN
-  const PgKanban=()=>(<div style={{animation:"fadeIn .3s"}}><SH title="Produção — Kanban"/>
-    <div style={{display:"flex",gap:10,overflowX:"auto",paddingBottom:10}}>{KCOLS.map(col=>{const cards=pedidos.filter(p=>p.stage===col.id);return(
-      <div key={col.id} style={{minWidth:180,flex:1,background:"var(--bg)",borderRadius:"var(--rl)",border:"1.5px solid var(--bd)"}}>
-        <div style={{padding:"10px 14px",borderBottom:"1.5px solid var(--bd)",display:"flex",alignItems:"center",gap:6}}><div style={{width:8,height:8,borderRadius:4,background:col.color}}/><span style={{fontSize:11,fontWeight:800,color:"var(--tx)"}}>{col.label}</span><span style={{fontSize:10,color:"var(--tx3)",marginLeft:"auto",fontWeight:700}}>{cards.length}</span></div>
-        <div style={{padding:6,minHeight:80}}>{cards.map(p=>{const c=getCli(p.clienteId);const m=getMarc(p.marcId);return(
-          <div key={p.id} className="kcard" onClick={()=>{setPedAtivo(p.id);setTab("pedidos")}} style={{background:"var(--cd)",border:"1.5px solid var(--bd)",borderRadius:"var(--r)",padding:"10px 12px",marginBottom:6,borderLeft:`3px solid ${col.color}`,boxShadow:"var(--sh)",cursor:"pointer"}}>
+  const PgKanban=()=>{
+    const [kView,setKView]=useState("semana"); // semana | etapa
+    const getMon=d=>{const x=new Date(d);x.setHours(0,0,0,0);const day=x.getDay();x.setDate(x.getDate()-day+(day===0?-6:1));return x;};
+    const today=new Date();today.setHours(0,0,0,0);
+    const thisMon=getMon(today);
+    const fmtDate=d=>d?new Date(d+"T12:00").toLocaleDateString("pt-BR",{day:"2-digit",month:"2-digit"}):"";
+    const diffDays=(a,b)=>Math.ceil((a-b)/86400000);
+    // Gerar semanas: 1 passada + 7 futuras
+    const weeks=Array.from({length:9},(_,i)=>{const m=new Date(thisMon);m.setDate(m.getDate()+(i-1)*7);return m;});
+    const inWeek=(p,mon)=>{
+      if(!p.dataInstalacao)return false;
+      const di=new Date(p.dataInstalacao+"T12:00:00");
+      const sun=new Date(mon);sun.setDate(sun.getDate()+6);sun.setHours(23,59,59,999);
+      return di>=mon&&di<=sun;
+    };
+    const ativas=pedidos.filter(p=>p.stage!=="concluido");
+    const semData=ativas.filter(p=>!p.dataInstalacao);
+    const KCard=({p,stageColor})=>{
+      const c=getCli(p.clienteId);const m=getMarc(p.marcId);
+      const stage=KCOLS.find(k=>k.id===p.stage)||KCOLS[0];
+      const sc=stageColor||stage.color;
+      const diasAte=p.dataInstalacao?diffDays(new Date(p.dataInstalacao+"T12:00"),today):null;
+      const atrasado=p.dataEntrega&&p.dataEntrega<hojeISO()&&p.stage!=="concluido";
+      return(
+        <div onClick={()=>{setPedAtivo(p.id);setTab("pedidos")}} style={{background:"var(--cd)",border:"1.5px solid var(--bd)",borderRadius:"var(--r)",padding:"10px 12px",marginBottom:6,borderLeft:`3px solid ${sc}`,boxShadow:"var(--sh)",cursor:"pointer"}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
             <div style={{fontWeight:800,fontSize:11,color:"var(--pri)"}}>{p.num}</div>
-            <div style={{fontSize:11,color:"var(--tx)",fontWeight:600,marginTop:1}}>{c?.nome}</div>
-            <div style={{fontSize:10,color:"var(--tx3)",fontWeight:600}}>{m?.nome||"Sem marc."}</div>
-            {p.dataEntrega&&<div style={{fontSize:10,color:"var(--rd)",marginTop:3,fontWeight:700,display:"flex",alignItems:"center",gap:3}}><I.Clock/>{p.dataEntrega}</div>}
+            <span style={{fontSize:9,padding:"2px 6px",borderRadius:8,background:stage.color+"22",color:stage.color,fontWeight:700,whiteSpace:"nowrap"}}>{stage.label}</span>
           </div>
-        )})}</div>
-      </div>
-    )})}</div>
-  </div>);
+          <div style={{fontSize:11,color:"var(--tx)",fontWeight:600,marginTop:2}}>{c?.nome}</div>
+          <div style={{fontSize:10,color:"var(--tx3)"}}>{m?.nome||"Sem marceneiro"}</div>
+          {p.dataEntrega&&<div style={{fontSize:10,color:atrasado?"var(--rd)":"var(--tx3)",marginTop:3,display:"flex",alignItems:"center",gap:3,fontWeight:atrasado?700:400}}><I.Clock/>{fmtDate(p.dataEntrega)}{atrasado&&" ⚠"}</div>}
+          {p.dataInstalacao&&<div style={{fontSize:10,color:"var(--pp)",marginTop:2,fontWeight:700}}>🔧 {fmtDate(p.dataInstalacao)}{p.diasPrevistos?` (${p.diasPrevistos}d)`:""}</div>}
+          {diasAte!==null&&<div style={{fontSize:9,marginTop:2,fontWeight:800,color:diasAte<0?"var(--rd)":diasAte===0?"var(--gn)":diasAte<=3?"var(--am)":"var(--tx3)"}}>{diasAte<0?`${Math.abs(diasAte)}d atrás`:diasAte===0?"HOJE!":diasAte===1?"Amanhã":`em ${diasAte} dias`}</div>}
+        </div>
+      );
+    };
+    return(<div style={{animation:"fadeIn .3s"}}>
+      <SH title="Kanban de Produção" right={
+        <div style={{display:"flex",gap:6}}>
+          {[["semana","📅 Por Semana"],["etapa","📋 Por Etapa"]].map(([k,l])=>(
+            <button key={k} onClick={()=>setKView(k)} style={{padding:"6px 14px",borderRadius:20,border:"1.5px solid "+(kView===k?"var(--pri)":"var(--bd)"),background:kView===k?"var(--prib)":"transparent",color:kView===k?"var(--pri)":"var(--tx3)",fontSize:11,fontWeight:700,cursor:"pointer"}}>{l}</button>
+          ))}
+        </div>
+      }/>
+      {kView==="semana"&&<div style={{display:"flex",gap:10,overflowX:"auto",paddingBottom:10,alignItems:"flex-start"}}>
+        {/* Sem data */}
+        {semData.length>0&&<div style={{minWidth:190,flexShrink:0,background:"var(--bg)",borderRadius:"var(--rl)",border:"1.5px dashed var(--bd2)"}}>
+          <div style={{padding:"10px 14px",borderBottom:"1.5px solid var(--bd)",display:"flex",alignItems:"center",gap:6}}>
+            <span style={{fontSize:11,fontWeight:800,color:"var(--tx3)"}}>Não Agendados</span>
+            <span style={{fontSize:10,color:"var(--tx3)",marginLeft:"auto",fontWeight:700}}>{semData.length}</span>
+          </div>
+          <div style={{padding:6}}>{semData.map(p=><KCard key={p.id} p={p}/>)}</div>
+        </div>}
+        {/* Semanas */}
+        {weeks.map((mon,wi)=>{
+          const sun=new Date(mon);sun.setDate(sun.getDate()+6);
+          const isThis=mon.getTime()===thisMon.getTime();
+          const cards=ativas.filter(p=>inWeek(p,mon));
+          if(cards.length===0&&!isThis)return null;
+          const label=isThis?"Esta Semana":`${fmtDate(mon.toISOString().split("T")[0])} – ${fmtDate(sun.toISOString().split("T")[0])}`;
+          return(
+            <div key={wi} style={{minWidth:190,flexShrink:0,background:isThis?"#fefce8":"var(--bg)",borderRadius:"var(--rl)",border:`1.5px solid ${isThis?"#fde68a":"var(--bd)"}`}}>
+              <div style={{padding:"10px 14px",borderBottom:`1.5px solid ${isThis?"#fde68a":"var(--bd)"}`,display:"flex",alignItems:"center",gap:6}}>
+                <div style={{width:8,height:8,borderRadius:4,background:isThis?"#f59e0b":"var(--bd2)"}}/>
+                <span style={{fontSize:11,fontWeight:800,color:isThis?"#b45309":"var(--tx)"}}>{label}</span>
+                <span style={{fontSize:10,color:"var(--tx3)",marginLeft:"auto",fontWeight:700}}>{cards.length}</span>
+              </div>
+              <div style={{padding:6,minHeight:60}}>{cards.length===0?<div style={{padding:8,fontSize:10,color:"var(--tx3)",textAlign:"center"}}>Livre</div>:cards.map(p=><KCard key={p.id} p={p}/>)}</div>
+            </div>
+          );
+        })}
+      </div>}
+      {kView==="etapa"&&<div style={{display:"flex",gap:10,overflowX:"auto",paddingBottom:10}}>{KCOLS.map(col=>{const cards=pedidos.filter(p=>p.stage===col.id);return(
+        <div key={col.id} style={{minWidth:180,flex:1,background:"var(--bg)",borderRadius:"var(--rl)",border:"1.5px solid var(--bd)"}}>
+          <div style={{padding:"10px 14px",borderBottom:"1.5px solid var(--bd)",display:"flex",alignItems:"center",gap:6}}><div style={{width:8,height:8,borderRadius:4,background:col.color}}/><span style={{fontSize:11,fontWeight:800,color:"var(--tx)"}}>{col.label}</span><span style={{fontSize:10,color:"var(--tx3)",marginLeft:"auto",fontWeight:700}}>{cards.length}</span></div>
+          <div style={{padding:6,minHeight:80}}>{cards.map(p=><KCard key={p.id} p={p} stageColor={col.color}/>)}</div>
+        </div>
+      )})}</div>}
+    </div>);
+  };
 
   // MARCENEIROS
   const PgMarc=()=>{const [eM,setEM]=useState(null);return(<div style={{animation:"fadeIn .3s"}}><SH title="Marceneiros" sub={`${marceneiros.length} cadastrados`} right={<Btn onClick={()=>setEM({nome:"",tel:"",esp:"",comissao:10,login:"",senha:"",ativo:true})}><I.Plus/> Novo</Btn>}/>

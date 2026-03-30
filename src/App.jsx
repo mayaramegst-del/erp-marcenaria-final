@@ -654,131 +654,232 @@ function InstallPrompt(){
 /* ═══════════════════════════════════════════
    MARCENEIRO APP — TELA MOBILE
    ═══════════════════════════════════════════ */
-function MarceneiroApp({user,pedidos,setPedidos,clientes,showToast,onLogout}){
+function MarceneiroApp({user,pedidos,setPedidos,clientes,financeiro,showToast,onLogout}){
+  const [nav,setNav]=useState("pedidos"); // pedidos | comissoes
   const [filtro,setFiltro]=useState("andamento");
   const [expandId,setExpandId]=useState(null);
   const meusP=pedidos.filter(p=>p.marcId===user.id);
   const getCli=id=>clientes.find(c=>c.id===id);
+  const getComFin=p=>financeiro?.find(f=>f.pedidoId===p.id&&f.marcId===user.id&&f.tipo==="pagar");
+  const atrasados=meusP.filter(p=>p.dataEntrega&&p.stage!=="concluido"&&new Date(p.dataEntrega.split("/").reverse().join("-"))<new Date());
+  const totalCom=meusP.reduce((s,p)=>{const f=getComFin(p);return s+(f?.valor||p.comVal||0);},0);
+  const totalPago=meusP.reduce((s,p)=>{const f=getComFin(p);return s+(f?.valorPago||0);},0);
+  const totalPend=totalCom-totalPago;
+  const updStage=(pid,stage)=>{setPedidos(prev=>prev.map(p=>p.id===pid?{...p,stage}:p));showToast("Etapa atualizada!");setExpandId(null);};
   const filtrados=meusP.filter(p=>{
     if(filtro==="andamento")return p.stage!=="concluido";
     if(filtro==="concluido")return p.stage==="concluido";
     return true;
   });
-  const updStage=(pid,stage)=>{
-    setPedidos(prev=>prev.map(p=>p.id===pid?{...p,stage}:p));
-    showToast("Etapa atualizada!");
-    setExpandId(null);
-  };
-  const hoje2=new Date().toLocaleDateString("pt-BR");
-  const atrasados=meusP.filter(p=>p.dataEntrega&&p.stage!=="concluido"&&new Date(p.dataEntrega.split("/").reverse().join("-"))<new Date());
+  const kpis=nav==="pedidos"
+    ?[{l:"Pedidos",v:meusP.length,c:"rgba(255,255,255,.9)"},{l:"Em andamento",v:meusP.filter(p=>p.stage!=="concluido").length,c:"#fbbf24"},{l:"Atrasados",v:atrasados.length,c:atrasados.length>0?"#f87171":"rgba(255,255,255,.55)"}]
+    :[{l:"Comissão Total",v:R$(totalCom),c:"rgba(255,255,255,.9)"},{l:"Já Pago",v:R$(totalPago),c:"#4ade80"},{l:"Pendente",v:R$(totalPend),c:totalPend>0?"#fbbf24":"rgba(255,255,255,.55)"}];
+
   return(
-    <div style={{fontFamily:"var(--ft)",background:"var(--bg)",minHeight:"100vh",maxWidth:520,margin:"0 auto"}}>
+    <div style={{fontFamily:"var(--ft)",background:"var(--bg)",minHeight:"100vh",maxWidth:520,margin:"0 auto",paddingBottom:"env(safe-area-inset-bottom,0px)"}}>
       <style>{CSS}</style>
-      {/* ── Header ── */}
-      <div style={{background:"linear-gradient(135deg,#6366f1 0%,#8b5cf6 100%)",padding:"env(safe-area-inset-top,12px) 20px 20px",paddingTop:"max(env(safe-area-inset-top),12px)"}}>
-        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+
+      {/* ── HEADER ── */}
+      <div style={{background:"linear-gradient(135deg,#6366f1 0%,#8b5cf6 100%)",padding:"max(env(safe-area-inset-top),14px) 20px 20px"}}>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16}}>
           <div style={{display:"flex",alignItems:"center",gap:12}}>
             <div style={{width:42,height:42,borderRadius:14,background:"rgba(255,255,255,.2)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22}}>🔨</div>
             <div>
               <div style={{color:"#fff",fontWeight:800,fontSize:17}}>Olá, {user.nome.split(" ")[0]}!</div>
-              <div style={{color:"rgba(255,255,255,.7)",fontSize:11,fontWeight:600}}>Marceneiro • {hoje2}</div>
+              <div style={{color:"rgba(255,255,255,.65)",fontSize:11,fontWeight:600}}>{user.nome}</div>
             </div>
           </div>
           <button onClick={onLogout} style={{background:"rgba(255,255,255,.15)",border:"none",borderRadius:10,padding:"8px 14px",color:"#fff",fontSize:12,fontWeight:700,cursor:"pointer"}}>Sair</button>
         </div>
-        {/* KPIs inline */}
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginTop:16}}>
-          {[
-            {l:"Meus Pedidos",v:meusP.length,c:"rgba(255,255,255,.9)"},
-            {l:"Em andamento",v:meusP.filter(p=>p.stage!=="concluido").length,c:"#fbbf24"},
-            {l:"Atrasados",v:atrasados.length,c:atrasados.length>0?"#f87171":"rgba(255,255,255,.6)"},
-          ].map(k=>(
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}>
+          {kpis.map(k=>(
             <div key={k.l} style={{background:"rgba(255,255,255,.12)",borderRadius:12,padding:"10px 8px",textAlign:"center"}}>
-              <div style={{fontSize:22,fontWeight:800,color:k.c}}>{k.v}</div>
-              <div style={{fontSize:10,color:"rgba(255,255,255,.65)",fontWeight:600,marginTop:1}}>{k.l}</div>
+              <div style={{fontSize:typeof k.v==="number"?22:13,fontWeight:800,color:k.c,lineHeight:1.1}}>{k.v}</div>
+              <div style={{fontSize:10,color:"rgba(255,255,255,.6)",fontWeight:600,marginTop:3}}>{k.l}</div>
             </div>
           ))}
         </div>
       </div>
 
-      {/* ── Filtro tabs ── */}
-      <div style={{display:"flex",gap:8,padding:"14px 16px 8px"}}>
-        {[["andamento","Em andamento"],["todos","Todos"],["concluido","Concluídos"]].map(([k,l])=>(
-          <button key={k} onClick={()=>setFiltro(k)} style={{flex:1,padding:"9px 0",borderRadius:20,border:"none",background:filtro===k?"var(--pri)":"var(--sf)",color:filtro===k?"#fff":"var(--tx2)",fontSize:11,fontWeight:700,cursor:"pointer",boxShadow:filtro===k?"none":"var(--sh)",transition:"all .15s"}}>
-            {l}
-          </button>
-        ))}
-      </div>
-
-      {/* ── Lista de pedidos ── */}
-      <div style={{padding:"0 16px 120px"}}>
-        {filtrados.length===0&&(
-          <div style={{textAlign:"center",padding:"48px 24px",color:"var(--tx3)"}}>
-            <div style={{fontSize:42,marginBottom:10}}>📋</div>
-            <div style={{fontWeight:800,fontSize:15,color:"var(--tx2)"}}>Nenhum pedido {filtro==="andamento"?"em andamento":filtro==="concluido"?"concluído":"atribuído"}</div>
-            <div style={{fontSize:12,marginTop:4}}>O admin vai atribuir pedidos para você</div>
-          </div>
-        )}
-        {filtrados.map(p=>{
-          const cli=getCli(p.clienteId);
-          const stage=KCOLS.find(k=>k.id===p.stage)||KCOLS[0];
-          const exp=expandId===p.id;
-          const venc=p.dataEntrega;
-          const atrasado=venc&&p.stage!=="concluido"&&new Date(venc.split("/").reverse().join("-"))<new Date();
-          return(
-            <div key={p.id} style={{background:"var(--sf)",borderRadius:16,marginBottom:12,boxShadow:"var(--sh)",overflow:"hidden",border:`2px solid ${exp?"var(--pri)":atrasado?"var(--rd)":"transparent"}`,transition:"border-color .2s"}}>
-              {/* Card top */}
-              <div onClick={()=>setExpandId(exp?null:p.id)} style={{padding:"14px 16px",cursor:"pointer",userSelect:"none"}}>
-                <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:8}}>
-                  <div style={{flex:1}}>
-                    <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap",marginBottom:4}}>
-                      <span style={{fontWeight:800,fontSize:14,color:"var(--tx)"}}>{p.num}</span>
-                      <span style={{fontSize:10,padding:"3px 9px",borderRadius:10,background:stage.color+"22",color:stage.color,fontWeight:700,whiteSpace:"nowrap"}}>{stage.label}</span>
-                      {atrasado&&<span style={{fontSize:10,padding:"3px 8px",borderRadius:10,background:"var(--rdb)",color:"var(--rd)",fontWeight:700}}>⚠ Atrasado</span>}
+      {/* ── CONTEÚDO ── */}
+      {nav==="pedidos"&&<>
+        <div style={{display:"flex",gap:8,padding:"14px 16px 8px"}}>
+          {[["andamento","Em andamento"],["todos","Todos"],["concluido","Concluídos"]].map(([k,l])=>(
+            <button key={k} onClick={()=>setFiltro(k)} style={{flex:1,padding:"9px 0",borderRadius:20,border:"none",background:filtro===k?"var(--pri)":"var(--sf)",color:filtro===k?"#fff":"var(--tx2)",fontSize:11,fontWeight:700,cursor:"pointer",boxShadow:filtro===k?"none":"var(--sh)"}}>
+              {l}
+            </button>
+          ))}
+        </div>
+        <div style={{padding:"0 16px 110px"}}>
+          {filtrados.length===0&&<div style={{textAlign:"center",padding:"48px 24px"}}><div style={{fontSize:40,marginBottom:8}}>📋</div><div style={{fontWeight:700,fontSize:14,color:"var(--tx2)"}}>Nenhum pedido {filtro==="andamento"?"em andamento":filtro==="concluido"?"concluído":"atribuído"}</div></div>}
+          {filtrados.map(p=>{
+            const cli=getCli(p.clienteId);
+            const stage=KCOLS.find(k=>k.id===p.stage)||KCOLS[0];
+            const exp=expandId===p.id;
+            const atrasado=p.dataEntrega&&p.stage!=="concluido"&&new Date(p.dataEntrega.split("/").reverse().join("-"))<new Date();
+            const comFin=getComFin(p);
+            const comTotal=comFin?.valor||p.comVal||0;
+            const comPago=comFin?.valorPago||0;
+            const comPct=comTotal>0?Math.round(comPago/comTotal*100):0;
+            return(
+              <div key={p.id} style={{background:"var(--sf)",borderRadius:16,marginBottom:12,boxShadow:"var(--sh)",overflow:"hidden",border:`2px solid ${exp?"var(--pri)":atrasado?"var(--rd)":"transparent"}`}}>
+                <div onClick={()=>setExpandId(exp?null:p.id)} style={{padding:"14px 16px",cursor:"pointer",userSelect:"none"}}>
+                  <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:8}}>
+                    <div style={{flex:1}}>
+                      <div style={{display:"flex",alignItems:"center",gap:7,flexWrap:"wrap",marginBottom:4}}>
+                        <span style={{fontWeight:800,fontSize:14,color:"var(--tx)"}}>{p.num}</span>
+                        <span style={{fontSize:10,padding:"3px 8px",borderRadius:10,background:stage.color+"22",color:stage.color,fontWeight:700}}>{stage.label}</span>
+                        {atrasado&&<span style={{fontSize:10,padding:"3px 8px",borderRadius:10,background:"var(--rdb)",color:"var(--rd)",fontWeight:700}}>⚠ Atrasado</span>}
+                        {p.arquivos?.length>0&&<span style={{fontSize:10,padding:"3px 7px",borderRadius:10,background:"var(--blb)",color:"var(--bl)",fontWeight:700}}>📎 {p.arquivos.length}</span>}
+                      </div>
+                      <div style={{fontSize:14,fontWeight:700,color:"var(--tx)"}}>{cli?.nome||"Cliente"}</div>
+                      {p.ambs?.length>0&&<div style={{fontSize:11,color:"var(--tx3)",marginTop:2}}>{p.ambs.map(a=>a.nome).join(" · ")}</div>}
+                      {p.dataEntrega&&<div style={{fontSize:11,color:atrasado?"var(--rd)":"var(--tx3)",marginTop:3,display:"flex",alignItems:"center",gap:4,fontWeight:atrasado?700:400}}><I.Clock/> Entrega: {p.dataEntrega}</div>}
+                      {comTotal>0&&<div style={{marginTop:6}}>
+                        <div style={{display:"flex",justifyContent:"space-between",fontSize:10,color:"var(--tx3)",marginBottom:3}}>
+                          <span>Comissão {p.comPerc}%</span>
+                          <span style={{fontWeight:700,color:comPct===100?"var(--gn)":comPago>0?"var(--am)":"var(--tx3)"}}>{comPct===100?"✓ Pago":comPago>0?`${comPct}% pago`:"Pendente"}</span>
+                        </div>
+                        <div style={{height:4,background:"var(--bd)",borderRadius:4,overflow:"hidden"}}>
+                          <div style={{height:"100%",width:`${comPct}%`,background:comPct===100?"var(--gn)":"var(--am)",borderRadius:4,transition:"width .3s"}}/>
+                        </div>
+                      </div>}
                     </div>
-                    <div style={{fontSize:14,fontWeight:700,color:"var(--tx)"}}>{cli?.nome||"Cliente"}</div>
-                    {p.ambs?.length>0&&<div style={{fontSize:11,color:"var(--tx3)",marginTop:3}}>{p.ambs.map(a=>a.nome).join(" · ")}</div>}
-                    {venc&&<div style={{fontSize:11,color:atrasado?"var(--rd)":"var(--tx3)",marginTop:4,display:"flex",alignItems:"center",gap:4,fontWeight:atrasado?700:400}}><I.Clock/> Entrega: {venc}</div>}
+                    <div style={{color:"var(--tx3)",marginTop:2,flexShrink:0}}><I.Chev d={exp?"up":"down"}/></div>
                   </div>
-                  <div style={{color:"var(--tx3)",marginTop:2,flexShrink:0}}><I.Chev d={exp?"up":"down"}/></div>
                 </div>
-              </div>
-
-              {/* Card expandido */}
-              {exp&&(
-                <div style={{borderTop:"1.5px solid var(--bd)",padding:"14px 16px",animation:"fadeIn .2s"}}>
+                {exp&&<div style={{borderTop:"1.5px solid var(--bd)",padding:"14px 16px",animation:"fadeIn .2s"}}>
                   <div style={{fontSize:11,fontWeight:700,color:"var(--tx3)",textTransform:"uppercase",letterSpacing:".5px",marginBottom:10}}>Atualizar Etapa</div>
                   <div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:14}}>
                     {KCOLS.map(s=>(
-                      <button key={s.id} onClick={()=>updStage(p.id,s.id)} style={{padding:"8px 14px",borderRadius:20,border:`2px solid ${p.stage===s.id?s.color:"var(--bd)"}`,background:p.stage===s.id?s.color+"18":"transparent",color:p.stage===s.id?s.color:"var(--tx2)",fontSize:11,fontWeight:700,cursor:"pointer",transition:"all .15s"}}>
+                      <button key={s.id} onClick={()=>updStage(p.id,s.id)} style={{padding:"8px 14px",borderRadius:20,border:`2px solid ${p.stage===s.id?s.color:"var(--bd)"}`,background:p.stage===s.id?s.color+"18":"transparent",color:p.stage===s.id?s.color:"var(--tx2)",fontSize:11,fontWeight:700,cursor:"pointer"}}>
                         {p.stage===s.id?"✓ ":""}{s.label}
                       </button>
                     ))}
                   </div>
-                  {p.mats?.filter(m=>m.nome).length>0&&(
-                    <div style={{background:"var(--bg)",borderRadius:12,padding:"10px 14px",marginBottom:10}}>
-                      <div style={{fontSize:11,fontWeight:700,color:"var(--tx3)",textTransform:"uppercase",letterSpacing:".5px",marginBottom:8}}>Materiais</div>
-                      {p.mats.filter(m=>m.nome).map(m=>(
-                        <div key={m.id} style={{display:"flex",justifyContent:"space-between",fontSize:12,padding:"4px 0",borderBottom:"1px solid var(--bd)",color:"var(--tx2)"}}>
-                          <span>{m.nome}</span>
-                          <span style={{fontWeight:700,color:"var(--tx)"}}>{m.qtd} un</span>
-                        </div>
-                      ))}
+                  {p.mats?.filter(m=>m.nome).length>0&&<div style={{background:"var(--bg)",borderRadius:12,padding:"10px 14px",marginBottom:10}}>
+                    <div style={{fontSize:10,fontWeight:800,color:"var(--tx3)",textTransform:"uppercase",letterSpacing:".5px",marginBottom:7}}>Materiais</div>
+                    {p.mats.filter(m=>m.nome).map(m=>(
+                      <div key={m.id} style={{display:"flex",justifyContent:"space-between",fontSize:12,padding:"4px 0",borderBottom:"1px solid var(--bd)",color:"var(--tx2)"}}>
+                        <span>{m.nome}</span><span style={{fontWeight:700,color:"var(--tx)"}}>{m.qtd} un</span>
+                      </div>
+                    ))}
+                  </div>}
+                  {p.ambs?.length>0&&<div style={{background:"var(--prib)",borderRadius:12,padding:"10px 14px",marginBottom:10}}>
+                    <div style={{fontSize:10,fontWeight:800,color:"var(--pri)",marginBottom:6}}>Ambientes</div>
+                    {p.ambs.map((a,i)=><div key={i} style={{fontSize:12,color:"var(--tx2)",padding:"3px 0",borderBottom:"1px solid var(--bd2)"}}>{a.nome}{a.desc&&<span style={{color:"var(--tx3)"}}> — {a.desc}</span>}</div>)}
+                  </div>}
+                  {p.arquivos?.length>0&&<div style={{background:"var(--blb)",borderRadius:12,padding:"10px 14px"}}>
+                    <div style={{fontSize:10,fontWeight:800,color:"var(--bl)",marginBottom:8}}>📎 Anexos do Projeto</div>
+                    {p.arquivos.map(a=>(
+                      <a key={a.id} href={a.url} download={a.nome} style={{display:"flex",alignItems:"center",gap:8,fontSize:12,color:"var(--bl)",fontWeight:600,textDecoration:"none",padding:"5px 0",borderBottom:"1px solid rgba(59,130,246,.15)"}}>
+                        <I.Clip/><span style={{flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{a.nome}</span><span style={{fontSize:10,color:"var(--tx3)",flexShrink:0}}>↓</span>
+                      </a>
+                    ))}
+                  </div>}
+                </div>}
+              </div>
+            );
+          })}
+        </div>
+      </>}
+
+      {nav==="comissoes"&&<div style={{padding:"14px 16px 110px"}}>
+        {/* Barra total */}
+        {totalCom>0&&<div style={{background:"var(--sf)",borderRadius:16,padding:"18px 18px",marginBottom:14,boxShadow:"var(--sh)"}}>
+          <div style={{display:"flex",justifyContent:"space-between",marginBottom:10}}>
+            <div><div style={{fontSize:11,color:"var(--tx3)",fontWeight:600}}>Comissão Total</div><div style={{fontSize:20,fontWeight:800,color:"var(--tx)"}}>{R$(totalCom)}</div></div>
+            <div style={{textAlign:"right"}}><div style={{fontSize:11,color:"var(--tx3)",fontWeight:600}}>Progresso Geral</div><div style={{fontSize:20,fontWeight:800,color:totalPend===0?"var(--gn)":"var(--am)"}}>{totalCom>0?Math.round(totalPago/totalCom*100):0}%</div></div>
+          </div>
+          <div style={{height:10,background:"var(--bd)",borderRadius:10,overflow:"hidden",marginBottom:10}}>
+            <div style={{height:"100%",width:`${totalCom>0?Math.round(totalPago/totalCom*100):0}%`,background:"linear-gradient(90deg,var(--gn),#34d399)",borderRadius:10,transition:"width .4s"}}/>
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+            <div style={{background:"var(--gnb)",borderRadius:10,padding:"10px 14px"}}>
+              <div style={{fontSize:10,color:"var(--gn)",fontWeight:700,marginBottom:2}}>✓ Já Recebido</div>
+              <div style={{fontSize:16,fontWeight:800,color:"var(--gn)"}}>{R$(totalPago)}</div>
+            </div>
+            <div style={{background:"var(--amb)",borderRadius:10,padding:"10px 14px"}}>
+              <div style={{fontSize:10,color:"var(--am)",fontWeight:700,marginBottom:2}}>⏳ Pendente</div>
+              <div style={{fontSize:16,fontWeight:800,color:"var(--am)"}}>{R$(totalPend)}</div>
+            </div>
+          </div>
+        </div>}
+        {meusP.length===0&&<div style={{textAlign:"center",padding:"48px 24px"}}><div style={{fontSize:40,marginBottom:8}}>💰</div><div style={{fontWeight:700,fontSize:14,color:"var(--tx2)"}}>Nenhum projeto atribuído ainda</div></div>}
+        {meusP.map(p=>{
+          const cli=getCli(p.clienteId);
+          const cf=getComFin(p);
+          const comTotal=cf?.valor||p.comVal||0;
+          const comPago=cf?.valorPago||0;
+          const comPend=comTotal-comPago;
+          const pct=comTotal>0?Math.round(comPago/comTotal*100):0;
+          const stage=KCOLS.find(k=>k.id===p.stage)||KCOLS[0];
+          if(!comTotal&&!p.comPerc)return null;
+          return(
+            <div key={p.id} style={{background:"var(--sf)",borderRadius:16,marginBottom:12,boxShadow:"var(--sh)",overflow:"hidden"}}>
+              <div style={{padding:"14px 16px"}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:10}}>
+                  <div>
+                    <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:3}}>
+                      <span style={{fontWeight:800,fontSize:13,color:"var(--tx)"}}>{p.num}</span>
+                      <span style={{fontSize:10,padding:"2px 8px",borderRadius:8,background:stage.color+"22",color:stage.color,fontWeight:700}}>{stage.label}</span>
                     </div>
-                  )}
-                  {p.ambs?.length>0&&(
-                    <div style={{background:"var(--prib)",borderRadius:12,padding:"10px 14px"}}>
-                      <div style={{fontSize:11,fontWeight:700,color:"var(--pri)",marginBottom:6}}>Ambientes do projeto</div>
-                      {p.ambs.map((a,i)=>(
-                        <div key={i} style={{fontSize:12,color:"var(--tx2)",padding:"3px 0",borderBottom:"1px solid var(--bd2)"}}>{a.nome}{a.desc&&<span style={{color:"var(--tx3)"}}> — {a.desc}</span>}</div>
-                      ))}
-                    </div>
-                  )}
+                    <div style={{fontSize:14,fontWeight:700,color:"var(--tx)"}}>{cli?.nome||"—"}</div>
+                    {p.ambs?.length>0&&<div style={{fontSize:11,color:"var(--tx3)",marginTop:1}}>{p.ambs.map(a=>a.nome).join(" · ")}</div>}
+                  </div>
+                  <div style={{textAlign:"right",flexShrink:0,marginLeft:8}}>
+                    <div style={{fontSize:10,color:"var(--tx3)",fontWeight:600}}>Comissão {p.comPerc}%</div>
+                    <div style={{fontSize:16,fontWeight:800,color:"var(--tx)"}}>{R$(comTotal)}</div>
+                  </div>
                 </div>
-              )}
+                {/* Barra progresso */}
+                <div style={{height:8,background:"var(--bd)",borderRadius:8,overflow:"hidden",marginBottom:8}}>
+                  <div style={{height:"100%",width:`${pct}%`,background:pct===100?"var(--gn)":"linear-gradient(90deg,#6366f1,#10b981)",borderRadius:8,transition:"width .4s"}}/>
+                </div>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6}}>
+                  <div style={{background:"var(--gnb)",borderRadius:8,padding:"8px 10px",textAlign:"center"}}>
+                    <div style={{fontSize:9,color:"var(--gn)",fontWeight:700,textTransform:"uppercase"}}>Pago</div>
+                    <div style={{fontSize:13,fontWeight:800,color:"var(--gn)",marginTop:1}}>{R$(comPago)}</div>
+                  </div>
+                  <div style={{background:comPend>0?"var(--amb)":"var(--gnb)",borderRadius:8,padding:"8px 10px",textAlign:"center"}}>
+                    <div style={{fontSize:9,color:comPend>0?"var(--am)":"var(--gn)",fontWeight:700,textTransform:"uppercase"}}>Pendente</div>
+                    <div style={{fontSize:13,fontWeight:800,color:comPend>0?"var(--am)":"var(--gn)",marginTop:1}}>{R$(comPend)}</div>
+                  </div>
+                  <div style={{background:"var(--prib)",borderRadius:8,padding:"8px 10px",textAlign:"center"}}>
+                    <div style={{fontSize:9,color:"var(--pri)",fontWeight:700,textTransform:"uppercase"}}>%</div>
+                    <div style={{fontSize:13,fontWeight:800,color:pct===100?"var(--gn)":"var(--pri)",marginTop:1}}>{pct}%</div>
+                  </div>
+                </div>
+                {cf?.parcelas?.length>0&&<div style={{marginTop:10,borderTop:"1.5px solid var(--bd)",paddingTop:10}}>
+                  <div style={{fontSize:10,fontWeight:800,color:"var(--tx3)",textTransform:"uppercase",letterSpacing:".5px",marginBottom:6}}>Histórico de Pagamentos</div>
+                  {cf.parcelas.filter(x=>x.pago).map(x=>(
+                    <div key={x.id} style={{display:"flex",justifyContent:"space-between",fontSize:12,padding:"4px 0",borderBottom:"1px solid var(--bd)",color:"var(--gn)",fontWeight:600}}>
+                      <span>✓ {x.dataPago||"—"}</span><span>{R$(x.valor)}</span>
+                    </div>
+                  ))}
+                  {cf.parcelas.filter(x=>!x.pago).map(x=>(
+                    <div key={x.id} style={{display:"flex",justifyContent:"space-between",fontSize:12,padding:"4px 0",borderBottom:"1px solid var(--bd)",color:"var(--tx3)"}}>
+                      <span>⏳ {x.venc||"Aguardando"}</span><span>{R$(x.valor)}</span>
+                    </div>
+                  ))}
+                </div>}
+              </div>
             </div>
           );
         })}
+      </div>}
+
+      {/* ── BOTTOM NAV ── */}
+      <div style={{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:520,background:"var(--sf)",borderTop:"1.5px solid var(--bd)",display:"flex",zIndex:100,paddingBottom:"env(safe-area-inset-bottom,0px)"}}>
+        {[
+          {k:"pedidos",l:"Pedidos",icon:"🔨"},
+          {k:"comissoes",l:"Comissões",icon:"💰"},
+        ].map(t=>(
+          <button key={t.k} onClick={()=>setNav(t.k)} style={{flex:1,padding:"12px 8px 10px",border:"none",background:"none",display:"flex",flexDirection:"column",alignItems:"center",gap:3,cursor:"pointer",borderTop:`2.5px solid ${nav===t.k?"var(--pri)":"transparent"}`,transition:"border-color .15s"}}>
+            <span style={{fontSize:20,lineHeight:1}}>{t.icon}</span>
+            <span style={{fontSize:10,fontWeight:700,color:nav===t.k?"var(--pri)":"var(--tx3)"}}>{t.l}</span>
+          </button>
+        ))}
       </div>
       <InstallPrompt/>
     </div>
@@ -1067,6 +1168,7 @@ export default function ERP(){
       pedidos={pedidos}
       setPedidos={setPedidos}
       clientes={clientes}
+      financeiro={financeiro}
       showToast={showToast}
       onLogout={()=>{setUser(null);localStorage.removeItem('erpUser');setLoginView({l:"",s:""});}}
     />

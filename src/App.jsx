@@ -551,6 +551,169 @@ const FORMAS=[{v:"pix",l:"PIX"},{v:"cartao_cred",l:"Cartão Crédito"},{v:"carta
 const FORMAS_LAB=Object.fromEntries(FORMAS.map(f=>[f.v,f.l]));
 const FORMA_CLR={pix:"blue",cartao_cred:"purple",cartao_deb:"pri",dinheiro:"green",boleto:"amber",transferencia:"blue"};
 
+/* ═══════════════════════════════════════════
+   PWA INSTALL PROMPT
+   ═══════════════════════════════════════════ */
+function InstallPrompt(){
+  const [prompt,setPrompt]=useState(null);
+  const [dismissed,setDismissed]=useState(false);
+  useEffect(()=>{
+    const h=e=>{e.preventDefault();setPrompt(e);};
+    window.addEventListener('beforeinstallprompt',h);
+    return()=>window.removeEventListener('beforeinstallprompt',h);
+  },[]);
+  if(!prompt||dismissed)return null;
+  return(
+    <div style={{position:"fixed",bottom:24,left:16,right:16,background:"linear-gradient(135deg,#6366f1,#8b5cf6)",borderRadius:18,padding:"14px 18px",display:"flex",alignItems:"center",justifyContent:"space-between",boxShadow:"0 8px 32px rgba(99,102,241,.45)",zIndex:9998,animation:"scaleIn .3s"}}>
+      <div style={{display:"flex",alignItems:"center",gap:10}}>
+        <span style={{fontSize:26}}>📲</span>
+        <div>
+          <div style={{color:"#fff",fontWeight:800,fontSize:13}}>Instalar app</div>
+          <div style={{color:"rgba(255,255,255,.75)",fontSize:11}}>Acesse direto da tela inicial</div>
+        </div>
+      </div>
+      <div style={{display:"flex",gap:8}}>
+        <button onClick={()=>setDismissed(true)} style={{background:"rgba(255,255,255,.15)",border:"none",borderRadius:10,padding:"8px 12px",color:"#fff",fontSize:11,fontWeight:700,cursor:"pointer"}}>Depois</button>
+        <button onClick={()=>{prompt.prompt();setPrompt(null);}} style={{background:"#fff",border:"none",borderRadius:10,padding:"8px 16px",color:"#6366f1",fontSize:12,fontWeight:800,cursor:"pointer"}}>Instalar</button>
+      </div>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════
+   MARCENEIRO APP — TELA MOBILE
+   ═══════════════════════════════════════════ */
+function MarceneiroApp({user,pedidos,setPedidos,clientes,showToast,onLogout}){
+  const [filtro,setFiltro]=useState("andamento");
+  const [expandId,setExpandId]=useState(null);
+  const meusP=pedidos.filter(p=>p.marcId===user.id);
+  const getCli=id=>clientes.find(c=>c.id===id);
+  const filtrados=meusP.filter(p=>{
+    if(filtro==="andamento")return p.stage!=="concluido";
+    if(filtro==="concluido")return p.stage==="concluido";
+    return true;
+  });
+  const updStage=(pid,stage)=>{
+    setPedidos(prev=>prev.map(p=>p.id===pid?{...p,stage}:p));
+    showToast("Etapa atualizada!");
+    setExpandId(null);
+  };
+  const hoje2=new Date().toLocaleDateString("pt-BR");
+  const atrasados=meusP.filter(p=>p.dataEntrega&&p.stage!=="concluido"&&new Date(p.dataEntrega.split("/").reverse().join("-"))<new Date());
+  return(
+    <div style={{fontFamily:"var(--ft)",background:"var(--bg)",minHeight:"100vh",maxWidth:520,margin:"0 auto"}}>
+      <style>{CSS}</style>
+      {/* ── Header ── */}
+      <div style={{background:"linear-gradient(135deg,#6366f1 0%,#8b5cf6 100%)",padding:"env(safe-area-inset-top,12px) 20px 20px",paddingTop:"max(env(safe-area-inset-top),12px)"}}>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+          <div style={{display:"flex",alignItems:"center",gap:12}}>
+            <div style={{width:42,height:42,borderRadius:14,background:"rgba(255,255,255,.2)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22}}>🔨</div>
+            <div>
+              <div style={{color:"#fff",fontWeight:800,fontSize:17}}>Olá, {user.nome.split(" ")[0]}!</div>
+              <div style={{color:"rgba(255,255,255,.7)",fontSize:11,fontWeight:600}}>Marceneiro • {hoje2}</div>
+            </div>
+          </div>
+          <button onClick={onLogout} style={{background:"rgba(255,255,255,.15)",border:"none",borderRadius:10,padding:"8px 14px",color:"#fff",fontSize:12,fontWeight:700,cursor:"pointer"}}>Sair</button>
+        </div>
+        {/* KPIs inline */}
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginTop:16}}>
+          {[
+            {l:"Meus Pedidos",v:meusP.length,c:"rgba(255,255,255,.9)"},
+            {l:"Em andamento",v:meusP.filter(p=>p.stage!=="concluido").length,c:"#fbbf24"},
+            {l:"Atrasados",v:atrasados.length,c:atrasados.length>0?"#f87171":"rgba(255,255,255,.6)"},
+          ].map(k=>(
+            <div key={k.l} style={{background:"rgba(255,255,255,.12)",borderRadius:12,padding:"10px 8px",textAlign:"center"}}>
+              <div style={{fontSize:22,fontWeight:800,color:k.c}}>{k.v}</div>
+              <div style={{fontSize:10,color:"rgba(255,255,255,.65)",fontWeight:600,marginTop:1}}>{k.l}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* ── Filtro tabs ── */}
+      <div style={{display:"flex",gap:8,padding:"14px 16px 8px"}}>
+        {[["andamento","Em andamento"],["todos","Todos"],["concluido","Concluídos"]].map(([k,l])=>(
+          <button key={k} onClick={()=>setFiltro(k)} style={{flex:1,padding:"9px 0",borderRadius:20,border:"none",background:filtro===k?"var(--pri)":"var(--sf)",color:filtro===k?"#fff":"var(--tx2)",fontSize:11,fontWeight:700,cursor:"pointer",boxShadow:filtro===k?"none":"var(--sh)",transition:"all .15s"}}>
+            {l}
+          </button>
+        ))}
+      </div>
+
+      {/* ── Lista de pedidos ── */}
+      <div style={{padding:"0 16px 120px"}}>
+        {filtrados.length===0&&(
+          <div style={{textAlign:"center",padding:"48px 24px",color:"var(--tx3)"}}>
+            <div style={{fontSize:42,marginBottom:10}}>📋</div>
+            <div style={{fontWeight:800,fontSize:15,color:"var(--tx2)"}}>Nenhum pedido {filtro==="andamento"?"em andamento":filtro==="concluido"?"concluído":"atribuído"}</div>
+            <div style={{fontSize:12,marginTop:4}}>O admin vai atribuir pedidos para você</div>
+          </div>
+        )}
+        {filtrados.map(p=>{
+          const cli=getCli(p.clienteId);
+          const stage=KCOLS.find(k=>k.id===p.stage)||KCOLS[0];
+          const exp=expandId===p.id;
+          const venc=p.dataEntrega;
+          const atrasado=venc&&p.stage!=="concluido"&&new Date(venc.split("/").reverse().join("-"))<new Date();
+          return(
+            <div key={p.id} style={{background:"var(--sf)",borderRadius:16,marginBottom:12,boxShadow:"var(--sh)",overflow:"hidden",border:`2px solid ${exp?"var(--pri)":atrasado?"var(--rd)":"transparent"}`,transition:"border-color .2s"}}>
+              {/* Card top */}
+              <div onClick={()=>setExpandId(exp?null:p.id)} style={{padding:"14px 16px",cursor:"pointer",userSelect:"none"}}>
+                <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:8}}>
+                  <div style={{flex:1}}>
+                    <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap",marginBottom:4}}>
+                      <span style={{fontWeight:800,fontSize:14,color:"var(--tx)"}}>{p.num}</span>
+                      <span style={{fontSize:10,padding:"3px 9px",borderRadius:10,background:stage.color+"22",color:stage.color,fontWeight:700,whiteSpace:"nowrap"}}>{stage.label}</span>
+                      {atrasado&&<span style={{fontSize:10,padding:"3px 8px",borderRadius:10,background:"var(--rdb)",color:"var(--rd)",fontWeight:700}}>⚠ Atrasado</span>}
+                    </div>
+                    <div style={{fontSize:14,fontWeight:700,color:"var(--tx)"}}>{cli?.nome||"Cliente"}</div>
+                    {p.ambs?.length>0&&<div style={{fontSize:11,color:"var(--tx3)",marginTop:3}}>{p.ambs.map(a=>a.nome).join(" · ")}</div>}
+                    {venc&&<div style={{fontSize:11,color:atrasado?"var(--rd)":"var(--tx3)",marginTop:4,display:"flex",alignItems:"center",gap:4,fontWeight:atrasado?700:400}}><I.Clock/> Entrega: {venc}</div>}
+                  </div>
+                  <div style={{color:"var(--tx3)",marginTop:2,flexShrink:0}}><I.Chev d={exp?"up":"down"}/></div>
+                </div>
+              </div>
+
+              {/* Card expandido */}
+              {exp&&(
+                <div style={{borderTop:"1.5px solid var(--bd)",padding:"14px 16px",animation:"fadeIn .2s"}}>
+                  <div style={{fontSize:11,fontWeight:700,color:"var(--tx3)",textTransform:"uppercase",letterSpacing:".5px",marginBottom:10}}>Atualizar Etapa</div>
+                  <div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:14}}>
+                    {KCOLS.map(s=>(
+                      <button key={s.id} onClick={()=>updStage(p.id,s.id)} style={{padding:"8px 14px",borderRadius:20,border:`2px solid ${p.stage===s.id?s.color:"var(--bd)"}`,background:p.stage===s.id?s.color+"18":"transparent",color:p.stage===s.id?s.color:"var(--tx2)",fontSize:11,fontWeight:700,cursor:"pointer",transition:"all .15s"}}>
+                        {p.stage===s.id?"✓ ":""}{s.label}
+                      </button>
+                    ))}
+                  </div>
+                  {p.mats?.filter(m=>m.nome).length>0&&(
+                    <div style={{background:"var(--bg)",borderRadius:12,padding:"10px 14px",marginBottom:10}}>
+                      <div style={{fontSize:11,fontWeight:700,color:"var(--tx3)",textTransform:"uppercase",letterSpacing:".5px",marginBottom:8}}>Materiais</div>
+                      {p.mats.filter(m=>m.nome).map(m=>(
+                        <div key={m.id} style={{display:"flex",justifyContent:"space-between",fontSize:12,padding:"4px 0",borderBottom:"1px solid var(--bd)",color:"var(--tx2)"}}>
+                          <span>{m.nome}</span>
+                          <span style={{fontWeight:700,color:"var(--tx)"}}>{m.qtd} un</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {p.ambs?.length>0&&(
+                    <div style={{background:"var(--prib)",borderRadius:12,padding:"10px 14px"}}>
+                      <div style={{fontSize:11,fontWeight:700,color:"var(--pri)",marginBottom:6}}>Ambientes do projeto</div>
+                      {p.ambs.map((a,i)=>(
+                        <div key={i} style={{fontSize:12,color:"var(--tx2)",padding:"3px 0",borderBottom:"1px solid var(--bd2)"}}>{a.nome}{a.desc&&<span style={{color:"var(--tx3)"}}> — {a.desc}</span>}</div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+      <InstallPrompt/>
+    </div>
+  );
+}
+
 function ModalNovoRec({clientes,setModal,setRecebimentos,showToast}){
   const [f,setF]=useState({clienteId:"",nome:"",valorTotal:0,numParc:1,vencInicial:hojeISO(),obs:""});
   const u=(k,v)=>setF(p=>({...p,[k]:v}));
@@ -671,6 +834,40 @@ export default function ERP(){
   useEffect(()=>{if(dbLoaded)syncCloud('biblioteca',biblioteca);},[biblioteca,dbLoaded]);
   useEffect(()=>{if(dbLoaded)syncCloud('recebimentos',recebimentos);},[recebimentos,dbLoaded]);
   useEffect(()=>{if(dbLoaded)syncCloud('recorrentes',recorrentes);},[recorrentes,dbLoaded]);
+
+  // ── OneSignal: inicializar e vincular usuário logado ──
+  useEffect(()=>{
+    const appId=import.meta.env.VITE_ONESIGNAL_APP_ID;
+    if(!appId)return;
+    window.OneSignalDeferred=window.OneSignalDeferred||[];
+    window.OneSignalDeferred.push(async(OS)=>{
+      try{
+        await OS.init({
+          appId,
+          serviceWorkerParam:{scope:"/"},
+          promptOptions:{slidedown:{prompts:[{type:"push",autoPrompt:true,text:{actionMessage:"Ativar notificações de novos pedidos?",acceptButton:"Ativar",cancelButton:"Agora não"}}]}},
+        });
+        if(user?.id&&user.id!=="admin") await OS.login(user.id);
+      }catch{}
+    });
+  },[user?.id]);
+
+  // ── Notificar marceneiro via Edge Function ──
+  const notifyMarceneiro=async(pedido,marcId)=>{
+    const m=getMarc(marcId);
+    if(!m)return;
+    const url=import.meta.env.VITE_SUPABASE_URL;
+    const key=import.meta.env.VITE_SUPABASE_ANON_KEY;
+    if(!url||!key)return;
+    try{
+      await fetch(`${url}/functions/v1/notify`,{
+        method:"POST",
+        headers:{"Content-Type":"application/json","Authorization":`Bearer ${key}`},
+        body:JSON.stringify({marceId:marcId,title:"🔨 Novo pedido atribuído",body:`${pedido.num||"Pedido"} — ${getCli(pedido.clienteId)?.nome||""}`}),
+      });
+    }catch{}
+  };
+
   // Auto-gerar contas recorrentes no mês atual
   useEffect(()=>{
     if(!dbLoaded)return;
@@ -733,6 +930,7 @@ export default function ERP(){
       return[...prev,{id:uid(),tipo:"pagar",desc:`Comissão ${ped?.num||''} - ${m.nome}`,valor:comVal,valorPago:0,parcelas:[{id:uid(),valor:comVal,venc:"",pago:false,dataPago:""}],pedidoId:pid,marcId:mid,fornecedor:m.nome,status:"aberto"}];
     });
     showToast(`Designado: ${m.nome}`);
+    if(ped) notifyMarceneiro(ped,mid);
   };
 
   const pagarParcela=(finId,parId,valor)=>{
@@ -793,6 +991,18 @@ export default function ERP(){
     const aPagar=financeiro.filter(f=>f.tipo==="pagar").reduce((s,f)=>s+(f.valor-f.valorPago),0);
     return{cli:clientes.length,orc:orcamentos.length,ped:pedidos.length,pedEsp:pedidos.filter(p=>p.status==="em_espera").length,pedProd:pedidos.filter(p=>p.status==="em_producao").length,rec,cMat,cCom,lucro:rec-cMat-cCom,aReceber,aPagar,leads:leads.length,leadsQuentes:leads.filter(l=>l.prioridade==="alta").length,estVal:estoque.reduce((s,e)=>s+e.qtd*e.custo,0)};
   },[clientes,orcamentos,pedidos,financeiro,leads,estoque]);
+
+  // ── MARCENEIRO APP (mobile) ──
+  if(user?.role==="marc"&&!loginView)return(
+    <MarceneiroApp
+      user={user}
+      pedidos={pedidos}
+      setPedidos={setPedidos}
+      clientes={clientes}
+      showToast={showToast}
+      onLogout={()=>{setUser(null);localStorage.removeItem('erpUser');setLoginView({l:"",s:""});}}
+    />
+  );
 
   // ── LOGIN SCREEN ──
   if(!user||loginView)return(
@@ -1521,6 +1731,8 @@ export default function ERP(){
 
       {/* TOAST */}
       {toast&&<div style={{position:"fixed",bottom:20,right:20,padding:"10px 18px",borderRadius:12,background:toast.type==="red"?"var(--rdb)":"var(--gnb)",color:toast.type==="red"?"var(--rd)":"var(--gn)",border:`1.5px solid ${toast.type==="red"?"rgba(239,68,68,.15)":"rgba(16,185,129,.15)"}`,fontSize:12,fontWeight:800,boxShadow:"var(--sh2)",animation:"scaleIn .2s",zIndex:9999,display:"flex",alignItems:"center",gap:6}}>{toast.type==="red"?<I.X/>:<I.Check/>}{toast.msg}</div>}
+
+      <InstallPrompt/>
     </div>
   );
 }

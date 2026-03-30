@@ -1175,70 +1175,70 @@ export default function ERP(){
             </Card>
           ))}
         </div>
-        {insModal&&orc.ambientes.find(a=>a.id===insModal)&&(()=>{const amb=orc.ambientes.find(a=>a.id===insModal);return(
-          <Modal onClose={()=>setInsModal(null)} wide>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
-              <div><h2 style={{fontSize:16,fontWeight:800,color:"var(--tx)"}}>Insumos — {amb.nome||"?"}</h2><p style={{fontSize:11,color:"var(--rd)",fontWeight:700,marginTop:2}}>⚠ Dados internos — NÃO vão na proposta</p></div>
-              <button onClick={()=>setInsModal(null)} style={{background:"none",border:"none",color:"var(--tx3)"}}><I.X/></button>
-            </div>
-            <div style={{display:"grid",gridTemplateColumns:"2fr 70px 110px 110px 30px",gap:6,padding:"6px 0",borderBottom:"1.5px solid var(--bd)"}}>
-              {["Insumo","Qtd","Vl.Unit","Subtotal",""].map(h=><span key={h} style={{fontSize:9,fontWeight:800,textTransform:"uppercase",letterSpacing:".6px",color:"var(--tx3)"}}>{h}</span>)}
-            </div>
-            {amb.insumos.map(ins=><div key={ins.id} style={{display:"grid",gridTemplateColumns:"2fr 70px 110px 110px 30px",gap:6,padding:"5px 0",alignItems:"center",borderBottom:"1.5px solid var(--bd)"}}>
-              <BlurInput value={ins.nome} onCommit={v=>updIns(orc.id,amb.id,ins.id,{nome:v})} placeholder="Material" style={{width:"100%",padding:"7px 9px",borderRadius:8,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:12,fontWeight:500,outline:"none"}}/>
-              <BlurInput type="number" value={ins.qtd} onCommit={v=>updIns(orc.id,amb.id,ins.id,{qtd:Math.max(0,+v)})} style={{width:"100%",padding:"7px",borderRadius:8,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:12,outline:"none",textAlign:"center"}}/>
-              <BlurInput type="number" value={ins.vu} onCommit={v=>updIns(orc.id,amb.id,ins.id,{vu:Math.max(0,+v)})} step="0.01" style={{width:"100%",padding:"7px",borderRadius:8,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:12,outline:"none"}}/>
-              <span style={{fontSize:12,fontWeight:700,color:"var(--tx)"}}>{R$(ins.qtd*ins.vu)}</span>
-              <button onClick={()=>delIns(orc.id,amb.id,ins.id)} style={{background:"none",border:"none",color:"var(--rd)",padding:2}}><I.Trash/></button>
-            </div>)}
-            <div style={{display:"flex",gap:6,marginTop:8}}>
-              <Btn v="ghost" small onClick={()=>addIns(orc.id,amb.id)}><I.Plus/> Insumo</Btn>
-              <Btn v="ghost" small onClick={()=>setCatMode(catMode?null:"estoque")}><I.Layers/> Catálogo</Btn>
-            </div>
-            {catMode&&<div style={{background:"var(--bg)",borderRadius:"var(--r)",border:"1.5px dashed var(--bd)",marginTop:8,overflow:"hidden"}}>
-              <div style={{display:"flex",borderBottom:"1.5px solid var(--bd)"}}>
-                {["estoque","biblioteca"].map(t=><button key={t} onClick={()=>setCatMode(t)} style={{flex:1,padding:"7px 0",background:catMode===t?"var(--prib)":"transparent",color:catMode===t?"var(--pri)":"var(--tx3)",fontSize:11,fontWeight:700,border:"none",borderBottom:catMode===t?"2px solid var(--pri)":"2px solid transparent",cursor:"pointer"}}>{t==="estoque"?"📦 Estoque":"📚 Minha Biblioteca"}</button>)}
+        {insModal&&orc.ambientes.find(a=>a.id===insModal)&&(()=>{
+          const amb=orc.ambientes.find(a=>a.id===insModal);
+          const getBibQty=b=>amb.insumos.find(i=>i.bibId===b.id||(!i.bibId&&i.nome===b.nome))?.qtd||0;
+          const setBibQty=(b,raw)=>{
+            const q=Math.max(0,+raw||0);
+            updOrc(orc.id,o=>{const mk=o.markup||MARKUP;return{...o,ambientes:o.ambientes.map(a=>{if(a.id!==amb.id)return a;let ins=a.insumos.filter(i=>!(i.bibId===b.id||(!i.bibId&&i.nome===b.nome)));if(q>0)ins=[...ins,{id:uid(),nome:b.nome,qtd:q,vu:b.custo,bibId:b.id}];const vi=ins.reduce((s,i)=>s+i.qtd*i.vu,0);return{...a,insumos:ins,vi,valorTotal:vi*mk};})};});
+          };
+          const manualIns=amb.insumos.filter(i=>!i.bibId);
+          return(
+            <Modal onClose={()=>setInsModal(null)} wide>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+                <div><h2 style={{fontSize:16,fontWeight:800,color:"var(--tx)"}}>Insumos — {amb.nome||"?"}</h2><p style={{fontSize:11,color:"var(--rd)",fontWeight:700,marginTop:2}}>⚠ Dados internos — NÃO vão na proposta</p></div>
+                <button onClick={()=>setInsModal(null)} style={{background:"none",border:"none",color:"var(--tx3)"}}><I.X/></button>
               </div>
-              {catMode==="estoque"&&<div style={{padding:8,maxHeight:160,overflowY:"auto"}}>
-                {estoque.map(e=><div key={e.id} onClick={()=>{addInsFromEst(orc.id,amb.id,e);showToast(`${e.nome} adicionado!`)}} className="hr" style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 4px",borderBottom:"1px solid var(--bd)",fontSize:11,cursor:"pointer"}}>
-                  <span style={{fontWeight:600,color:"var(--tx)"}}>{e.nome} <span style={{color:"var(--tx3)"}}>({e.un})</span></span>
-                  <span style={{color:"var(--pri)",fontWeight:700}}>{R$(e.custo)}</span>
-                </div>)}
-                {estoque.length===0&&<span style={{fontSize:11,color:"var(--tx3)",display:"block",padding:"8px 4px"}}>Nenhum item no estoque</span>}
-              </div>}
-              {catMode==="biblioteca"&&<div style={{padding:8}}>
-                <div style={{maxHeight:140,overflowY:"auto"}}>
-                  {biblioteca.map(b=><div key={b.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"5px 4px",borderBottom:"1px solid var(--bd)",fontSize:11}}>
-                    <div onClick={()=>{addInsFromBib(orc.id,amb.id,b);showToast(`${b.nome} adicionado!`)}} className="hr" style={{flex:1,cursor:"pointer",borderRadius:4,padding:"2px 4px"}}>
-                      <span style={{fontWeight:600,color:"var(--tx)"}}>{b.nome}</span>
-                      {b.un&&<span style={{color:"var(--tx3)",marginLeft:4}}>({b.un})</span>}
-                      <span style={{color:"var(--pri)",fontWeight:700,marginLeft:8}}>{R$(b.custo)}</span>
+
+              {/* ── BIBLIOTECA: grade com qty direta ── */}
+              <div style={{fontSize:10,fontWeight:800,color:"var(--tx3)",textTransform:"uppercase",letterSpacing:".7px",marginBottom:6}}>📚 Biblioteca — coloque as quantidades</div>
+              {biblioteca.length===0
+                ?<div style={{padding:"12px 14px",background:"var(--amb)",borderRadius:"var(--r)",border:"1.5px dashed var(--bd)",fontSize:12,color:"var(--tx3)",marginBottom:14}}>Biblioteca vazia — cadastre insumos na aba <strong>Estoque → Biblioteca</strong> primeiro.</div>
+                :<div style={{border:"1.5px solid var(--bd)",borderRadius:"var(--r)",overflow:"hidden",marginBottom:14}}>
+                  <div style={{display:"grid",gridTemplateColumns:"2fr 55px 100px 80px 90px",background:"var(--bg)",padding:"7px 12px",borderBottom:"1.5px solid var(--bd)"}}>
+                    {["Insumo","Un.","Custo un.","Qtd","Subtotal"].map(h=><span key={h} style={{fontSize:9,fontWeight:800,textTransform:"uppercase",letterSpacing:".6px",color:"var(--tx3)"}}>{h}</span>)}
+                  </div>
+                  {biblioteca.map(b=>{const q=getBibQty(b);return(
+                    <div key={b.id} style={{display:"grid",gridTemplateColumns:"2fr 55px 100px 80px 90px",padding:"8px 12px",borderBottom:"1px solid var(--bd)",alignItems:"center",background:q>0?"var(--prib)":"transparent",transition:"background .15s"}}>
+                      <span style={{fontSize:12,fontWeight:q>0?700:500,color:q>0?"var(--pri)":"var(--tx)"}}>{b.nome}</span>
+                      <span style={{fontSize:11,color:"var(--tx3)"}}>{b.un||"—"}</span>
+                      <span style={{fontSize:11,color:"var(--tx2)"}}>{R$(b.custo)}</span>
+                      <BlurInput type="number" value={q||""} onCommit={v=>setBibQty(b,v)} placeholder="0" style={{width:"100%",padding:"5px 6px",borderRadius:7,border:`1.5px solid ${q>0?"var(--pri)":"var(--bd)"}`,background:"var(--sf)",color:"var(--tx)",fontSize:13,fontWeight:q>0?700:400,outline:"none",textAlign:"center"}}/>
+                      <span style={{fontSize:12,fontWeight:700,color:q>0?"var(--pri)":"var(--tx3)",textAlign:"right",paddingRight:4}}>{q>0?R$(q*b.custo):"—"}</span>
                     </div>
-                    <div style={{display:"flex",gap:3,marginLeft:6}}>
-                      <button onClick={()=>setBibForm({...b})} style={{background:"none",border:"none",color:"var(--tx3)",padding:2,cursor:"pointer"}}><I.Edit/></button>
-                      <button onClick={()=>{setBiblioteca(p=>p.filter(x=>x.id!==b.id));showToast("Removido","red")}} style={{background:"none",border:"none",color:"var(--rd)",padding:2,cursor:"pointer"}}><I.Trash/></button>
-                    </div>
-                  </div>)}
-                  {biblioteca.length===0&&<span style={{fontSize:11,color:"var(--tx3)",display:"block",padding:"8px 4px"}}>Biblioteca vazia. Adicione seus insumos frequentes.</span>}
+                  );})}
                 </div>
-                {bibForm!==null&&<div style={{borderTop:"1.5px solid var(--bd)",padding:"8px 4px",display:"flex",gap:5,alignItems:"flex-end",flexWrap:"wrap"}}>
-                  <div><label style={{fontSize:9,color:"var(--tx3)",display:"block",marginBottom:2}}>Nome</label><input value={bibForm.nome||""} onChange={e=>setBibForm(f=>({...f,nome:e.target.value}))} placeholder="Ex: MDF 15mm" style={{padding:"5px 8px",borderRadius:6,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:11,outline:"none",width:140}}/></div>
-                  <div><label style={{fontSize:9,color:"var(--tx3)",display:"block",marginBottom:2}}>Un.</label><input value={bibForm.un||""} onChange={e=>setBibForm(f=>({...f,un:e.target.value}))} placeholder="un" style={{padding:"5px 8px",borderRadius:6,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:11,outline:"none",width:48}}/></div>
-                  <div><label style={{fontSize:9,color:"var(--tx3)",display:"block",marginBottom:2}}>Custo R$</label><input type="number" value={bibForm.custo||0} onChange={e=>setBibForm(f=>({...f,custo:+e.target.value}))} step="0.01" style={{padding:"5px 8px",borderRadius:6,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:11,outline:"none",width:78}}/></div>
-                  <Btn small onClick={()=>{if(!bibForm.nome?.trim())return showToast("Nome!","red");if(bibForm.id)setBiblioteca(p=>p.map(x=>x.id===bibForm.id?{...x,...bibForm}:x));else setBiblioteca(p=>[...p,{...bibForm,id:uid()}]);setBibForm(null);showToast("Salvo!")}}><I.Check/></Btn>
-                  <Btn v="ghost" small onClick={()=>setBibForm(null)}>✕</Btn>
-                </div>}
-                {bibForm===null&&<button onClick={()=>setBibForm({nome:"",un:"un",custo:0})} style={{display:"block",width:"100%",padding:"6px 0",background:"none",border:"none",borderTop:"1.5px solid var(--bd)",color:"var(--pri)",fontSize:11,fontWeight:700,cursor:"pointer",marginTop:4}}><I.Plus/> Novo item na biblioteca</button>}
-              </div>}
-            </div>}
-            <div style={{background:"var(--bg)",borderRadius:"var(--r)",padding:"14px 16px",marginTop:14,border:"1.5px solid var(--bd)"}}>
-              <div style={{display:"flex",justifyContent:"space-between",fontSize:12,fontWeight:600,marginBottom:6,color:"var(--tx2)"}}><span>Total Insumos</span><span>{R$(amb.vi)}</span></div>
-              <div style={{display:"flex",justifyContent:"space-between",fontSize:12,fontWeight:600,marginBottom:6,color:"var(--tx2)"}}><span>Markup</span><span style={{color:"var(--pri)"}}>× {orc.markup||MARKUP}</span></div>
-              <div style={{borderTop:"1.5px solid var(--bd)",paddingTop:8,display:"flex",justifyContent:"space-between",fontWeight:800,fontSize:16}}><span style={{color:"var(--tx)"}}>Final Ambiente</span><span style={{color:"var(--pri)"}}>{R$(amb.valorTotal)}</span></div>
-            </div>
-            <div style={{textAlign:"right",marginTop:12}}><Btn onClick={()=>setInsModal(null)}><I.Check/> OK</Btn></div>
-          </Modal>
-        )})()}
+              }
+
+              {/* ── ITENS MANUAIS (não vinculados à biblioteca) ── */}
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
+                <span style={{fontSize:10,fontWeight:800,color:"var(--tx3)",textTransform:"uppercase",letterSpacing:".7px"}}>✏ Itens manuais</span>
+                <Btn v="ghost" small onClick={()=>addIns(orc.id,amb.id)}><I.Plus/> Adicionar</Btn>
+              </div>
+              {manualIns.length>0&&<>
+                <div style={{display:"grid",gridTemplateColumns:"2fr 70px 110px 110px 30px",gap:6,padding:"6px 0",borderBottom:"1.5px solid var(--bd)"}}>
+                  {["Insumo","Qtd","Vl.Unit","Subtotal",""].map(h=><span key={h} style={{fontSize:9,fontWeight:800,textTransform:"uppercase",letterSpacing:".6px",color:"var(--tx3)"}}>{h}</span>)}
+                </div>
+                {manualIns.map(ins=><div key={ins.id} style={{display:"grid",gridTemplateColumns:"2fr 70px 110px 110px 30px",gap:6,padding:"5px 0",alignItems:"center",borderBottom:"1.5px solid var(--bd)"}}>
+                  <BlurInput value={ins.nome} onCommit={v=>updIns(orc.id,amb.id,ins.id,{nome:v})} placeholder="Material" style={{width:"100%",padding:"7px 9px",borderRadius:8,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:12,fontWeight:500,outline:"none"}}/>
+                  <BlurInput type="number" value={ins.qtd} onCommit={v=>updIns(orc.id,amb.id,ins.id,{qtd:Math.max(0,+v)})} style={{width:"100%",padding:"7px",borderRadius:8,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:12,outline:"none",textAlign:"center"}}/>
+                  <BlurInput type="number" value={ins.vu} onCommit={v=>updIns(orc.id,amb.id,ins.id,{vu:Math.max(0,+v)})} step="0.01" style={{width:"100%",padding:"7px",borderRadius:8,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:12,outline:"none"}}/>
+                  <span style={{fontSize:12,fontWeight:700,color:"var(--tx)"}}>{R$(ins.qtd*ins.vu)}</span>
+                  <button onClick={()=>delIns(orc.id,amb.id,ins.id)} style={{background:"none",border:"none",color:"var(--rd)",padding:2}}><I.Trash/></button>
+                </div>)}
+              </>}
+              {manualIns.length===0&&<div style={{fontSize:11,color:"var(--tx3)",padding:"6px 0 10px",fontStyle:"italic"}}>Nenhum item manual adicionado.</div>}
+
+              {/* ── Total ── */}
+              <div style={{background:"var(--bg)",borderRadius:"var(--r)",padding:"14px 16px",marginTop:14,border:"1.5px solid var(--bd)"}}>
+                <div style={{display:"flex",justifyContent:"space-between",fontSize:12,fontWeight:600,marginBottom:6,color:"var(--tx2)"}}><span>Total Insumos</span><span>{R$(amb.vi)}</span></div>
+                <div style={{display:"flex",justifyContent:"space-between",fontSize:12,fontWeight:600,marginBottom:6,color:"var(--tx2)"}}><span>Markup</span><span style={{color:"var(--pri)"}}>× {orc.markup||MARKUP}</span></div>
+                <div style={{borderTop:"1.5px solid var(--bd)",paddingTop:8,display:"flex",justifyContent:"space-between",fontWeight:800,fontSize:16}}><span style={{color:"var(--tx)"}}>Final Ambiente</span><span style={{color:"var(--pri)"}}>{R$(amb.valorTotal)}</span></div>
+              </div>
+              <div style={{textAlign:"right",marginTop:12}}><Btn onClick={()=>setInsModal(null)}><I.Check/> OK</Btn></div>
+            </Modal>
+          );
+        })()}
       </div>
     )}
     return(<div style={{animation:"fadeIn .3s"}}><SH title="Orçamentos" sub={`${orcamentos.length} total`} right={<Btn onClick={()=>setModal({t:"selCli"})}><I.Plus/> Novo</Btn>}/>

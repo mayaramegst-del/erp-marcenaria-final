@@ -547,6 +547,65 @@ function ModalPDF({o,empresa,getCli,setModal,totalOrcFinal,totalOrc}){
   </>);
 }
 
+const FORMAS=[{v:"pix",l:"PIX"},{v:"cartao_cred",l:"Cartão Crédito"},{v:"cartao_deb",l:"Cartão Débito"},{v:"dinheiro",l:"Dinheiro"},{v:"boleto",l:"Boleto"},{v:"transferencia",l:"Transferência"}];
+const FORMAS_LAB=Object.fromEntries(FORMAS.map(f=>[f.v,f.l]));
+const FORMA_CLR={pix:"blue",cartao_cred:"purple",cartao_deb:"pri",dinheiro:"green",boleto:"amber",transferencia:"blue"};
+
+function ModalNovoRec({clientes,setModal,setRecebimentos,showToast}){
+  const [f,setF]=useState({clienteId:"",nome:"",valorTotal:0,numParc:1,vencInicial:hojeISO(),obs:""});
+  const u=(k,v)=>setF(p=>({...p,[k]:v}));
+  return(<><h2 style={{fontSize:16,fontWeight:800,marginBottom:16}}>Novo Recebimento</h2>
+    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+      <Field label="Selecionar Cliente" value={f.clienteId} onChange={v=>setF(p=>({...p,clienteId:v,nome:clientes.find(c=>c.id===v)?.nome||p.nome}))} options={[{v:"",l:"— Digitar nome —"},...clientes.map(c=>({v:c.id,l:c.nome}))]}/>
+      <Field label={f.clienteId?"Nome (do cadastro)":"Nome do Cliente"} value={f.clienteId?(clientes.find(c=>c.id===f.clienteId)?.nome||""):f.nome} onChange={v=>u("nome",v)} disabled={!!f.clienteId}/>
+    </div>
+    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10}}>
+      <Field label="Valor Total R$" type="number" value={f.valorTotal} onChange={v=>u("valorTotal",+v)}/>
+      <Field label="Nº Parcelas" type="number" value={f.numParc} onChange={v=>u("numParc",Math.max(1,+v))}/>
+      <Field label="1º Vencimento" type="date" value={f.vencInicial} onChange={v=>u("vencInicial",v)}/>
+    </div>
+    <Field label="Observação / Pedido" value={f.obs} onChange={v=>u("obs",v)} placeholder="Ex: PED-0001, Cozinha Ana..."/>
+    <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:8}}>
+      <Btn v="ghost" onClick={()=>setModal(null)}>Cancelar</Btn>
+      <Btn onClick={()=>{
+        const nome=f.clienteId?(clientes.find(c=>c.id===f.clienteId)?.nome||f.nome):f.nome;
+        if(!nome?.trim())return showToast("Nome!","red");
+        if(!f.valorTotal)return showToast("Informe o valor!","red");
+        const vp=+(f.valorTotal/f.numParc).toFixed(2);
+        const parcelas=Array.from({length:f.numParc},(_,i)=>{
+          let vd="";if(f.vencInicial){const d=new Date(f.vencInicial+"T12:00:00");d.setMonth(d.getMonth()+i);vd=d.toISOString().split("T")[0];}
+          return{id:uid(),num:i+1,valor:vp,venc:vd,pago:false,dataPago:"",formaPag:""};
+        });
+        setRecebimentos(prev=>[...prev,{id:uid(),clienteId:f.clienteId||"",cliente:nome.trim(),valorTotal:f.valorTotal,obs:f.obs,parcelas}]);
+        setModal(null);showToast("Recebimento criado!");
+      }}><I.Check/> Criar</Btn>
+    </div>
+  </>);
+}
+
+function ModalBaixaRec({modal,setModal,setRecebimentos,showToast}){
+  const {rec,parcela}=modal.d;
+  const [f,setF]=useState({dataPago:hojeISO(),formaPag:"pix",valor:parcela.valor});
+  return(<><h2 style={{fontSize:15,fontWeight:800,marginBottom:8}}>Dar Baixa — Parcela #{parcela.num}</h2>
+    <div style={{background:"var(--prib)",borderRadius:"var(--r)",padding:"10px 14px",marginBottom:14}}>
+      <div style={{fontWeight:800,fontSize:14,color:"var(--pri)"}}>{rec.cliente}</div>
+      {rec.obs&&<div style={{fontSize:11,color:"var(--tx3)",marginTop:2}}>{rec.obs}</div>}
+    </div>
+    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+      <Field label="Data do Pagamento" type="date" value={f.dataPago} onChange={v=>setF(p=>({...p,dataPago:v}))}/>
+      <Field label="Forma de Pagamento" value={f.formaPag} onChange={v=>setF(p=>({...p,formaPag:v}))} options={FORMAS}/>
+    </div>
+    <Field label="Valor Recebido R$" type="number" value={f.valor} onChange={v=>setF(p=>({...p,valor:+v}))}/>
+    <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:8}}>
+      <Btn v="ghost" onClick={()=>setModal(null)}>Cancelar</Btn>
+      <Btn v="success" onClick={()=>{
+        setRecebimentos(prev=>prev.map(r=>r.id!==rec.id?r:{...r,parcelas:r.parcelas.map(p=>p.id!==parcela.id?p:{...p,pago:true,dataPago:f.dataPago,formaPag:f.formaPag,valor:f.valor})}));
+        setModal(null);showToast("Baixa registrada!");
+      }}><I.Check/> Confirmar Baixa</Btn>
+    </div>
+  </>);
+}
+
 export default function ERP(){
   const [user,setUser]=useState(()=>{try{const u=localStorage.getItem('erpUser');return u?JSON.parse(u):{role:"admin",nome:"Admin",id:"admin"};}catch{return{role:"admin",nome:"Admin",id:"admin"};}});
   const [loginView,setLoginView]=useState(null);
@@ -574,6 +633,7 @@ export default function ERP(){
   const [dreAno,setDreAno]=useState(new Date().getFullYear());
   const [dbLoaded,setDbLoaded]=useState(false);
   const recNomeRef=useRef("");const recMesRef=useRef(hojeISO().slice(0,7));const [recAddingMes,setRecAddingMes]=useState(false);
+  const [recExpId,setRecExpId]=useState(null);
   const recorrentesRef=useRef(recorrentes);useEffect(()=>{recorrentesRef.current=recorrentes;},[recorrentes]);
   const [empresa,setEmpresa]=useState(()=>{try{return JSON.parse(localStorage.getItem('erpEmpresa'))||{nome:"Marcenaria",endereco:"",telefone:"",email:"",cnpj:"",logo:"",loginAdmin:"admin",senhaAdmin:"admin123"};}catch{return{nome:"Marcenaria",endereco:"",telefone:"",email:"",cnpj:"",logo:"",loginAdmin:"admin",senhaAdmin:"admin123"};}});
 
@@ -1298,103 +1358,109 @@ export default function ERP(){
 
   // RECEBIMENTOS PARCELADOS
   const PgRecebimentos=()=>{
-    // Estados locais com bug de remount → usar refs do ERP scope (recNomeRef, recMesRef, recAddingMes)
-    const allMeses=[...new Set(recebimentos.flatMap(r=>r.parcelas.map(p=>p.mes)))].sort();
-    const fmtMes=m=>{const[y,mo]=m.split("-");const ms=["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];return`${ms[+mo-1]}/${y.slice(2)}`;};
+    const updRec=(id,fn)=>setRecebimentos(prev=>prev.map(r=>r.id===id?fn(r):r));
+    const updParc=(rid,pid,d)=>updRec(rid,r=>({...r,parcelas:r.parcelas.map(p=>p.id===pid?{...p,...d}:p)}));
+    const addParc=(rid)=>updRec(rid,r=>({...r,parcelas:[...r.parcelas,{id:uid(),num:r.parcelas.length+1,valor:0,venc:"",pago:false,dataPago:"",formaPag:""}]}));
+    const delParc=(rid,pid)=>updRec(rid,r=>{const ps=r.parcelas.filter(p=>p.id!==pid).map((p,i)=>({...p,num:i+1}));return{...r,parcelas:ps};});
+    const redistribuir=(rid)=>updRec(rid,r=>{if(!r.parcelas.length)return r;const vp=+(r.valorTotal/r.parcelas.length).toFixed(2);return{...r,parcelas:r.parcelas.map(p=>({...p,valor:vp}))};});
     const totalGeral=recebimentos.reduce((s,r)=>s+r.valorTotal,0);
     const totalPago=recebimentos.reduce((s,r)=>s+r.parcelas.filter(p=>p.pago).reduce((ss,p)=>ss+p.valor,0),0);
-    const updRec=(id,fn)=>setRecebimentos(prev=>prev.map(r=>r.id===id?fn(r):r));
-    const setParc=(rid,mes,d)=>updRec(rid,r=>({...r,parcelas:r.parcelas.map(p=>p.mes===mes?{...p,...d}:p)}));
-    const togglePago=(rid,mes)=>updRec(rid,r=>({...r,parcelas:r.parcelas.map(p=>p.mes!==mes?p:{...p,pago:!p.pago,dataPago:!p.pago?hoje():""})}));
-    const addCliente=()=>{
-      const nome=recNomeRef.current;
-      if(!nome?.trim())return showToast("Digite o nome do cliente","red");
-      const parcelas=allMeses.map(m=>({id:uid(),mes:m,valor:0,pago:false,dataPago:""}));
-      setRecebimentos(prev=>[...prev,{id:uid(),cliente:nome.trim(),valorTotal:0,parcelas}]);
-      recNomeRef.current="";
-    };
-    const addMesCol=()=>{
-      const mes=recMesRef.current;
-      if(!mes)return;
-      setRecebimentos(prev=>prev.map(r=>{
-        if(r.parcelas.find(p=>p.mes===mes))return r;
-        return{...r,parcelas:[...r.parcelas,{id:uid(),mes,valor:0,pago:false,dataPago:""}]};
-      }));
-      setRecAddingMes(false);
-    };
-    const delMesCol=mes=>setRecebimentos(prev=>prev.map(r=>({...r,parcelas:r.parcelas.filter(p=>p.mes!==mes)})));
-    const thST={padding:"7px 8px",background:"var(--bg)",fontWeight:800,fontSize:9,textTransform:"uppercase",letterSpacing:".5px",color:"var(--tx3)",borderBottom:"1.5px solid var(--bd)",whiteSpace:"nowrap",textAlign:"left"};
-    const tdST={padding:"5px 8px",borderBottom:"1px solid var(--bd)",fontSize:12,verticalAlign:"middle"};
-    const inpST={width:"100%",padding:"4px 6px",borderRadius:6,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:11,outline:"none",textAlign:"right"};
+    const vencAtrasado=p=>p.venc&&p.venc<hojeISO()&&!p.pago;
     return(<div style={{animation:"fadeIn .3s"}}>
-      <SH title="Recebimentos Parcelados" sub={`${recebimentos.length} clientes`} right={
-        <div style={{display:"flex",gap:8,alignItems:"center"}}>
-          {recAddingMes
-            ?<><input type="month" defaultValue={recMesRef.current} onChange={e=>{recMesRef.current=e.target.value;}} style={{padding:"7px 10px",borderRadius:8,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:12,outline:"none"}}/><Btn small onClick={addMesCol}><I.Check/> OK</Btn><Btn v="ghost" small onClick={()=>setRecAddingMes(false)}>✕</Btn></>
-            :<Btn v="secondary" small onClick={()=>setRecAddingMes(true)}><I.Plus/> Mês</Btn>}
-        </div>
-      }/>
+      <SH title="Recebimentos" sub={`${recebimentos.length} clientes`} right={<Btn onClick={()=>setModal({t:"novoRec"})}><I.Plus/> Novo Recebimento</Btn>}/>
       <div style={{display:"flex",gap:12,marginBottom:18,flexWrap:"wrap"}}>
         <KPI label="Total Contratado" value={R$(totalGeral)} icon={<I.Dollar/>} color="pri"/>
         <KPI label="Total Recebido" value={R$(totalPago)} icon={<I.Check/>} color="gn"/>
-        <KPI label="Saldo a Receber" value={R$(totalGeral-totalPago)} icon={<I.Clock/>} color="rd"/>
+        <KPI label="Pendente" value={R$(totalGeral-totalPago)} icon={<I.Clock/>} color="rd"/>
+        <KPI label="Em Atraso" value={R$(recebimentos.reduce((s,r)=>s+r.parcelas.filter(vencAtrasado).reduce((ss,p)=>ss+p.valor,0),0))} icon={<I.Zap/>} color="am"/>
       </div>
-      <Card style={{overflowX:"auto"}}>
-        <table style={{width:"100%",borderCollapse:"collapse",minWidth:500}}>
-          <thead><tr>
-            <th style={{...thST,minWidth:160,position:"sticky",left:0,zIndex:2,background:"var(--bg)"}}>Cliente</th>
-            <th style={{...thST,minWidth:100,textAlign:"right"}}>Total R$</th>
-            <th style={{...thST,minWidth:90,textAlign:"right",color:"var(--gn)"}}>Recebido</th>
-            <th style={{...thST,minWidth:90,textAlign:"right",color:"var(--rd)"}}>Saldo</th>
-            {allMeses.map(m=><th key={m} style={{...thST,minWidth:110,textAlign:"center"}}>
-              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:4}}>
-                <span>{fmtMes(m)}</span>
-                <button onClick={()=>delMesCol(m)} title="Remover mês" style={{background:"none",border:"none",color:"var(--rd)",cursor:"pointer",fontSize:9,padding:0,lineHeight:1}}>✕</button>
+      {recebimentos.map(r=>{
+        const pago=r.parcelas.filter(p=>p.pago).reduce((s,p)=>s+p.valor,0);
+        const pendente=r.valorTotal-pago;
+        const pct=r.valorTotal>0?Math.min(100,(pago/r.valorTotal)*100):0;
+        const exp=recExpId===r.id;
+        const atrasadas=r.parcelas.filter(vencAtrasado).length;
+        const cli=getCli(r.clienteId);
+        return(<Card key={r.id} style={{marginBottom:10}}>
+          {/* HEADER CARD */}
+          <div onClick={()=>setRecExpId(exp?null:r.id)} style={{padding:"14px 20px",cursor:"pointer",display:"flex",justifyContent:"space-between",alignItems:"center",userSelect:"none"}}>
+            <div style={{display:"flex",alignItems:"center",gap:12}}>
+              <div style={{width:40,height:40,borderRadius:12,background:"linear-gradient(135deg,var(--pri),var(--pp))",display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontWeight:800,fontSize:16,flexShrink:0}}>
+                {r.cliente?.[0]?.toUpperCase()||"?"}
               </div>
-            </th>)}
-            <th style={{...thST,width:28}}></th>
-          </tr></thead>
-          <tbody>
-            {recebimentos.map(r=>{
-              const pagoPorMes=r.parcelas.filter(p=>p.pago).reduce((s,p)=>s+p.valor,0);
-              const saldo=r.valorTotal-pagoPorMes;
-              return(<tr key={r.id}>
-                <td style={{...tdST,position:"sticky",left:0,background:"var(--cd)",zIndex:1,minWidth:160}}>
-                  <BlurInput value={r.cliente} onCommit={v=>updRec(r.id,x=>({...x,cliente:v}))} style={{width:"100%",padding:"4px 6px",borderRadius:6,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:12,fontWeight:600,outline:"none"}}/>
-                </td>
-                <td style={{...tdST,textAlign:"right"}}>
-                  <BlurInput type="number" value={r.valorTotal} onCommit={v=>updRec(r.id,x=>({...x,valorTotal:+v}))} step="0.01" style={{...inpST,width:90}}/>
-                </td>
-                <td style={{...tdST,textAlign:"right",fontWeight:700,color:"var(--gn)"}}>{R$(pagoPorMes)}</td>
-                <td style={{...tdST,textAlign:"right",fontWeight:700,color:saldo>0?"var(--rd)":"var(--gn)"}}>{R$(saldo)}</td>
-                {allMeses.map(m=>{const parc=r.parcelas.find(p=>p.mes===m);return(<td key={m} style={{...tdST,background:parc?.pago?"var(--gnb)":parc?.valor>0?"rgba(59,130,246,.06)":"transparent",textAlign:"center",padding:"4px 6px"}}>
-                  {parc?<div style={{display:"flex",flexDirection:"column",gap:2,alignItems:"center"}}>
-                    <BlurInput type="number" value={parc.valor} onCommit={v=>setParc(r.id,m,{valor:+v})} step="0.01" style={{width:80,padding:"4px 6px",borderRadius:6,border:"1.5px solid "+(parc.pago?"var(--gn)":"var(--bd)"),background:"var(--sf)",color:parc.pago?"var(--gn)":"var(--tx)",fontSize:11,fontWeight:700,outline:"none",textAlign:"right"}}/>
-                    <button onClick={()=>togglePago(r.id,m)} style={{fontSize:9,fontWeight:700,background:parc.pago?"var(--gnb)":"var(--blb)",color:parc.pago?"var(--gn)":"var(--bl)",border:"none",borderRadius:4,padding:"2px 6px",cursor:"pointer",whiteSpace:"nowrap"}}>{parc.pago?`✓ ${parc.dataPago}`:"Marcar pago"}</button>
-                  </div>:<span style={{fontSize:10,color:"var(--tx3)"}}>—</span>}
-                </td>);})}
-                <td style={{...tdST,textAlign:"center"}}><button onClick={()=>setRecebimentos(prev=>prev.filter(x=>x.id!==r.id))} title="Remover cliente" style={{background:"none",border:"none",color:"var(--rd)",cursor:"pointer",padding:2}}><I.Trash/></button></td>
-              </tr>);
+              <div>
+                <div style={{fontWeight:800,fontSize:14,color:"var(--tx)"}}>{r.cliente}</div>
+                <div style={{fontSize:11,color:"var(--tx3)",fontWeight:600,marginTop:1}}>
+                  {r.obs&&<span>{r.obs} • </span>}
+                  {r.parcelas.length} parcela{r.parcelas.length!==1?"s":""}
+                  {atrasadas>0&&<span style={{color:"var(--rd)",fontWeight:800}}> • {atrasadas} atrasada{atrasadas>1?"s":""}</span>}
+                  {cli&&<span> • <button onClick={e=>{e.stopPropagation();setTab("clientes")}} style={{background:"none",border:"none",color:"var(--pri)",fontSize:11,fontWeight:700,cursor:"pointer",padding:0}}>ver cadastro</button></span>}
+                </div>
+              </div>
+            </div>
+            <div style={{display:"flex",gap:20,alignItems:"center"}}>
+              <div style={{textAlign:"right"}}><div style={{fontSize:9,color:"var(--tx3)",fontWeight:700,textTransform:"uppercase"}}>Total</div><div style={{fontWeight:800,fontSize:15,color:"var(--tx)"}}>{R$(r.valorTotal)}</div></div>
+              <div style={{textAlign:"right"}}><div style={{fontSize:9,color:"var(--tx3)",fontWeight:700,textTransform:"uppercase"}}>Recebido</div><div style={{fontWeight:800,fontSize:15,color:"var(--gn)"}}>{R$(pago)}</div></div>
+              <div style={{textAlign:"right"}}><div style={{fontSize:9,color:"var(--tx3)",fontWeight:700,textTransform:"uppercase"}}>Pendente</div><div style={{fontWeight:800,fontSize:15,color:pendente>0?"var(--rd)":"var(--gn)"}}>{R$(pendente)}</div></div>
+              <div style={{display:"flex",gap:4,alignItems:"center"}}>
+                <div style={{width:36,height:36,borderRadius:10,background:"var(--prib)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:800,color:"var(--pri)"}}>{pct.toFixed(0)}%</div>
+                <I.Chev d={exp?"up":"down"}/>
+              </div>
+            </div>
+          </div>
+          {/* BARRA PROGRESSO */}
+          <div style={{height:3,background:"var(--bg)",marginBottom:exp?0:undefined}}>
+            <div style={{height:"100%",width:`${pct}%`,background:"linear-gradient(90deg,#10b981,#3b82f6)",borderRadius:3,transition:"width .5s"}}/>
+          </div>
+          {/* PARCELAS EXPANDIDAS */}
+          {exp&&<div style={{padding:"14px 20px"}}>
+            <div style={{display:"flex",gap:8,marginBottom:12,justifyContent:"space-between",alignItems:"center",flexWrap:"wrap"}}>
+              <div style={{display:"flex",gap:6}}>
+                <Btn v="ghost" small onClick={()=>addParc(r.id)}><I.Plus/> Parcela</Btn>
+                <Btn v="ghost" small onClick={()=>redistribuir(r.id)}>⚖ Redistribuir</Btn>
+              </div>
+              <div style={{display:"flex",gap:8,alignItems:"center"}}>
+                <span style={{fontSize:11,color:"var(--tx3)",fontWeight:700}}>Total R$:</span>
+                <BlurInput type="number" value={r.valorTotal} onCommit={v=>updRec(r.id,x=>({...x,valorTotal:+v}))} step="0.01" style={{width:110,padding:"5px 8px",borderRadius:8,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:12,fontWeight:700,outline:"none"}}/>
+                <button onClick={()=>{setRecebimentos(p=>p.filter(x=>x.id!==r.id));showToast("Removido","red")}} style={{background:"none",border:"none",color:"var(--rd)",padding:4,cursor:"pointer"}}><I.Trash/></button>
+              </div>
+            </div>
+            {/* GRID PARCELAS */}
+            <div style={{display:"grid",gridTemplateColumns:"38px 110px 110px 90px 130px 80px",gap:6,padding:"5px 8px",borderBottom:"1.5px solid var(--bd)",marginBottom:4}}>
+              {["#","Vencimento","Valor R$","Status","Forma Pag.","Ação"].map(h=><span key={h} style={{fontSize:9,fontWeight:800,textTransform:"uppercase",color:"var(--tx3)",letterSpacing:".5px"}}>{h}</span>)}
+            </div>
+            {r.parcelas.map(p=>{
+              const atrasada=vencAtrasado(p);
+              const rowBg=p.pago?"rgba(16,185,129,.05)":atrasada?"rgba(239,68,68,.04)":"transparent";
+              return(<div key={p.id} style={{display:"grid",gridTemplateColumns:"38px 110px 110px 90px 130px 80px",gap:6,padding:"6px 8px",borderBottom:"1px solid var(--bd)",alignItems:"center",background:rowBg}}>
+                <span style={{fontWeight:800,fontSize:12,color:"var(--tx3)",textAlign:"center"}}>#{p.num}</span>
+                <BlurInput type="date" value={p.venc||""} onCommit={v=>updParc(r.id,p.id,{venc:v})} style={{width:"100%",padding:"4px 6px",borderRadius:6,border:`1.5px solid ${p.pago?"var(--gn)":atrasada?"var(--rd)":"var(--bd)"}`,background:"var(--sf)",color:"var(--tx)",fontSize:11,outline:"none"}}/>
+                <BlurInput type="number" value={p.valor} onCommit={v=>updParc(r.id,p.id,{valor:+v})} step="0.01" style={{width:"100%",padding:"4px 6px",borderRadius:6,border:"1.5px solid var(--bd)",background:p.pago?"var(--gnb)":"var(--sf)",color:p.pago?"var(--gn)":"var(--tx)",fontSize:12,fontWeight:700,outline:"none",textAlign:"right"}}/>
+                {p.pago?<Badge color="green">✓ Pago</Badge>:atrasada?<Badge color="red">Atrasado</Badge>:<Badge color="blue">Pendente</Badge>}
+                <div style={{display:"flex",alignItems:"center",gap:4}}>
+                  {p.formaPag&&<Badge color={FORMA_CLR[p.formaPag]||"pri"}>{FORMAS_LAB[p.formaPag]||p.formaPag}</Badge>}
+                  {p.pago&&<span style={{fontSize:10,color:"var(--tx3)",fontWeight:600}}>{p.dataPago}</span>}
+                  {!p.formaPag&&!p.pago&&<span style={{fontSize:10,color:"var(--tx3)"}}>—</span>}
+                </div>
+                <div style={{display:"flex",gap:3,alignItems:"center"}}>
+                  {!p.pago&&<Btn v="success" small onClick={()=>setModal({t:"baixaRec",d:{rec:r,parcela:p}})}>$ Baixar</Btn>}
+                  {p.pago&&<button onClick={()=>updParc(r.id,p.id,{pago:false,dataPago:"",formaPag:""})} title="Estornar" style={{background:"none",border:"none",color:"var(--tx3)",cursor:"pointer",fontSize:10,padding:2}}>↩</button>}
+                  <button onClick={()=>delParc(r.id,p.id)} style={{background:"none",border:"none",color:"var(--rd)",padding:2,cursor:"pointer"}}><I.Trash/></button>
+                </div>
+              </div>);
             })}
-            {allMeses.length>0&&<tr style={{background:"var(--prib)",fontWeight:800}}>
-              <td style={{...tdST,fontWeight:800,color:"var(--pri)",position:"sticky",left:0,background:"var(--prib)",zIndex:1}}>TOTAIS</td>
-              <td style={{...tdST,textAlign:"right",fontWeight:800}}>{R$(totalGeral)}</td>
-              <td style={{...tdST,textAlign:"right",color:"var(--gn)",fontWeight:800}}>{R$(totalPago)}</td>
-              <td style={{...tdST,textAlign:"right",color:"var(--rd)",fontWeight:800}}>{R$(totalGeral-totalPago)}</td>
-              {allMeses.map(m=>{const tv=recebimentos.reduce((s,r)=>{const p=r.parcelas.find(x=>x.mes===m);return s+(p?.valor||0);},0);const tp=recebimentos.reduce((s,r)=>{const p=r.parcelas.find(x=>x.mes===m);return s+(p?.pago?p.valor:0);},0);return(<td key={m} style={{...tdST,textAlign:"center",background:"var(--prib)"}}>
-                <div style={{fontWeight:800,fontSize:11,color:"var(--gn)"}}>{R$(tp)}</div>
-                {tv-tp>0&&<div style={{fontSize:9,color:"var(--rd)",fontWeight:600}}>{R$(tv-tp)} rest.</div>}
-              </td>);})}
-              <td style={tdST}></td>
-            </tr>}
-            {recebimentos.length===0&&<tr><td colSpan={5+allMeses.length} style={{padding:30,textAlign:"center",color:"var(--tx3)",fontSize:12,fontWeight:600}}>Nenhum cliente. Adicione abaixo.</td></tr>}
-          </tbody>
-        </table>
-      </Card>
-      <div style={{marginTop:12,display:"flex",gap:8,alignItems:"center"}}>
-        <input defaultValue={recNomeRef.current} onChange={e=>{recNomeRef.current=e.target.value;}} onKeyDown={e=>e.key==="Enter"&&addCliente()} placeholder="Nome do cliente..." style={{flex:1,padding:"9px 12px",borderRadius:8,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:12,outline:"none"}}/>
-        <Btn onClick={addCliente}><I.Plus/> Adicionar Cliente</Btn>
-      </div>
+            {r.parcelas.length===0&&<div style={{padding:16,textAlign:"center",color:"var(--tx3)",fontSize:12}}>Sem parcelas. Clique em "+ Parcela" para adicionar.</div>}
+            {/* RESUMO */}
+            <div style={{display:"flex",gap:20,marginTop:12,padding:"10px 12px",background:"var(--bg)",borderRadius:"var(--r)",flexWrap:"wrap"}}>
+              <span style={{fontSize:11,fontWeight:700,color:"var(--tx3)"}}>PAGAS: <span style={{color:"var(--gn)",fontWeight:800}}>{r.parcelas.filter(p=>p.pago).length}/{r.parcelas.length}</span></span>
+              <span style={{fontSize:11,fontWeight:700,color:"var(--tx3)"}}>RECEBIDO: <span style={{color:"var(--gn)",fontWeight:800}}>{R$(pago)}</span></span>
+              <span style={{fontSize:11,fontWeight:700,color:"var(--tx3)"}}>PENDENTE: <span style={{color:"var(--rd)",fontWeight:800}}>{R$(pendente)}</span></span>
+              {atrasadas>0&&<span style={{fontSize:11,fontWeight:800,color:"var(--rd)"}}>⚠ {atrasadas} parcela{atrasadas>1?"s":""} em atraso</span>}
+            </div>
+          </div>}
+        </Card>);
+      })}
+      {recebimentos.length===0&&<Card style={{padding:48,textAlign:"center"}}><div style={{fontSize:40,marginBottom:12}}>💰</div><p style={{color:"var(--tx3)",fontWeight:700,fontSize:14}}>Nenhum recebimento cadastrado</p><p style={{color:"var(--tx3)",fontSize:12,marginTop:4,marginBottom:16}}>Cadastre os planos de pagamento dos seus clientes</p><Btn onClick={()=>setModal({t:"novoRec"})}><I.Plus/> Novo Recebimento</Btn></Card>}
     </div>);
   };
 
@@ -1449,6 +1515,9 @@ export default function ERP(){
       {modal?.t==="detFin"&&<Modal onClose={()=>setModal(null)} wide><ModalDetFin f={modal.d} financeiro={financeiro} setModal={setModal} pagarParcela={pagarParcela} editParcela={editParcela} addParcela={addParcela} delParcela={delParcela} updFin={updFin} showToast={showToast}/></Modal>}
 
       {modal?.t==="newFin"&&<Modal onClose={()=>setModal(null)}><ModalNewFin setModal={setModal} setFinanceiro={setFinanceiro} showToast={showToast}/></Modal>}
+
+      {modal?.t==="novoRec"&&<Modal onClose={()=>setModal(null)}><ModalNovoRec clientes={clientes} setModal={setModal} setRecebimentos={setRecebimentos} showToast={showToast}/></Modal>}
+      {modal?.t==="baixaRec"&&<Modal onClose={()=>setModal(null)}><ModalBaixaRec modal={modal} setModal={setModal} setRecebimentos={setRecebimentos} showToast={showToast}/></Modal>}
 
       {/* TOAST */}
       {toast&&<div style={{position:"fixed",bottom:20,right:20,padding:"10px 18px",borderRadius:12,background:toast.type==="red"?"var(--rdb)":"var(--gnb)",color:toast.type==="red"?"var(--rd)":"var(--gn)",border:`1.5px solid ${toast.type==="red"?"rgba(239,68,68,.15)":"rgba(16,185,129,.15)"}`,fontSize:12,fontWeight:800,boxShadow:"var(--sh2)",animation:"scaleIn .2s",zIndex:9999,display:"flex",alignItems:"center",gap:6}}>{toast.type==="red"?<I.X/>:<I.Check/>}{toast.msg}</div>}

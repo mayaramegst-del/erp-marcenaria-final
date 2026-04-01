@@ -640,7 +640,7 @@ function ModalPDF({o,empresa,getCli,setModal,totalOrcFinal,totalOrc,totalOrcComN
     .svc-table tbody tr:last-child{border-bottom:none}
     .td-desc{padding:12px 8px 6px 0;vertical-align:top}
     .td-desc strong{font-size:13pt;font-weight:800;color:#111;display:block;margin-bottom:3px}
-    .td-desc p{font-size:11pt;color:#555;white-space:pre-line;line-height:1.6;margin:0}
+    .td-desc p{font-size:12.5pt;color:#555;white-space:pre-line;line-height:1.6;margin:0}
     .td-val{font-size:13pt;font-weight:800;color:#111;text-align:right;padding:12px 0;vertical-align:top;white-space:nowrap}
     /* condições */
     .cond-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:0;border:1px solid #e2e2e2;margin-top:18px}

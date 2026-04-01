@@ -636,7 +636,7 @@ function ModalPDF({o,empresa,getCli,setModal,totalOrcFinal,totalOrc,totalOrcComN
     .svc-table thead tr{border-bottom:2px solid ${D}}
     .svc-table thead th{font-size:10pt;font-weight:800;text-transform:uppercase;letter-spacing:1.2px;color:#888;padding:9px 8px 9px 0;text-align:left}
     .svc-table thead th.r{text-align:right;padding-right:0}
-    .svc-table tbody tr{border-bottom:1px solid #eeeeee}
+    .svc-table tbody tr{border-bottom:1px solid #eeeeee;page-break-inside:avoid;break-inside:avoid}
     .svc-table tbody tr:last-child{border-bottom:none}
     .td-desc{padding:12px 8px 6px 0;vertical-align:top}
     .td-desc strong{font-size:13pt;font-weight:800;color:#111;display:block;margin-bottom:3px}
@@ -778,14 +778,38 @@ function ModalPDF({o,empresa,getCli,setModal,totalOrcFinal,totalOrc,totalOrcComN
       const el=zoneRef.current;
       const prevMax=el.style.maxHeight,prevOv=el.style.overflowY;
       el.style.maxHeight='none';el.style.overflowY='visible';
+      // Captura posição dos ambientes (tr da tabela) antes de renderizar
+      const elRect=el.getBoundingClientRect();
+      const rowBounds=Array.from(el.querySelectorAll('.svc-table tbody tr')).map(row=>{
+        const r=row.getBoundingClientRect();
+        return{topPx:Math.round((r.top-elRect.top)*2),botPx:Math.round((r.bottom-elRect.top)*2)};
+      });
       const canvas=await html2canvas(el,{scale:2,useCORS:true,backgroundColor:'#fff',logging:false,scrollY:-window.scrollY});
       el.style.maxHeight=prevMax;el.style.overflowY=prevOv;
       const pdf=new jsPDF({orientation:'p',unit:'mm',format:'a4'});
       const pw=pdf.internal.pageSize.getWidth(),ph=pdf.internal.pageSize.getHeight();
-      const iw=pw,ih=canvas.height*(pw/canvas.width);
-      const img=canvas.toDataURL('image/jpeg',0.92);
-      if(ih<=ph){pdf.addImage(img,'JPEG',0,0,iw,ih);}
-      else{let y=0;while(y<ih){pdf.addImage(img,'JPEG',0,-y,iw,ih);y+=ph;if(y<ih)pdf.addPage();}}
+      const mx=8,my=8; // margens em mm
+      const cW=pw-mx*2,cH=ph-my*2; // área útil
+      const pxPerMm=canvas.width/cW;
+      const pageHpx=cH*pxPerMm; // altura de página em pixels do canvas
+      let pageStart=0,pageNum=0;
+      while(pageStart<canvas.height){
+        let pageEnd=Math.min(pageStart+pageHpx,canvas.height);
+        // Evita cortar dentro de um ambiente: move a quebra para antes da linha
+        if(pageEnd<canvas.height){
+          for(const rb of rowBounds){
+            if(rb.topPx<pageEnd&&rb.botPx>pageEnd){pageEnd=rb.topPx;break;}
+          }
+        }
+        const cropH=Math.round(pageEnd-pageStart);
+        if(cropH<=0){pageStart=Math.round(pageEnd)+1;continue;}
+        if(pageNum>0)pdf.addPage();
+        const off=document.createElement('canvas');
+        off.width=canvas.width;off.height=cropH;
+        off.getContext('2d').drawImage(canvas,0,pageStart,canvas.width,cropH,0,0,canvas.width,cropH);
+        pdf.addImage(off.toDataURL('image/jpeg',0.93),'JPEG',mx,my,cW,cropH/pxPerMm);
+        pageStart=Math.round(pageEnd);pageNum++;
+      }
       pdf.save(`${isOS?"OS":"ORC"}_${o.num}_${c?.nome||"cliente"}.pdf`.replace(/\s+/g,'_'));
     }finally{setDownloading(false);}
   };

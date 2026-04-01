@@ -977,13 +977,17 @@ function InstallPrompt(){
 /* ═══════════════════════════════════════════
    MARCENEIRO APP — TELA MOBILE
    ═══════════════════════════════════════════ */
-function MarceneiroApp({user,pedidos,setPedidos,clientes,financeiro,showToast,onLogout}){
+function MarceneiroApp({user,pedidos,setPedidos,clientes,financeiro,showToast,onRefresh,onLogout}){
   const [nav,setNav]=useState("pedidos");
   const [filtro,setFiltro]=useState("andamento");
   const [expandId,setExpandId]=useState(null);
   const [instPid,setInstPid]=useState(null);
   const [instData,setInstData]=useState("");
   const [instDias,setInstDias]=useState("");
+  const [refreshing,setRefreshing]=useState(false);
+  const doRefresh=async()=>{setRefreshing(true);await onRefresh?.();setRefreshing(false);showToast("Dados atualizados!");};
+  // Auto-refresh a cada 2 minutos
+  useEffect(()=>{const t=setInterval(()=>onRefresh?.(),120000);return()=>clearInterval(t);},[onRefresh]);
   const meusP=pedidos.filter(p=>p.marcId===user.id&&p.status!=="cancelado");
   const getCli=id=>clientes.find(c=>c.id===id);
   const getComFin=p=>financeiro?.find(f=>f.pedidoId===p.id&&f.marcId===user.id&&f.tipo==="pagar");
@@ -1016,7 +1020,10 @@ function MarceneiroApp({user,pedidos,setPedidos,clientes,financeiro,showToast,on
               <div style={{color:"rgba(255,255,255,.65)",fontSize:11,fontWeight:600}}>{user.nome}</div>
             </div>
           </div>
-          <button onClick={onLogout} style={{background:"rgba(255,255,255,.15)",border:"none",borderRadius:10,padding:"8px 14px",color:"#fff",fontSize:12,fontWeight:700,cursor:"pointer"}}>Sair</button>
+          <div style={{display:"flex",gap:8}}>
+            <button onClick={doRefresh} disabled={refreshing} style={{background:"rgba(255,255,255,.15)",border:"none",borderRadius:10,padding:"8px 12px",color:"#fff",fontSize:12,fontWeight:700,cursor:"pointer",opacity:refreshing?.6:1}}>{refreshing?"⏳":"🔄"}</button>
+            <button onClick={onLogout} style={{background:"rgba(255,255,255,.15)",border:"none",borderRadius:10,padding:"8px 14px",color:"#fff",fontSize:12,fontWeight:700,cursor:"pointer"}}>Sair</button>
+          </div>
         </div>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}>
           {kpis.map(k=>(
@@ -1415,51 +1422,45 @@ export default function ERP(){
     else{setSyncStatus("error");return{ok,fail};}
   },[getSnap,empresa]);
 
-  // Load from Supabase on mount — cloud é sempre fonte de verdade
-  useEffect(()=>{
-    const load=async()=>{
-      setSyncStatus("syncing");
-      const setters={clientes:setClientes,orcamentos:setOrcamentos,pedidos:setPedidos,
-        marceneiros:setMarceneiros,estoque:setEstoque,financeiro:setFinanceiro,
-        leads:setLeads,biblioteca:setBiblioteca,recebimentos:setRecebimentos,
-        recorrentes:setRecorrentes,vendedores:setVendedores};
-      const toUpload=[]; // chaves onde local tem dados mas cloud está vazio → faz upload
-      for(const k of DB_KEYS){
-        try{
-          const cloud=await dbGet(k);
-          const localRaw=localStorage.getItem('erp_'+k);
-          const local=localRaw?JSON.parse(localRaw):null;
-          const cloudLen=Array.isArray(cloud)?cloud.length:Object.keys(cloud||{}).length;
-          const localLen=Array.isArray(local)?local.length:Object.keys(local||{}).length;
-          if(cloud!==null&&cloudLen>0){
-            // Cloud tem dados → usa cloud (fonte de verdade)
-            setters[k](cloud);
-          } else if(localLen>0){
-            // Cloud vazio mas local tem dados → agenda upload imediato
-            toUpload.push([k,local]);
-          }
-        }catch(e){console.warn('[load] erro ao carregar',k,e);}
-      }
-      // Empresa: sempre merge, nunca substitui
+  // Load from Supabase — pode ser chamado no mount e no refresh do marceneiro
+  const loadFromCloud=useCallback(async(isInitial=false)=>{
+    setSyncStatus("syncing");
+    const setters={clientes:setClientes,orcamentos:setOrcamentos,pedidos:setPedidos,
+      marceneiros:setMarceneiros,estoque:setEstoque,financeiro:setFinanceiro,
+      leads:setLeads,biblioteca:setBiblioteca,recebimentos:setRecebimentos,
+      recorrentes:setRecorrentes,vendedores:setVendedores};
+    const toUpload=[];
+    for(const k of DB_KEYS){
       try{
-        const cloud=await dbGet('empresa');
-        if(cloud!==null) setEmpresa(cur=>({...EMPRESA_DEF,...cur,...cloud}));
-        else{const localE=JSON.parse(localStorage.getItem('erpEmpresa')||'null');if(localE)toUpload.push(['empresa',localE]);}
-      }catch(e){console.warn('[load] erro empresa',e);}
-      // Upload automático de dados locais que ainda não estão na nuvem
-      if(toUpload.length>0){
-        console.log('[sync] enviando dados locais para nuvem:',toUpload.map(e=>e[0]));
-        await dbSetMany(toUpload.filter(([k])=>k!=='empresa'));
-        const empEntry=toUpload.find(([k])=>k==='empresa');
-        if(empEntry)await dbSet('empresa',empEntry[1]);
-        showToast(`☁️ ${toUpload.length} chave(s) sincronizada(s) com a nuvem!`);
-      }
-      setDbLoaded(true);
-      setSyncStatus("ok");
-    };
-    load();
+        const cloud=await dbGet(k);
+        const localRaw=localStorage.getItem('erp_'+k);
+        const local=localRaw?JSON.parse(localRaw):null;
+        const cloudLen=Array.isArray(cloud)?cloud.length:Object.keys(cloud||{}).length;
+        const localLen=Array.isArray(local)?local.length:Object.keys(local||{}).length;
+        if(cloud!==null&&cloudLen>0){
+          setters[k](cloud);
+        } else if(isInitial&&localLen>0){
+          toUpload.push([k,local]);
+        }
+      }catch(e){console.warn('[load] erro ao carregar',k,e);}
+    }
+    try{
+      const cloud=await dbGet('empresa');
+      if(cloud!==null) setEmpresa(cur=>({...EMPRESA_DEF,...cur,...cloud}));
+      else if(isInitial){const localE=JSON.parse(localStorage.getItem('erpEmpresa')||'null');if(localE)toUpload.push(['empresa',localE]);}
+    }catch(e){console.warn('[load] erro empresa',e);}
+    if(toUpload.length>0){
+      await dbSetMany(toUpload.filter(([k])=>k!=='empresa'));
+      const empEntry=toUpload.find(([k])=>k==='empresa');
+      if(empEntry)await dbSet('empresa',empEntry[1]);
+      showToast(`☁️ ${toUpload.length} chave(s) sincronizada(s) com a nuvem!`);
+    }
+    setDbLoaded(true);
+    setSyncStatus("ok");
   // eslint-disable-next-line react-hooks/exhaustive-deps
   },[]);
+
+  useEffect(()=>{loadFromCloud(true);},[loadFromCloud]);
 
   // Auto-sync a cada mudança de estado
   useEffect(()=>{if(dbLoaded)syncCloud('clientes',clientes);},[clientes,dbLoaded]);
@@ -1685,6 +1686,7 @@ export default function ERP(){
       clientes={clientes}
       financeiro={financeiro}
       showToast={showToast}
+      onRefresh={()=>loadFromCloud(false)}
       onLogout={()=>{setUser(null);localStorage.removeItem('erpUser');setLoginView({l:"",s:""});}}
     />
   );

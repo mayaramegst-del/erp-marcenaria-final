@@ -27,6 +27,10 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+        skipWaiting: true,
+        clientsClaim: true,
+        // Supabase API calls NEVER cached - always fetch fresh
+        navigateFallback: null,
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
@@ -36,13 +40,10 @@ export default defineConfig({
               expiration: { maxEntries: 10, maxAgeSeconds: 31536000 },
             },
           },
+          // Supabase: NetworkOnly - NEVER cache API data
           {
             urlPattern: /^https:\/\/.*\.supabase\.co\/.*/i,
-            handler: 'NetworkFirst',
-            options: {
-              cacheName: 'supabase-cache',
-              expiration: { maxEntries: 50, maxAgeSeconds: 300 },
-            },
+            handler: 'NetworkOnly',
           },
         ],
       },

@@ -1423,18 +1423,20 @@ export default function ERP(){
         marceneiros:setMarceneiros,estoque:setEstoque,financeiro:setFinanceiro,
         leads:setLeads,biblioteca:setBiblioteca,recebimentos:setRecebimentos,
         recorrentes:setRecorrentes,vendedores:setVendedores};
+      const toUpload=[]; // chaves onde local tem dados mas cloud está vazio → faz upload
       for(const k of DB_KEYS){
         try{
           const cloud=await dbGet(k);
-          // Só aplica se cloud tem dados reais (array com itens OU objeto não-vazio)
-          // NUNCA sobrescreve local com array vazio da nuvem se local tem dados
-          if(cloud!==null){
-            const localRaw=localStorage.getItem('erp_'+k);
-            const local=localRaw?JSON.parse(localRaw):null;
-            const cloudLen=Array.isArray(cloud)?cloud.length:Object.keys(cloud||{}).length;
-            const localLen=Array.isArray(local)?local.length:Object.keys(local||{}).length;
-            // Usa cloud se tem dados, ou se local também está vazio
-            if(cloudLen>0||localLen===0) setters[k](cloud);
+          const localRaw=localStorage.getItem('erp_'+k);
+          const local=localRaw?JSON.parse(localRaw):null;
+          const cloudLen=Array.isArray(cloud)?cloud.length:Object.keys(cloud||{}).length;
+          const localLen=Array.isArray(local)?local.length:Object.keys(local||{}).length;
+          if(cloud!==null&&cloudLen>0){
+            // Cloud tem dados → usa cloud (fonte de verdade)
+            setters[k](cloud);
+          } else if(localLen>0){
+            // Cloud vazio mas local tem dados → agenda upload imediato
+            toUpload.push([k,local]);
           }
         }catch(e){console.warn('[load] erro ao carregar',k,e);}
       }
@@ -1442,7 +1444,16 @@ export default function ERP(){
       try{
         const cloud=await dbGet('empresa');
         if(cloud!==null) setEmpresa(cur=>({...EMPRESA_DEF,...cur,...cloud}));
+        else{const localE=JSON.parse(localStorage.getItem('erpEmpresa')||'null');if(localE)toUpload.push(['empresa',localE]);}
       }catch(e){console.warn('[load] erro empresa',e);}
+      // Upload automático de dados locais que ainda não estão na nuvem
+      if(toUpload.length>0){
+        console.log('[sync] enviando dados locais para nuvem:',toUpload.map(e=>e[0]));
+        await dbSetMany(toUpload.filter(([k])=>k!=='empresa'));
+        const empEntry=toUpload.find(([k])=>k==='empresa');
+        if(empEntry)await dbSet('empresa',empEntry[1]);
+        showToast(`☁️ ${toUpload.length} chave(s) sincronizada(s) com a nuvem!`);
+      }
       setDbLoaded(true);
       setSyncStatus("ok");
     };

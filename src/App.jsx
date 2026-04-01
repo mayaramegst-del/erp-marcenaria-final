@@ -258,8 +258,8 @@ function ModalEditLead({d,setModal,setLeads,showToast}){
   </>);
 }
 
-function ModalNewFin({setModal,setFinanceiro,showToast,cats:catsProp,fonteCartao}){
-  const [f,setF]=useState({tipo:"pagar",desc:"",valor:0,fornecedor:"",numParc:1,categoria:"Outros",venc:""});
+function ModalNewFin({setModal,setFinanceiro,setRecorrentes,showToast,cats:catsProp,fonteCartao}){
+  const [f,setF]=useState({tipo:"pagar",desc:"",valor:0,fornecedor:"",numParc:1,categoria:"Outros",venc:"",recorrente:false,diaRec:1});
   const eCats=catsProp||getEmpresaCats();
   const cats=eCats[f.tipo]||eCats.pagar;
   return(<><h2 style={{fontSize:16,fontWeight:800,marginBottom:16}}>Nova Conta</h2>
@@ -270,22 +270,45 @@ function ModalNewFin({setModal,setFinanceiro,showToast,cats:catsProp,fonteCartao
     <Field label="Descrição" value={f.desc} onChange={v=>setF(p=>({...p,desc:v}))} placeholder="Descrição da conta"/>
     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10}}>
       <Field label="Valor Total" type="number" value={f.valor} onChange={v=>setF(p=>({...p,valor:+v}))}/>
-      <Field label="Nº Parcelas" type="number" value={f.numParc} onChange={v=>setF(p=>({...p,numParc:Math.max(1,+v)}))}/>
-      <Field label="1º Vencimento" type="date" value={f.venc} onChange={v=>setF(p=>({...p,venc:v}))}/>
+      {!f.recorrente&&<Field label="Nº Parcelas" type="number" value={f.numParc} onChange={v=>setF(p=>({...p,numParc:Math.max(1,+v)}))}/>}
+      {!f.recorrente&&<Field label="1º Vencimento" type="date" value={f.venc} onChange={v=>setF(p=>({...p,venc:v}))}/>}
+      {f.recorrente&&<Field label="Dia do mês" type="number" value={f.diaRec} onChange={v=>setF(p=>({...p,diaRec:Math.min(28,Math.max(1,+v))}))}/>}
     </div>
     {f.tipo==="pagar"&&<Field label="Fornecedor/Credor" value={f.fornecedor} onChange={v=>setF(p=>({...p,fornecedor:v}))}/>}
+    {/* Toggle recorrente */}
+    <div onClick={()=>setF(p=>({...p,recorrente:!p.recorrente}))} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 14px",borderRadius:"var(--r)",border:"1.5px solid "+(f.recorrente?"var(--pp)":"var(--bd)"),background:f.recorrente?"var(--ppb)":"var(--bg)",cursor:"pointer",marginTop:4,userSelect:"none"}}>
+      <div style={{width:36,height:20,borderRadius:10,background:f.recorrente?"var(--pp)":"var(--bd2)",transition:"background .2s",position:"relative",flexShrink:0}}>
+        <div style={{position:"absolute",top:2,left:f.recorrente?18:2,width:16,height:16,borderRadius:"50%",background:"#fff",transition:"left .2s",boxShadow:"0 1px 3px rgba(0,0,0,.2)"}}/>
+      </div>
+      <div>
+        <div style={{fontSize:12,fontWeight:800,color:f.recorrente?"var(--pp)":"var(--tx)"}}>🔄 Conta Recorrente</div>
+        <div style={{fontSize:10,color:"var(--tx3)"}}>Gerada automaticamente todo mês neste dia</div>
+      </div>
+    </div>
     <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:8}}>
       <Btn v="ghost" onClick={()=>setModal(null)}>Cancelar</Btn>
       <Btn onClick={()=>{
         if(!f.desc)return showToast("Descrição!","red");
-        const vParc=f.valor/Math.max(1,f.numParc);
-        const parcelas=Array.from({length:Math.max(1,f.numParc)},(_,i)=>{
-          let vd="";if(f.venc){const d=new Date(f.venc+"T12:00:00");d.setMonth(d.getMonth()+i);vd=d.toISOString().split("T")[0];}
-          return{id:uid(),valor:vParc,venc:vd,pago:false,dataPago:""};
-        });
-        setFinanceiro(prev=>[...prev,{id:uid(),tipo:f.tipo,desc:f.desc,valor:f.valor,valorPago:0,parcelas,fornecedor:f.fornecedor,categoria:f.categoria||"Outros",status:"aberto",...(fonteCartao?{fonteCartao:true}:{})}]);
-        setModal(null);showToast("Conta criada!");
-      }}><I.Check/> Criar</Btn>
+        if(!f.valor)return showToast("Informe o valor!","red");
+        if(f.recorrente){
+          // Adiciona à lista de recorrentes
+          const novaRec={id:uid(),tipo:f.tipo,desc:f.desc,valor:f.valor,dia:f.diaRec,categoria:f.categoria||"Outros",fornecedor:f.fornecedor||"",ativo:true};
+          setRecorrentes(prev=>[...prev,novaRec]);
+          // Gera a parcela do mês atual imediatamente
+          const mes=hojeISO().slice(0,7);
+          const venc=`${mes}-${String(f.diaRec).padStart(2,"0")}`;
+          setFinanceiro(prev=>[...prev,{id:uid(),tipo:f.tipo,desc:`${f.desc} ${mes}`,valor:f.valor,valorPago:0,parcelas:[{id:uid(),valor:f.valor,venc,pago:false,dataPago:""}],fornecedor:f.fornecedor||"",categoria:f.categoria||"Outros",recorrenteId:novaRec.id,status:"aberto"}]);
+          setModal(null);showToast("Conta recorrente criada! Gerada também para este mês.");
+        } else {
+          const vParc=f.valor/Math.max(1,f.numParc);
+          const parcelas=Array.from({length:Math.max(1,f.numParc)},(_,i)=>{
+            let vd="";if(f.venc){const d=new Date(f.venc+"T12:00:00");d.setMonth(d.getMonth()+i);vd=d.toISOString().split("T")[0];}
+            return{id:uid(),valor:vParc,venc:vd,pago:false,dataPago:""};
+          });
+          setFinanceiro(prev=>[...prev,{id:uid(),tipo:f.tipo,desc:f.desc,valor:f.valor,valorPago:0,parcelas,fornecedor:f.fornecedor,categoria:f.categoria||"Outros",status:"aberto",...(fonteCartao?{fonteCartao:true}:{})}]);
+          setModal(null);showToast("Conta criada!");
+        }
+      }}><I.Check/> {f.recorrente?"Criar Recorrente":"Criar"}</Btn>
     </div>
   </>);
 }
@@ -2304,7 +2327,7 @@ export default function ERP(){
       </div>
     </div>;
     return(<div style={{animation:"fadeIn .3s"}}>
-      <SH title="Financeiro" sub="Gestão de Caixa — Contas a Pagar e Receber" right={<div style={{display:"flex",gap:6}}><Btn v="secondary" small onClick={()=>setShowRec(!showRec)}>🔄 Recorrentes</Btn><Btn onClick={()=>setModal({t:"newFin"})}><I.Plus/> Nova Conta</Btn></div>}/>
+      <SH title="Financeiro" sub="Gestão de Caixa — Contas a Pagar e Receber" right={<Btn onClick={()=>setModal({t:"newFin"})}><I.Plus/> Nova Conta</Btn>}/>
 
       {/* ══ LINHA 1 — SALDO REAL ══ */}
       <div style={{display:"grid",gridTemplateColumns:"2fr 1fr 1fr 1fr",gap:10,marginBottom:10}}>
@@ -2552,36 +2575,6 @@ export default function ERP(){
         <button onClick={()=>setEditSaldoInicial(!editSaldoInicial)} style={{background:"none",border:"1.5px solid var(--bd)",color:"var(--tx2)",fontSize:11,fontWeight:700,borderRadius:8,padding:"5px 12px",cursor:"pointer"}}>💰 Abertura de Caixa</button>
         {stats.saldoCartao>0&&<button onClick={()=>setModal({t:"newFin",d:{fonteCartao:true}})} style={{background:"none",border:"1.5px solid var(--pp)",color:"var(--pp)",fontSize:11,fontWeight:700,borderRadius:8,padding:"5px 12px",cursor:"pointer"}}>💳 Pagar Fornecedor (Cartão)</button>}
       </div>
-      {/* RECORRENTES */}
-      {showRec&&<Card style={{marginBottom:16,padding:16}}>
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
-          <h3 style={{fontSize:13,fontWeight:800,color:"var(--tx)"}}>Contas Recorrentes (Auto-geração mensal)</h3>
-          <Btn small onClick={()=>setRecForm({desc:"",valor:0,dia:1,tipo:"pagar",categoria:"Aluguel",fornecedor:"",ativo:true})}><I.Plus/> Nova</Btn>
-        </div>
-        {recForm&&<div style={{background:"var(--bg)",borderRadius:"var(--r)",padding:12,border:"1.5px solid var(--bd)",marginBottom:12,display:"flex",gap:8,flexWrap:"wrap",alignItems:"flex-end"}}>
-          <div><label style={{fontSize:9,color:"var(--tx3)",display:"block",marginBottom:2}}>Descrição</label><input value={recForm.desc} onChange={e=>setRecForm(f=>({...f,desc:e.target.value}))} placeholder="Ex: Aluguel galpão" style={{...inpST,width:160}}/></div>
-          <div><label style={{fontSize:9,color:"var(--tx3)",display:"block",marginBottom:2}}>Tipo</label><select value={recForm.tipo} onChange={e=>setRecForm(f=>({...f,tipo:e.target.value,categoria:"Outros"}))} style={{...inpST,width:90}}><option value="pagar">Pagar</option><option value="receber">Receber</option></select></div>
-          <div><label style={{fontSize:9,color:"var(--tx3)",display:"block",marginBottom:2}}>Categoria</label><select value={recForm.categoria} onChange={e=>setRecForm(f=>({...f,categoria:e.target.value}))} style={{...inpST,width:110}}>{(eCats[recForm.tipo]||eCats.pagar).map(c=><option key={c} value={c}>{c}</option>)}</select></div>
-          <div><label style={{fontSize:9,color:"var(--tx3)",display:"block",marginBottom:2}}>Valor R$</label><input type="number" value={recForm.valor} onChange={e=>setRecForm(f=>({...f,valor:+e.target.value}))} step="0.01" style={{...inpST,width:90}}/></div>
-          <div><label style={{fontSize:9,color:"var(--tx3)",display:"block",marginBottom:2}}>Dia venc.</label><input type="number" min="1" max="31" value={recForm.dia} onChange={e=>setRecForm(f=>({...f,dia:+e.target.value}))} style={{...inpST,width:55}}/></div>
-          <div><label style={{fontSize:9,color:"var(--tx3)",display:"block",marginBottom:2}}>Fornecedor</label><input value={recForm.fornecedor||""} onChange={e=>setRecForm(f=>({...f,fornecedor:e.target.value}))} style={{...inpST,width:110}}/></div>
-          <Btn small onClick={()=>{if(!recForm.desc||!recForm.valor)return showToast("Preencha desc. e valor","red");if(recForm.id)setRecorrentes(p=>p.map(r=>r.id===recForm.id?{...r,...recForm}:r));else setRecorrentes(p=>[...p,{...recForm,id:uid()}]);setRecForm(null);showToast("Recorrente salvo!")}}><I.Check/></Btn>
-          <Btn v="ghost" small onClick={()=>setRecForm(null)}>✕</Btn>
-        </div>}
-        {recorrentes.length===0?<p style={{fontSize:12,color:"var(--tx3)",fontWeight:600}}>Nenhuma conta recorrente.</p>
-        :<div>{recorrentes.map(r=><div key={r.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 4px",borderBottom:"1px solid var(--bd)",fontSize:12}}>
-          <div style={{display:"flex",alignItems:"center",gap:8}}>
-            <button onClick={()=>setRecorrentes(p=>p.map(x=>x.id===r.id?{...x,ativo:!x.ativo}:x))} style={{width:20,height:20,borderRadius:5,border:"2px solid "+(r.ativo?"var(--gn)":"var(--bd)"),background:r.ativo?"var(--gn)":"transparent",cursor:"pointer"}}/>
-            <div><span style={{fontWeight:700,color:"var(--tx)"}}>{r.desc}</span><span style={{color:"var(--tx3)",marginLeft:6}}>dia {r.dia} • {r.categoria}</span></div>
-          </div>
-          <div style={{display:"flex",alignItems:"center",gap:8}}>
-            <span style={{fontWeight:800,color:r.tipo==="pagar"?"var(--rd)":"var(--gn)"}}>{R$(r.valor)}</span>
-            <button onClick={()=>setRecForm({...r})} style={{background:"none",border:"none",color:"var(--tx3)",cursor:"pointer",padding:2}}><I.Edit/></button>
-            <button onClick={()=>{setRecorrentes(p=>p.filter(x=>x.id!==r.id));showToast("Removido","red")}} style={{background:"none",border:"none",color:"var(--rd)",cursor:"pointer",padding:2}}><I.Trash/></button>
-          </div>
-        </div>)}</div>}
-        <p style={{fontSize:10,color:"var(--tx3)",marginTop:8,fontWeight:600}}>💡 Geradas automaticamente no início de cada mês.</p>
-      </Card>}
       {/* ── LISTA ── */}
       <div style={{display:"flex",gap:6,marginBottom:14,flexWrap:"wrap"}}>
         {[{k:"todos",l:"Todos"},{k:"este_mes",l:"📅 Este Mês"},{k:"vencido",l:"⚠ Vencido"},{k:"receber",l:"A Receber"},{k:"pagar",l:"A Pagar"}].map(t=><button key={t.k} onClick={()=>setFTipo(t.k)} style={{padding:"6px 14px",borderRadius:20,border:"1.5px solid "+(fTipo===t.k?"var(--pri)":"var(--bd)"),background:fTipo===t.k?"var(--prib)":"transparent",color:fTipo===t.k?"var(--pri)":"var(--tx3)",fontSize:11,fontWeight:700}}>{t.l}</button>)}
@@ -3086,7 +3079,7 @@ export default function ERP(){
 
       {modal?.t==="detFin"&&<Modal onClose={()=>setModal(null)} wide><ModalDetFin f={modal.d} financeiro={financeiro} setModal={setModal} pagarParcela={pagarParcela} editParcela={editParcela} addParcela={addParcela} delParcela={delParcela} updFin={updFin} showToast={showToast} cats={empresa.cats||CATS}/></Modal>}
 
-      {modal?.t==="newFin"&&<Modal onClose={()=>setModal(null)}><ModalNewFin setModal={setModal} setFinanceiro={setFinanceiro} showToast={showToast} cats={empresa.cats||CATS} fonteCartao={modal.d?.fonteCartao}/></Modal>}
+      {modal?.t==="newFin"&&<Modal onClose={()=>setModal(null)}><ModalNewFin setModal={setModal} setFinanceiro={setFinanceiro} setRecorrentes={setRecorrentes} showToast={showToast} cats={empresa.cats||CATS} fonteCartao={modal.d?.fonteCartao}/></Modal>}
 
       {modal?.t==="novoRec"&&<Modal onClose={()=>setModal(null)}><ModalNovoRec clientes={clientes} setModal={setModal} setRecebimentos={setRecebimentos} showToast={showToast}/></Modal>}
       {modal?.t==="baixaRec"&&<Modal onClose={()=>setModal(null)}><ModalBaixaRec modal={modal} setModal={setModal} setRecebimentos={setRecebimentos} showToast={showToast}/></Modal>}

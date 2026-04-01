@@ -646,8 +646,8 @@ function ModalPDF({o,empresa,getCli,setModal,totalOrcFinal,totalOrc,totalOrcComN
     .cond-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:0;border:1px solid #e2e2e2;margin-top:18px}
     .cond-card{padding:14px 16px;border-right:1px solid #e2e2e2}
     .cond-card:last-child{border-right:none}
-    .cond-title{font-size:9pt;font-weight:800;text-transform:uppercase;letter-spacing:1.2px;color:${A};margin-bottom:9px}
-    .cond-body{font-size:13pt;color:#333;white-space:pre-line;line-height:1.7}
+    .cond-title{font-size:13pt;font-weight:800;text-transform:uppercase;letter-spacing:1.2px;color:${A};margin-bottom:9px}
+    .cond-body{font-size:12.5pt;color:#333;white-space:pre-line;line-height:1.7}
     /* assinatura */
     .sign-area{display:flex;justify-content:space-between;align-items:flex-end;margin-top:40px}
     .sign-local{font-size:11pt;font-weight:600;color:#333}

@@ -985,9 +985,7 @@ function MarceneiroApp({user,pedidos,setPedidos,clientes,financeiro,showToast,on
   const [instData,setInstData]=useState("");
   const [instDias,setInstDias]=useState("");
   const [refreshing,setRefreshing]=useState(false);
-  const doRefresh=async()=>{setRefreshing(true);await onRefresh?.();setRefreshing(false);showToast("Dados atualizados!");};
-  // Auto-refresh a cada 2 minutos
-  useEffect(()=>{const t=setInterval(()=>onRefresh?.(),120000);return()=>clearInterval(t);},[onRefresh]);
+  const doRefresh=async()=>{setRefreshing(true);await onRefresh?.();setRefreshing(false);showToast("Atualizado!");};
   const meusP=pedidos.filter(p=>p.marcId===user.id&&p.status!=="cancelado");
   const getCli=id=>clientes.find(c=>c.id===id);
   const getComFin=p=>financeiro?.find(f=>f.pedidoId===p.id&&f.marcId===user.id&&f.tipo==="pagar");
@@ -1363,18 +1361,9 @@ export default function ERP(){
     localStorage.setItem('erp_'+k,JSON.stringify(v));
     clearTimeout(syncTimers.current[k]);
     syncTimers.current[k]=setTimeout(async()=>{
-      // Guarda de segurança: nunca apaga dados da nuvem com lista vazia acidental
-      // (só permite array vazio se cloud também já está vazio)
-      if(Array.isArray(v)&&v.length===0){
-        const cloud=await dbGet(k);
-        if(cloud!==null&&Array.isArray(cloud)&&cloud.length>0){
-          console.warn('[syncCloud] bloqueado: tentativa de sobrescrever',k,'com vazio');
-          return;
-        }
-      }
       const ok=await dbSet(k,v);
-      if(!ok) setSyncStatus(s=>s==="ok"?"ok":"error"); else setSyncStatus("ok");
-    },800);
+      setSyncStatus(ok?"ok":"error");
+    },600);
   };
 
   // Backup: lê do estado em memória (não do localStorage)
@@ -1461,6 +1450,15 @@ export default function ERP(){
   },[]);
 
   useEffect(()=>{loadFromCloud(true);},[loadFromCloud]);
+
+  // Auto-refresh: ao voltar para a aba e a cada 30s — garante dados sempre frescos
+  useEffect(()=>{
+    if(!dbLoaded)return;
+    const onVisible=()=>{if(document.visibilityState==='visible')loadFromCloud(false);};
+    document.addEventListener('visibilitychange',onVisible);
+    const t=setInterval(()=>loadFromCloud(false),30000);
+    return()=>{document.removeEventListener('visibilitychange',onVisible);clearInterval(t);};
+  },[dbLoaded,loadFromCloud]);
 
   // Auto-sync a cada mudança de estado
   useEffect(()=>{if(dbLoaded)syncCloud('clientes',clientes);},[clientes,dbLoaded]);

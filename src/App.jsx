@@ -2261,6 +2261,28 @@ export default function ERP(){
     const totalRecebidoReal=todasParcelas.filter(p=>p.pago&&p.tipo==="receber").reduce((s,p)=>s+p.valor,0);
     const totalPagoReal=todasParcelas.filter(p=>p.pago&&p.tipo==="pagar").reduce((s,p)=>s+p.valor,0);
     const caixaHoje=saldoInicial+totalRecebidoReal-totalPagoReal;
+    // PROJEÇÃO ANUAL — mês a mês do mês atual até dezembro do ano corrente
+    const anoAtual=hj.slice(0,4);
+    const mesAtualNum=parseInt(mesAtual.slice(5));
+    const MESES_NOMES=["","Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
+    const FORMAS_GRUPO={pix:"PIX",transferencia:"PIX",dinheiro:"Dinheiro",boleto:"Boleto",cartao_deb:"Débito",cartao_cred:"Cartão",cred_10x:"Cartão 10x",cred_12x:"Cartão 12x",cred_18x:"Cartão 18x"};
+    const projecaoAnual=Array.from({length:13-mesAtualNum},(_,i)=>{
+      const mn=mesAtualNum+i;
+      const mesStr=`${anoAtual}-${String(mn).padStart(2,"0")}`;
+      const pRec=todasParcelas.filter(p=>!p.pago&&p.venc?.startsWith(mesStr)&&p.tipo==="receber");
+      const pPag=todasParcelas.filter(p=>!p.pago&&p.venc?.startsWith(mesStr)&&p.tipo==="pagar");
+      const pRecPago=todasParcelas.filter(p=>p.pago&&normDate(p.dataPago).startsWith(mesStr)&&p.tipo==="receber");
+      const pPagPago=todasParcelas.filter(p=>p.pago&&normDate(p.dataPago).startsWith(mesStr)&&p.tipo==="pagar");
+      const totalRec=pRec.reduce((s,p)=>s+p.valor,0)+pRecPago.reduce((s,p)=>s+p.valor,0);
+      const totalPag=pPag.reduce((s,p)=>s+p.valor,0)+pPagPago.reduce((s,p)=>s+p.valor,0);
+      // Agrupa entradas por forma de pagamento
+      const grpRec={};[...pRec,...pRecPago].forEach(p=>{const g=FORMAS_GRUPO[p.formaPag]||"Outros";grpRec[g]=(grpRec[g]||0)+p.valor;});
+      const grpPag={};[...pPag,...pPagPago].forEach(p=>{const g=FORMAS_GRUPO[p.formaPag]||"Outros";grpPag[g]=(grpPag[g]||0)+p.valor;});
+      return{mes:mesStr,label:MESES_NOMES[mn],totalRec,totalPag,saldo:totalRec-totalPag,grpRec,grpPag,pRec,pPag,pRecPago,pPagPago,isAtual:mn===mesAtualNum};
+    });
+    // VENCIMENTOS DE HOJE (pendentes)
+    const parVencHojeRec=todasParcelas.filter(p=>!p.pago&&p.venc===hj&&p.tipo==="receber");
+    const parVencHojePag=todasParcelas.filter(p=>!p.pago&&p.venc===hj&&p.tipo==="pagar");
     // Filtros de lista
     const list=financeiro.filter(f=>{
       if(fTipo==="receber")return f.tipo==="receber";
@@ -2355,59 +2377,168 @@ export default function ERP(){
 
       {/* ══ PAINEL FLUXO DE CAIXA ══ */}
       <Card style={{marginBottom:14,padding:0,overflow:"hidden"}}>
-        <div style={{display:"flex",gap:0,borderBottom:"2px solid var(--bd)"}}>
-          {[["hoje","Hoje"],["semana","Esta Semana"],["mes","Este Mês"]].map(([k,l])=>(
-            <button key={k} onClick={()=>setFluxoTab(k)} style={{flex:1,padding:"10px 0",fontSize:11,fontWeight:700,background:fluxoTab===k?"var(--pri)":"transparent",color:fluxoTab===k?"#fff":"var(--tx3)",border:"none",cursor:"pointer",transition:"all .2s",borderBottom:fluxoTab===k?"2px solid var(--pri)":"2px solid transparent",marginBottom:-2}}>{l}</button>
+        {/* Tabs */}
+        <div style={{display:"flex",gap:0,borderBottom:"2px solid var(--bd)",background:"var(--sf)"}}>
+          {[["hoje","⚡ Hoje"],["semana","📅 Semana"],["mes","🗓 Mês"],["anual","📊 Projeção Anual"]].map(([k,l])=>(
+            <button key={k} onClick={()=>setFluxoTab(k)} style={{flex:1,padding:"11px 0",fontSize:11,fontWeight:700,background:fluxoTab===k?"var(--pri)":"transparent",color:fluxoTab===k?"#fff":"var(--tx3)",border:"none",cursor:"pointer",transition:"all .15s",borderBottom:fluxoTab===k?"2px solid var(--pri)":"2px solid transparent",marginBottom:-2}}>{l}</button>
           ))}
         </div>
         <div style={{padding:16}}>
-          {fluxoTab==="hoje"&&<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16}}>
-            <div>
-              <div style={{fontSize:10,fontWeight:800,color:"var(--gn)",textTransform:"uppercase",marginBottom:8}}>Recebido Hoje — {R$(recHoje)}</div>
-              {parHojeRec.length===0?<div style={{fontSize:11,color:"var(--tx3)"}}>Nenhum recebimento hoje</div>
-                :parHojeRec.map((p,i)=><FluxoRow key={i} p={p} cor="var(--gn)"/>)}
+
+          {/* ── ABA HOJE ── */}
+          {fluxoTab==="hoje"&&<>
+            {/* Vencimentos de hoje ainda não pagos */}
+            {(parVencHojeRec.length>0||parVencHojePag.length>0)&&<div style={{background:"rgba(245,158,11,.08)",border:"1.5px solid rgba(245,158,11,.3)",borderRadius:"var(--r)",padding:"10px 14px",marginBottom:14}}>
+              <div style={{fontSize:10,fontWeight:800,color:"#d97706",textTransform:"uppercase",marginBottom:8}}>⏰ Vence Hoje — Ação Necessária</div>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+                <div>{parVencHojeRec.map((p,i)=><FluxoRow key={"vh"+i} p={p} cor="#d97706"/>)}{parVencHojeRec.length===0&&<span style={{fontSize:11,color:"var(--tx3)"}}>—</span>}</div>
+                <div>{parVencHojePag.map((p,i)=><FluxoRow key={"vhp"+i} p={p} cor="#ef4444"/>)}{parVencHojePag.length===0&&<span style={{fontSize:11,color:"var(--tx3)"}}>—</span>}</div>
+              </div>
+            </div>}
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16}}>
+              <div>
+                <div style={{fontSize:10,fontWeight:800,color:"var(--gn)",textTransform:"uppercase",marginBottom:8}}>✅ Recebido Hoje — {R$(recHoje)}</div>
+                {parHojeRec.length===0?<div style={{fontSize:11,color:"var(--tx3)"}}>Nenhum recebimento registrado hoje</div>:parHojeRec.map((p,i)=><FluxoRow key={i} p={p} cor="var(--gn)"/>)}
+              </div>
+              <div>
+                <div style={{fontSize:10,fontWeight:800,color:"var(--rd)",textTransform:"uppercase",marginBottom:8}}>✅ Pago Hoje — {R$(pagHoje)}</div>
+                {parHojePag.length===0?<div style={{fontSize:11,color:"var(--tx3)"}}>Nenhum pagamento registrado hoje</div>:parHojePag.map((p,i)=><FluxoRow key={i} p={p} cor="var(--rd)"/>)}
+              </div>
             </div>
-            <div>
-              <div style={{fontSize:10,fontWeight:800,color:"var(--rd)",textTransform:"uppercase",marginBottom:8}}>Pago Hoje — {R$(pagHoje)}</div>
-              {parHojePag.length===0?<div style={{fontSize:11,color:"var(--tx3)"}}>Nenhum pagamento hoje</div>
-                :parHojePag.map((p,i)=><FluxoRow key={i} p={p} cor="var(--rd)"/>)}
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:12,paddingTop:12,borderTop:"1.5px solid var(--bd)"}}>
+              <span style={{fontSize:12,fontWeight:800,color:recHoje-pagHoje>=0?"var(--gn)":"var(--rd)"}}>Resultado do Dia: {R$(recHoje-pagHoje)}</span>
+              <span style={{fontSize:10,color:"var(--tx3)",fontWeight:600}}>Saldo em Caixa: {R$(caixaHoje)}</span>
             </div>
-          </div>}
-          {fluxoTab==="semana"&&<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16}}>
-            <div>
-              <div style={{fontSize:10,fontWeight:800,color:"var(--gn)",textTransform:"uppercase",marginBottom:8}}>Entradas — {R$(semRecTotal)}</div>
-              {parSemPagoRec.length>0&&<><div style={{fontSize:9,color:"var(--tx3)",fontWeight:700,textTransform:"uppercase",marginBottom:4}}>✅ Recebidas ({parSemPagoRec.length})</div>{parSemPagoRec.map((p,i)=><FluxoRow key={"sr"+i} p={p} cor="var(--gn)"/>)}</>}
-              {parSemRec.length>0&&<><div style={{fontSize:9,color:"var(--tx3)",fontWeight:700,textTransform:"uppercase",marginBottom:4,marginTop:8}}>🔜 A Receber ({parSemRec.length})</div>{parSemRec.sort((a,b)=>a.venc>b.venc?1:-1).map((p,i)=><FluxoRow key={"sr2"+i} p={p} cor="var(--gn)"/>)}</>}
-              {parSemPagoRec.length===0&&parSemRec.length===0&&<div style={{fontSize:11,color:"var(--tx3)"}}>Nenhuma entrada esta semana</div>}
+          </>}
+
+          {/* ── ABA SEMANA ── */}
+          {fluxoTab==="semana"&&<>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16}}>
+              <div>
+                <div style={{fontSize:10,fontWeight:800,color:"var(--gn)",textTransform:"uppercase",marginBottom:8}}>Entradas — {R$(semRecTotal)}</div>
+                {parSemPagoRec.length>0&&<><div style={{fontSize:9,color:"var(--tx3)",fontWeight:700,textTransform:"uppercase",marginBottom:4}}>✅ Recebidas ({parSemPagoRec.length})</div>{parSemPagoRec.map((p,i)=><FluxoRow key={"sr"+i} p={p} cor="var(--gn)"/>)}</>}
+                {parSemRec.length>0&&<><div style={{fontSize:9,color:"var(--tx3)",fontWeight:700,textTransform:"uppercase",marginBottom:4,marginTop:8}}>🔜 A Receber ({parSemRec.length})</div>{parSemRec.sort((a,b)=>a.venc>b.venc?1:-1).map((p,i)=><FluxoRow key={"sr2"+i} p={p} cor="var(--gn)"/>)}</>}
+                {parSemPagoRec.length===0&&parSemRec.length===0&&<div style={{fontSize:11,color:"var(--tx3)"}}>Nenhuma entrada esta semana</div>}
+              </div>
+              <div>
+                <div style={{fontSize:10,fontWeight:800,color:"var(--rd)",textTransform:"uppercase",marginBottom:8}}>Saídas — {R$(semPagTotal)}</div>
+                {parSemPagoPag.length>0&&<><div style={{fontSize:9,color:"var(--tx3)",fontWeight:700,textTransform:"uppercase",marginBottom:4}}>✅ Pagas ({parSemPagoPag.length})</div>{parSemPagoPag.map((p,i)=><FluxoRow key={"sp"+i} p={p} cor="var(--rd)"/>)}</>}
+                {parSemPag.length>0&&<><div style={{fontSize:9,color:"var(--tx3)",fontWeight:700,textTransform:"uppercase",marginBottom:4,marginTop:8}}>🔜 A Pagar ({parSemPag.length})</div>{parSemPag.sort((a,b)=>a.venc>b.venc?1:-1).map((p,i)=><FluxoRow key={"sp2"+i} p={p} cor="var(--rd)"/>)}</>}
+                {parSemPagoPag.length===0&&parSemPag.length===0&&<div style={{fontSize:11,color:"var(--tx3)"}}>Nenhuma saída esta semana</div>}
+              </div>
             </div>
-            <div>
-              <div style={{fontSize:10,fontWeight:800,color:"var(--rd)",textTransform:"uppercase",marginBottom:8}}>Saídas — {R$(semPagTotal)}</div>
-              {parSemPagoPag.length>0&&<><div style={{fontSize:9,color:"var(--tx3)",fontWeight:700,textTransform:"uppercase",marginBottom:4}}>✅ Pagas ({parSemPagoPag.length})</div>{parSemPagoPag.map((p,i)=><FluxoRow key={"sp"+i} p={p} cor="var(--rd)"/>)}</>}
-              {parSemPag.length>0&&<><div style={{fontSize:9,color:"var(--tx3)",fontWeight:700,textTransform:"uppercase",marginBottom:4,marginTop:8}}>🔜 A Pagar ({parSemPag.length})</div>{parSemPag.sort((a,b)=>a.venc>b.venc?1:-1).map((p,i)=><FluxoRow key={"sp2"+i} p={p} cor="var(--rd)"/>)}</>}
-              {parSemPagoPag.length===0&&parSemPag.length===0&&<div style={{fontSize:11,color:"var(--tx3)"}}>Nenhuma saída esta semana</div>}
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:12,paddingTop:12,borderTop:"1.5px solid var(--bd)"}}>
+              <span style={{fontSize:12,fontWeight:800,color:semRecTotal-semPagTotal>=0?"var(--gn)":"var(--rd)"}}>Resultado da Semana: {R$(semRecTotal-semPagTotal)}</span>
+              <span style={{fontSize:10,color:"var(--tx3)",fontWeight:600}}>{semIni} → {semFim}</span>
             </div>
-          </div>}
-          {fluxoTab==="mes"&&<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16}}>
-            <div>
-              <div style={{fontSize:10,fontWeight:800,color:"var(--gn)",textTransform:"uppercase",marginBottom:8}}>Entradas — {R$(esteMesRec)}</div>
-              {parPagoMesRec.length>0&&<><div style={{fontSize:9,color:"var(--tx3)",fontWeight:700,textTransform:"uppercase",marginBottom:4}}>✅ Recebidas ({parPagoMesRec.length})</div>{parPagoMesRec.sort((a,b)=>normDate(a.dataPago)>normDate(b.dataPago)?1:-1).map((p,i)=><FluxoRow key={"mr"+i} p={p} cor="var(--gn)"/>)}</>}
-              {parMesRec.length>0&&<><div style={{fontSize:9,color:"var(--tx3)",fontWeight:700,textTransform:"uppercase",marginBottom:4,marginTop:8}}>🔜 A Receber ({parMesRec.length})</div>{parMesRec.sort((a,b)=>a.venc>b.venc?1:-1).map((p,i)=><FluxoRow key={"mr2"+i} p={p} cor="var(--gn)"/>)}</>}
-              {parPagoMesRec.length===0&&parMesRec.length===0&&<div style={{fontSize:11,color:"var(--tx3)"}}>Nenhuma entrada este mês</div>}
+          </>}
+
+          {/* ── ABA MÊS ── */}
+          {fluxoTab==="mes"&&<>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16}}>
+              <div>
+                <div style={{fontSize:10,fontWeight:800,color:"var(--gn)",textTransform:"uppercase",marginBottom:8}}>Entradas — {R$(esteMesRec)}</div>
+                {parPagoMesRec.length>0&&<><div style={{fontSize:9,color:"var(--tx3)",fontWeight:700,textTransform:"uppercase",marginBottom:4}}>✅ Recebidas ({parPagoMesRec.length})</div>{parPagoMesRec.sort((a,b)=>normDate(a.dataPago)>normDate(b.dataPago)?1:-1).map((p,i)=><FluxoRow key={"mr"+i} p={p} cor="var(--gn)"/>)}</>}
+                {parMesRec.length>0&&<><div style={{fontSize:9,color:"var(--tx3)",fontWeight:700,textTransform:"uppercase",marginBottom:4,marginTop:8}}>🔜 A Receber ({parMesRec.length})</div>{parMesRec.sort((a,b)=>a.venc>b.venc?1:-1).map((p,i)=><FluxoRow key={"mr2"+i} p={p} cor="var(--gn)"/>)}</>}
+                {parPagoMesRec.length===0&&parMesRec.length===0&&<div style={{fontSize:11,color:"var(--tx3)"}}>Nenhuma entrada este mês</div>}
+              </div>
+              <div>
+                <div style={{fontSize:10,fontWeight:800,color:"var(--rd)",textTransform:"uppercase",marginBottom:8}}>Saídas — {R$(esteMesPag)}</div>
+                {parPagoMesPag.length>0&&<><div style={{fontSize:9,color:"var(--tx3)",fontWeight:700,textTransform:"uppercase",marginBottom:4}}>✅ Pagas ({parPagoMesPag.length})</div>{parPagoMesPag.sort((a,b)=>normDate(a.dataPago)>normDate(b.dataPago)?1:-1).map((p,i)=><FluxoRow key={"mp"+i} p={p} cor="var(--rd)"/>)}</>}
+                {parMesPag.length>0&&<><div style={{fontSize:9,color:"var(--tx3)",fontWeight:700,textTransform:"uppercase",marginBottom:4,marginTop:8}}>🔜 A Pagar ({parMesPag.length})</div>{parMesPag.sort((a,b)=>a.venc>b.venc?1:-1).map((p,i)=><FluxoRow key={"mp2"+i} p={p} cor="var(--rd)"/>)}</>}
+                {parPagoMesPag.length===0&&parMesPag.length===0&&<div style={{fontSize:11,color:"var(--tx3)"}}>Nenhuma saída este mês</div>}
+              </div>
             </div>
-            <div>
-              <div style={{fontSize:10,fontWeight:800,color:"var(--rd)",textTransform:"uppercase",marginBottom:8}}>Saídas — {R$(esteMesPag)}</div>
-              {parPagoMesPag.length>0&&<><div style={{fontSize:9,color:"var(--tx3)",fontWeight:700,textTransform:"uppercase",marginBottom:4}}>✅ Pagas ({parPagoMesPag.length})</div>{parPagoMesPag.sort((a,b)=>normDate(a.dataPago)>normDate(b.dataPago)?1:-1).map((p,i)=><FluxoRow key={"mp"+i} p={p} cor="var(--rd)"/>)}</>}
-              {parMesPag.length>0&&<><div style={{fontSize:9,color:"var(--tx3)",fontWeight:700,textTransform:"uppercase",marginBottom:4,marginTop:8}}>🔜 A Pagar ({parMesPag.length})</div>{parMesPag.sort((a,b)=>a.venc>b.venc?1:-1).map((p,i)=><FluxoRow key={"mp2"+i} p={p} cor="var(--rd)"/>)}</>}
-              {parPagoMesPag.length===0&&parMesPag.length===0&&<div style={{fontSize:11,color:"var(--tx3)"}}>Nenhuma saída este mês</div>}
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:12,paddingTop:12,borderTop:"1.5px solid var(--bd)"}}>
+              <span style={{fontSize:12,fontWeight:800,color:esteMesRec-esteMesPag>=0?"var(--gn)":"var(--rd)"}}>Resultado do Mês: {R$(esteMesRec-esteMesPag)}</span>
+              <span style={{fontSize:10,color:"var(--tx3)",fontWeight:600}}>{R$(recebidoMes)} recebido · {R$(saidoMes)} pago</span>
             </div>
-          </div>}
-          {/* Totalizador do painel */}
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:12,paddingTop:12,borderTop:"1.5px solid var(--bd)"}}>
-            <span style={{fontSize:12,fontWeight:800,color:fluxoTab==="hoje"?(recHoje-pagHoje>=0?"var(--gn)":"var(--rd)"):fluxoTab==="semana"?(semRecTotal-semPagTotal>=0?"var(--gn)":"var(--rd)"):(esteMesRec-esteMesPag>=0?"var(--gn)":"var(--rd)")}}>
-              Resultado: {R$(fluxoTab==="hoje"?recHoje-pagHoje:fluxoTab==="semana"?semRecTotal-semPagTotal:esteMesRec-esteMesPag)}
-            </span>
-            <span style={{fontSize:10,color:"var(--tx3)",fontWeight:600}}>{fluxoTab==="hoje"?hj:fluxoTab==="semana"?`${semIni} → ${semFim}`:mesAtual}</span>
-          </div>
+          </>}
+
+          {/* ── ABA PROJEÇÃO ANUAL ── */}
+          {fluxoTab==="anual"&&<>
+            <div style={{fontSize:11,color:"var(--tx3)",fontWeight:600,marginBottom:12}}>Projeção {anoAtual} — mês a mês até Dezembro, com breakdown por forma de pagamento</div>
+            {/* Tabela anual */}
+            <div style={{overflowX:"auto"}}>
+              <table style={{width:"100%",borderCollapse:"collapse",fontSize:11}}>
+                <thead>
+                  <tr style={{background:"var(--sf)"}}>
+                    <th style={{padding:"8px 10px",textAlign:"left",fontWeight:800,color:"var(--tx3)",fontSize:9,textTransform:"uppercase",borderBottom:"2px solid var(--bd)"}}>Mês</th>
+                    <th style={{padding:"8px 10px",textAlign:"right",fontWeight:800,color:"var(--gn)",fontSize:9,textTransform:"uppercase",borderBottom:"2px solid var(--bd)"}}>Total Entradas</th>
+                    <th style={{padding:"8px 10px",textAlign:"right",fontWeight:800,color:"#22d3ee",fontSize:9,textTransform:"uppercase",borderBottom:"2px solid var(--bd)"}}>PIX/TED</th>
+                    <th style={{padding:"8px 10px",textAlign:"right",fontWeight:800,color:"var(--pp)",fontSize:9,textTransform:"uppercase",borderBottom:"2px solid var(--bd)"}}>Cartão 12x</th>
+                    <th style={{padding:"8px 10px",textAlign:"right",fontWeight:800,color:"#f59e0b",fontSize:9,textTransform:"uppercase",borderBottom:"2px solid var(--bd)"}}>Cartão 18x</th>
+                    <th style={{padding:"8px 10px",textAlign:"right",fontWeight:800,color:"var(--tx3)",fontSize:9,textTransform:"uppercase",borderBottom:"2px solid var(--bd)"}}>Outros</th>
+                    <th style={{padding:"8px 10px",textAlign:"right",fontWeight:800,color:"var(--rd)",fontSize:9,textTransform:"uppercase",borderBottom:"2px solid var(--bd)"}}>Total Saídas</th>
+                    <th style={{padding:"8px 10px",textAlign:"right",fontWeight:800,color:"var(--tx)",fontSize:9,textTransform:"uppercase",borderBottom:"2px solid var(--bd)"}}>Saldo</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {projecaoAnual.map((m,i)=>{
+                    const pix=(m.grpRec["PIX"]||0);
+                    const c12=(m.grpRec["Cartão 12x"]||0);
+                    const c18=(m.grpRec["Cartão 18x"]||0);
+                    const outros=m.totalRec-pix-c12-c18;
+                    const saldoAcum=projecaoAnual.slice(0,i+1).reduce((s,x)=>s+x.saldo,0);
+                    return(<tr key={m.mes} style={{background:m.isAtual?"rgba(99,102,241,.08)":"transparent",borderBottom:"1px solid var(--bd)"}}>
+                      <td style={{padding:"9px 10px",fontWeight:800,color:m.isAtual?"var(--pri)":"var(--tx)"}}>
+                        {m.label}{m.isAtual&&<span style={{fontSize:8,background:"var(--pri)",color:"#fff",borderRadius:4,padding:"1px 5px",marginLeft:5,fontWeight:700}}>ATUAL</span>}
+                      </td>
+                      <td style={{padding:"9px 10px",textAlign:"right",fontWeight:800,color:"var(--gn)"}}>{m.totalRec>0?R$(m.totalRec):<span style={{color:"var(--tx3)"}}>—</span>}</td>
+                      <td style={{padding:"9px 10px",textAlign:"right",color:"#22d3ee",fontWeight:600}}>{pix>0?R$(pix):<span style={{color:"var(--tx3)"}}>—</span>}</td>
+                      <td style={{padding:"9px 10px",textAlign:"right",color:"var(--pp)",fontWeight:600}}>{c12>0?R$(c12):<span style={{color:"var(--tx3)"}}>—</span>}</td>
+                      <td style={{padding:"9px 10px",textAlign:"right",color:"#f59e0b",fontWeight:600}}>{c18>0?R$(c18):<span style={{color:"var(--tx3)"}}>—</span>}</td>
+                      <td style={{padding:"9px 10px",textAlign:"right",color:"var(--tx3)",fontWeight:600}}>{outros>0?R$(outros):<span style={{color:"var(--tx3)"}}>—</span>}</td>
+                      <td style={{padding:"9px 10px",textAlign:"right",fontWeight:800,color:"var(--rd)"}}>{m.totalPag>0?R$(m.totalPag):<span style={{color:"var(--tx3)"}}>—</span>}</td>
+                      <td style={{padding:"9px 10px",textAlign:"right",fontWeight:900,color:m.saldo>=0?"var(--gn)":"var(--rd)"}}>{R$(m.saldo)}</td>
+                    </tr>);
+                  })}
+                </tbody>
+                <tfoot>
+                  <tr style={{background:"var(--sf)",borderTop:"2px solid var(--bd)"}}>
+                    <td style={{padding:"10px",fontWeight:900,color:"var(--tx)",fontSize:12}}>TOTAL {anoAtual}</td>
+                    <td style={{padding:"10px",textAlign:"right",fontWeight:900,color:"var(--gn)",fontSize:12}}>{R$(projecaoAnual.reduce((s,m)=>s+m.totalRec,0))}</td>
+                    <td style={{padding:"10px",textAlign:"right",fontWeight:800,color:"#22d3ee"}}>{R$(projecaoAnual.reduce((s,m)=>s+(m.grpRec["PIX"]||0),0))}</td>
+                    <td style={{padding:"10px",textAlign:"right",fontWeight:800,color:"var(--pp)"}}>{R$(projecaoAnual.reduce((s,m)=>s+(m.grpRec["Cartão 12x"]||0),0))}</td>
+                    <td style={{padding:"10px",textAlign:"right",fontWeight:800,color:"#f59e0b"}}>{R$(projecaoAnual.reduce((s,m)=>s+(m.grpRec["Cartão 18x"]||0),0))}</td>
+                    <td style={{padding:"10px",textAlign:"right",fontWeight:800,color:"var(--tx3)"}}>{R$(projecaoAnual.reduce((s,m)=>s+Math.max(0,m.totalRec-(m.grpRec["PIX"]||0)-(m.grpRec["Cartão 12x"]||0)-(m.grpRec["Cartão 18x"]||0)),0))}</td>
+                    <td style={{padding:"10px",textAlign:"right",fontWeight:900,color:"var(--rd)",fontSize:12}}>{R$(projecaoAnual.reduce((s,m)=>s+m.totalPag,0))}</td>
+                    <td style={{padding:"10px",textAlign:"right",fontWeight:900,fontSize:13,color:projecaoAnual.reduce((s,m)=>s+m.saldo,0)>=0?"var(--gn)":"var(--rd)"}}>{R$(projecaoAnual.reduce((s,m)=>s+m.saldo,0))}</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+            {/* Detalhamento por mês expandível */}
+            <div style={{marginTop:16}}>
+              <div style={{fontSize:10,fontWeight:800,color:"var(--tx3)",textTransform:"uppercase",marginBottom:8}}>Detalhamento por Mês</div>
+              {projecaoAnual.filter(m=>m.totalRec>0||m.totalPag>0).map(m=>(
+                <details key={m.mes} style={{borderBottom:"1px solid var(--bd)",padding:"6px 0"}} open={m.isAtual}>
+                  <summary style={{cursor:"pointer",fontSize:12,fontWeight:800,color:m.isAtual?"var(--pri)":"var(--tx)",padding:"4px 0",listStyle:"none",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                    <span>{m.label} {anoAtual}{m.isAtual?" (mês atual)":""}</span>
+                    <span style={{display:"flex",gap:16}}>
+                      <span style={{color:"var(--gn)",fontWeight:800}}>{R$(m.totalRec)}</span>
+                      <span style={{color:"var(--rd)",fontWeight:800}}>{R$(m.totalPag)}</span>
+                      <span style={{color:m.saldo>=0?"var(--gn)":"var(--rd)",fontWeight:900}}>{R$(m.saldo)}</span>
+                    </span>
+                  </summary>
+                  <div style={{paddingTop:8,display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+                    <div>
+                      <div style={{fontSize:9,fontWeight:800,color:"var(--gn)",textTransform:"uppercase",marginBottom:4}}>Entradas</div>
+                      {[...m.pRecPago,...m.pRec].sort((a,b)=>(a.venc||a.dataPago||"")>(b.venc||b.dataPago||"")?1:-1).map((p,i)=><FluxoRow key={i} p={p} cor="var(--gn)"/>)}
+                      {m.pRec.length===0&&m.pRecPago.length===0&&<span style={{fontSize:11,color:"var(--tx3)"}}>—</span>}
+                    </div>
+                    <div>
+                      <div style={{fontSize:9,fontWeight:800,color:"var(--rd)",textTransform:"uppercase",marginBottom:4}}>Saídas</div>
+                      {[...m.pPagPago,...m.pPag].sort((a,b)=>(a.venc||a.dataPago||"")>(b.venc||b.dataPago||"")?1:-1).map((p,i)=><FluxoRow key={i} p={p} cor="var(--rd)"/>)}
+                      {m.pPag.length===0&&m.pPagPago.length===0&&<span style={{fontSize:11,color:"var(--tx3)"}}>—</span>}
+                    </div>
+                  </div>
+                </details>
+              ))}
+              {projecaoAnual.every(m=>m.totalRec===0&&m.totalPag===0)&&<div style={{fontSize:12,color:"var(--tx3)",textAlign:"center",padding:20}}>Nenhuma parcela cadastrada com vencimento em {anoAtual}</div>}
+            </div>
+          </>}
+
         </div>
       </Card>
       {/* ── CONTROLES ── */}

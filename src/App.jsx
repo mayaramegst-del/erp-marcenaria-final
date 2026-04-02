@@ -614,8 +614,8 @@ const PDF_LAYOUTS={
   minimalista:{nome:"Minimalista"},
 };
 
-function ModalPDF({o,empresa,getCli,setModal,totalOrcFinal,totalOrc,totalOrcComNF}){
-  const [tab,setTab]=useState("proposta");
+function ModalPDF({o,empresa,getCli,setModal,totalOrcFinal,totalOrc,totalOrcComNF,defaultTab}){
+  const [tab,setTab]=useState(defaultTab||"proposta");
   const c=getCli(o.clienteId);
   const vtBase=totalOrcFinal(o);
   const vtCliente=totalOrcComNF?totalOrcComNF(o):vtBase;
@@ -659,6 +659,7 @@ function ModalPDF({o,empresa,getCli,setModal,totalOrcFinal,totalOrc,totalOrcComN
     /* footer */
     .footer{text-align:center;font-size:9pt;color:#bbb;padding:14px 0 4px;border-top:1px solid #ebebeb;margin-top:24px;break-inside:avoid;page-break-inside:avoid}
     /* blocos gerais — nunca quebrar internamente */
+    .cli-endereco{font-size:10pt;color:#555;margin-top:4px}
     .hdr,.orc-banner,.cli-row,.info-grid,.info-cell,.sec-title,.total-row,.sign-wrap,.footer-wrap{break-inside:avoid;page-break-inside:avoid}
     @page{size:A4;margin:12mm 10mm}
     @media print{body{padding:0}.doc{max-width:100%}}
@@ -821,6 +822,9 @@ function ModalPDF({o,empresa,getCli,setModal,totalOrcFinal,totalOrc,totalOrcComN
         pageStart=Math.round(pageEnd);pageNum++;
       }
       pdf.save(`${isOS?"OS":"ORC"}_${o.num}_${c?.nome||"cliente"}.pdf`.replace(/\s+/g,'_'));
+    }catch(err){
+      console.error('[PDF] Erro ao gerar PDF:',err);
+      alert('Erro ao gerar PDF: '+(err?.message||String(err)));
     }finally{setDownloading(false);}
   };
   const isOS=tab==="os";
@@ -883,7 +887,7 @@ function ModalPDF({o,empresa,getCli,setModal,totalOrcFinal,totalOrc,totalOrcComN
 
   const OrcBanner=()=><div className="orc-banner">
     <div className="orc-num">{isOS?"Ordem de Serviço":"Orçamento"} {o.num}</div>
-    {c?.endereco&&<div className="orc-ref">{c.endereco.split(",")[0]}</div>}
+    {!isOS&&c?.endereco&&<div className="orc-ref">{c.endereco.split(",")[0]}</div>}
     {isOS&&<div className="orc-badge">Em Produção</div>}
   </div>;
 
@@ -895,6 +899,7 @@ function ModalPDF({o,empresa,getCli,setModal,totalOrcFinal,totalOrc,totalOrcComN
       {c?.email&&<span style={{marginRight:16}}>✉ {c.email}</span>}
       {c?.doc&&<span>CPF/CNPJ: {c.doc}</span>}
     </div>
+    {isOS&&c?.endereco&&<div className="cli-endereco">{c.endereco}</div>}
   </div>;
 
   const InfoGrid=()=><>
@@ -2089,6 +2094,7 @@ export default function ERP(){
       <SH title={p.num} sub={`${c?.nome} • ${p.data}`} right={<div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
         {p.status!=="cancelado"&&<select value={p.stage} onChange={e=>updPed(p.id,{stage:e.target.value,status:e.target.value==="concluido"?"concluido":"em_producao"})} style={{padding:"7px 10px",borderRadius:10,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:11,fontWeight:700,outline:"none"}}>{KCOLS.map(k=><option key={k.id} value={k.id}>{k.label}</option>)}</select>}
         <Badge color={p.status==="concluido"?"green":p.status==="em_producao"?"amber":p.status==="cancelado"?"red":"blue"}>{p.status==="cancelado"?"Cancelado":p.status.replace("_"," ")}</Badge>
+        {(()=>{const orc=orcamentos.find(x=>x.id===p.orcId);return orc&&<Btn v="secondary" small onClick={()=>setModal({t:"pdf",d:orc,tab:"os"})}><I.Printer/> OS PDF</Btn>})()}
         {p.status!=="cancelado"
           ?<Btn v="ghost" small style={{color:"var(--rd)",border:"1px solid rgba(239,68,68,.3)"}} onClick={()=>{if(window.confirm(`Cancelar o pedido ${p.num}? Essa ação não pode ser desfeita.`)){updPed(p.id,{status:"cancelado",stage:"cancelado",marcId:null});showToast("Pedido cancelado","red");}}}><I.X/> Cancelar Pedido</Btn>
           :<Btn v="ghost" small onClick={()=>{if(window.confirm("Reativar este pedido?"))updPed(p.id,{status:"em_espera",stage:"corte"});}}><I.Check/> Reativar</Btn>}
@@ -3333,7 +3339,7 @@ export default function ERP(){
 
       {modal?.t==="editLead"&&<Modal onClose={()=>setModal(null)}><ModalEditLead d={modal.d} setModal={setModal} setLeads={setLeads} showToast={showToast}/></Modal>}
 
-      {modal?.t==="pdf"&&<Modal onClose={()=>setModal(null)} wide><ModalPDF o={modal.d} empresa={empresa} getCli={getCli} setModal={setModal} totalOrcFinal={totalOrcFinal} totalOrc={totalOrc} totalOrcComNF={totalOrcComNF}/></Modal>}
+      {modal?.t==="pdf"&&<Modal onClose={()=>setModal(null)} wide><ModalPDF o={modal.d} empresa={empresa} getCli={getCli} setModal={setModal} totalOrcFinal={totalOrcFinal} totalOrc={totalOrc} totalOrcComNF={totalOrcComNF} defaultTab={modal.tab}/></Modal>}
 
       {modal?.t==="detFin"&&<Modal onClose={()=>setModal(null)} wide><ModalDetFin f={modal.d} financeiro={financeiro} setModal={setModal} pagarParcela={pagarParcela} editParcela={editParcela} addParcela={addParcela} delParcela={delParcela} updFin={updFin} showToast={showToast} cats={empresa.cats||CATS}/></Modal>}
 

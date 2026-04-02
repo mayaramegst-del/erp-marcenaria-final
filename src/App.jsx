@@ -1578,16 +1578,20 @@ export default function ERP(){
   };
 
   // Auto-gerar contas recorrentes no mês atual
+  // Guard baseado nos próprios dados (não localStorage) para funcionar em multi-dispositivos
   useEffect(()=>{
     if(!dbLoaded)return;
     const mes=hojeISO().slice(0,7);
-    if(localStorage.getItem('recGerado_'+mes))return;
     const recs=recorrentesRef.current.filter(r=>r.ativo);
     if(!recs.length)return;
-    const novas=recs.map(r=>({id:uid(),tipo:r.tipo||"pagar",desc:`${r.desc} ${mes}`,valor:r.valor,valorPago:0,parcelas:[{id:uid(),valor:r.valor,venc:`${mes}-${String(r.dia||1).padStart(2,"0")}`,pago:false,dataPago:""}],categoria:r.categoria||"Outros",recorrenteId:r.id,fornecedor:r.fornecedor||"",status:"aberto"}));
-    setFinanceiro(prev=>[...prev,...novas]);
-    localStorage.setItem('recGerado_'+mes,'1');
-    showToast(`${novas.length} conta(s) recorrente(s) gerada(s)!`);
+    setFinanceiro(prev=>{
+      const novas=recs.filter(r=>
+        !prev.some(f=>f.recorrenteId===r.id&&f.parcelas.some(p=>p.venc?.startsWith(mes)))
+      ).map(r=>({id:uid(),tipo:r.tipo||"pagar",desc:`${r.desc} ${mes}`,valor:r.valor,valorPago:0,parcelas:[{id:uid(),valor:r.valor,venc:`${mes}-${String(r.dia||1).padStart(2,"0")}`,pago:false,dataPago:""}],categoria:r.categoria||"Outros",recorrenteId:r.id,fornecedor:r.fornecedor||"",status:"aberto"}));
+      if(!novas.length)return prev;
+      setTimeout(()=>showToast(`${novas.length} conta(s) recorrente(s) gerada(s)!`),200);
+      return[...prev,...novas];
+    });
   },[dbLoaded]);
 
   // ── CRUD ──
@@ -2356,8 +2360,9 @@ export default function ERP(){
     const pool1012Fut=pool1012Parc.filter(p=>!p.pago).reduce((s,p)=>s+p.valor,0);
     const pool18Rec=pool18Parc.filter(p=>p.pago).reduce((s,p)=>s+p.valor,0);
     const pool18Fut=pool18Parc.filter(p=>!p.pago).reduce((s,p)=>s+p.valor,0);
-    const pool1012FinPag=financeiro.filter(f=>f.tipo==="pagar"&&(f.fontePool==="1012"||matchForn(f.fornecedor,FNS_1012)));
-    const pool18FinPag=financeiro.filter(f=>f.tipo==="pagar"&&(f.fontePool==="18"||matchForn(f.fornecedor,FNS_18)));
+    // !f.marcId exclui comissões de marceneiro (já exibidas no pedido — evita duplicata)
+    const pool1012FinPag=financeiro.filter(f=>f.tipo==="pagar"&&!f.marcId&&(f.fontePool==="1012"||matchForn(f.fornecedor,FNS_1012)));
+    const pool18FinPag=financeiro.filter(f=>f.tipo==="pagar"&&!f.marcId&&(f.fontePool==="18"||matchForn(f.fornecedor,FNS_18)));
     const pool1012Pago=pool1012FinPag.reduce((s,f)=>s+f.valorPago,0);
     const pool18Pago=pool18FinPag.reduce((s,f)=>s+f.valorPago,0);
     const pool1012Saldo=pool1012Rec-pool1012Pago;
@@ -2835,7 +2840,7 @@ export default function ERP(){
               :<button onClick={()=>setModal({t:"detFin",d:f})} style={{background:"none",border:"none",color:"var(--tx3)",padding:2,cursor:"pointer"}}><I.Edit/></button>}
             {f.fonteManual
               ?<button onClick={e=>{e.stopPropagation();setRecebimentos(p=>p.filter(x=>x.id!==f.id));showToast("Removido","red")}} style={{background:"none",border:"none",color:"var(--rd)",padding:2,cursor:"pointer"}}><I.Trash/></button>
-              :<button onClick={e=>{e.stopPropagation();setFinanceiro(p=>p.filter(x=>x.id!==f.id));showToast("Removido","red")}} style={{background:"none",border:"none",color:"var(--rd)",padding:2,cursor:"pointer"}}><I.Trash/></button>}
+              :<button onClick={e=>{e.stopPropagation();if(f.recorrenteId){const cancelar=window.confirm(`"${f.desc}" é uma conta recorrente.\n\nOK = excluir ESTE MÊS e CANCELAR a recorrência\nCancelar = excluir só este mês (voltará no próximo)`);if(cancelar)setRecorrentes(p=>p.map(r=>r.id===f.recorrenteId?{...r,ativo:false}:r));}setFinanceiro(p=>p.filter(x=>x.id!==f.id));showToast("Removido","red")}} style={{background:"none",border:"none",color:"var(--rd)",padding:2,cursor:"pointer"}}><I.Trash/></button>}
           </div>
         </div>);
       })}{list.length===0&&<div style={{padding:30,textAlign:"center",color:"var(--tx3)",fontSize:14,fontWeight:600}}>Nenhuma conta</div>}</Card>

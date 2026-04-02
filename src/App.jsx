@@ -1709,7 +1709,7 @@ export default function ERP(){
     const rec=pedidos.reduce((s,p)=>s+p.vt,0);
     const cMat=pedidos.reduce((s,p)=>s+p.cm,0);
     const cCom=pedidos.reduce((s,p)=>s+p.comVal,0);
-    const aReceber=financeiro.filter(f=>f.tipo==="receber").reduce((s,f)=>s+(f.valor-f.valorPago),0);
+    const aReceber=financeiro.filter(f=>f.tipo==="receber").reduce((s,f)=>s+(f.valor-f.valorPago),0)+recebimentos.reduce((s,r)=>s+r.parcelas.filter(p=>!p.pago).reduce((ss,p)=>ss+p.valor,0),0);
     const aPagar=financeiro.filter(f=>f.tipo==="pagar").reduce((s,f)=>s+(f.valor-f.valorPago),0);
     const recCartao=recebimentos.reduce((s,r)=>s+r.parcelas.filter(p=>p.pago&&p.formaPag==="cartao_cred").reduce((ss,p)=>ss+p.valor,0),0);
     const finCartao=financeiro.filter(f=>f.tipo==="receber").reduce((s,f)=>s+f.parcelas.filter(p=>p.pago&&p.formaPag==="cartao_cred").reduce((ss,p)=>ss+p.valor,0),0);
@@ -2326,7 +2326,8 @@ export default function ERP(){
     const semIni=mon.toISOString().split("T")[0];
     const semFim=sun.toISOString().split("T")[0];
     // ── Cálculos por parcela ──
-    const todasParcelas=financeiro.flatMap(f=>f.parcelas.map(p=>({...p,finId:f.id,tipo:f.tipo,desc:f.desc,categoria:f.categoria,fornecedor:f.fornecedor})));
+    const recParcelas=recebimentos.flatMap(r=>r.parcelas.map(p=>({...p,finId:r.id,tipo:"receber",desc:r.obs?`${r.cliente} — ${r.obs}`:r.cliente,categoria:"Recebimento Manual",fonteManual:true})));
+    const todasParcelas=[...financeiro.flatMap(f=>f.parcelas.map(p=>({...p,finId:f.id,tipo:f.tipo,desc:f.desc,categoria:f.categoria,fornecedor:f.fornecedor}))),...recParcelas];
     // HOJE
     const parHojeRec=todasParcelas.filter(p=>p.pago&&normDate(p.dataPago)===hj&&p.tipo==="receber");
     const parHojePag=todasParcelas.filter(p=>p.pago&&normDate(p.dataPago)===hj&&p.tipo==="pagar");
@@ -2356,7 +2357,8 @@ export default function ERP(){
     const vencidoRec=parVencRec.reduce((s,p)=>s+p.valor,0);
     const vencidoPag=parVencPag.reduce((s,p)=>s+p.valor,0);
     // TOTAIS
-    const totalAR=financeiro.filter(f=>f.tipo==="receber").reduce((s,f)=>s+(f.valor-f.valorPago),0);
+    const recAsF=recebimentos.map(r=>({id:r.id,tipo:"receber",desc:r.obs?`${r.cliente} — ${r.obs}`:r.cliente,valor:r.valorTotal,valorPago:r.parcelas.filter(p=>p.pago).reduce((s,p)=>s+p.valor,0),parcelas:r.parcelas,categoria:"Recebimento Manual",status:r.parcelas.length&&r.parcelas.every(p=>p.pago)?"pago":r.parcelas.some(p=>p.pago)?"parcial":"aberto",fonteManual:true}));
+    const totalAR=[...financeiro,...recAsF].filter(f=>f.tipo==="receber").reduce((s,f)=>s+(f.valor-f.valorPago),0);
     const totalAP=financeiro.filter(f=>f.tipo==="pagar").reduce((s,f)=>s+(f.valor-f.valorPago),0);
     const saldo=saldoInicial+totalAR-totalAP;
     // CAIXA REAL = abertura + tudo efetivamente recebido − tudo efetivamente pago
@@ -2386,7 +2388,7 @@ export default function ERP(){
     const parVencHojeRec=todasParcelas.filter(p=>!p.pago&&p.venc===hj&&p.tipo==="receber");
     const parVencHojePag=todasParcelas.filter(p=>!p.pago&&p.venc===hj&&p.tipo==="pagar");
     // Filtros de lista
-    const list=financeiro.filter(f=>{
+    const list=[...financeiro,...recAsF].filter(f=>{
       if(fTipo==="receber")return f.tipo==="receber";
       if(fTipo==="pagar")return f.tipo==="pagar";
       if(fTipo==="este_mes")return f.parcelas.some(p=>!p.pago&&p.venc?.startsWith(mesAtual));
@@ -2435,7 +2437,7 @@ export default function ERP(){
         <div style={{background:"rgba(16,185,129,.07)",borderRadius:"var(--rl)",padding:"14px 16px",border:"1px solid rgba(16,185,129,.2)"}}>
           <div style={{fontSize:8,fontWeight:800,color:"var(--gn)",textTransform:"uppercase",letterSpacing:"1px",marginBottom:4}}>💚 Total a Receber</div>
           <div style={{fontSize:20,fontWeight:800,color:"var(--gn)"}}>{R$(totalAR)}</div>
-          <div style={{fontSize:9,color:"var(--tx3)",marginTop:4}}>{financeiro.filter(f=>f.tipo==="receber"&&f.status!=="pago").length} conta{financeiro.filter(f=>f.tipo==="receber"&&f.status!=="pago").length!==1?"s":""} em aberto</div>
+          <div style={{fontSize:9,color:"var(--tx3)",marginTop:4}}>{[...financeiro,...recAsF].filter(f=>f.tipo==="receber"&&f.status!=="pago").length} conta{[...financeiro,...recAsF].filter(f=>f.tipo==="receber"&&f.status!=="pago").length!==1?"s":""} em aberto</div>
         </div>
         {/* Total a Pagar */}
         <div style={{background:"rgba(239,68,68,.07)",borderRadius:"var(--rl)",padding:"14px 16px",border:"1px solid rgba(239,68,68,.2)"}}>
@@ -2669,9 +2671,9 @@ export default function ERP(){
         const estesMes=proxVenc&&proxVenc.venc?.startsWith(mesAtual);
         return(<div key={f.id} style={{display:"grid",gridTemplateColumns:"70px 2fr 100px 100px 100px 100px 75px 50px",gap:6,padding:"11px 18px",borderBottom:"1.5px solid var(--bd)",alignItems:"center",fontSize:14,background:atrasado?"rgba(239,68,68,.03)":estesMes?"rgba(99,102,241,.03)":"transparent"}}>
           <Badge color={f.tipo==="receber"?"green":"red"}>{f.tipo==="receber"?"Receber":"Pagar"}</Badge>
-          <div onClick={()=>setModal({t:"detFin",d:f})} style={{cursor:"pointer"}}>
+          <div onClick={f.fonteManual?()=>{setTab("recebimentos");setRecTab("manuais");}:()=>setModal({t:"detFin",d:f})} style={{cursor:"pointer"}}>
             <div style={{color:"var(--tx)",fontWeight:700}}>{f.desc}</div>
-            {f.categoria&&<div style={{fontSize:12,color:"var(--tx3)",fontWeight:600}}>{f.categoria}{f.fornecedor?" • "+f.fornecedor:""}</div>}
+            <div style={{fontSize:12,color:"var(--tx3)",fontWeight:600}}>{f.categoria||""}{f.fonteManual?" 📋":""}{ f.fornecedor?" • "+f.fornecedor:""}</div>
           </div>
           <span style={{fontWeight:700,fontSize:13,color:atrasado?"var(--rd)":estesMes?"var(--pri)":"var(--tx3)"}}>{proxVenc?<>{atrasado?"⚠ ":""}{isoToBR(proxVenc.venc)}</>:"—"}</span>
           <span style={{fontWeight:700,color:"var(--tx)"}}>{R$(f.valor)}</span>
@@ -2679,8 +2681,12 @@ export default function ERP(){
           <span style={{fontWeight:700,color:f.valor-f.valorPago>0?"var(--rd)":"var(--gn)"}}>{R$(f.valor-f.valorPago)}</span>
           <Badge color={f.status==="pago"?"green":f.status==="parcial"?"amber":"blue"}>{f.status}</Badge>
           <div style={{display:"flex",gap:2}}>
-            <button onClick={()=>setModal({t:"detFin",d:f})} style={{background:"none",border:"none",color:"var(--tx3)",padding:2,cursor:"pointer"}}><I.Edit/></button>
-            <button onClick={e=>{e.stopPropagation();setFinanceiro(p=>p.filter(x=>x.id!==f.id));showToast("Removido","red")}} style={{background:"none",border:"none",color:"var(--rd)",padding:2,cursor:"pointer"}}><I.Trash/></button>
+            {f.fonteManual
+              ?<button onClick={()=>{setTab("recebimentos");setRecTab("manuais");}} title="Ver em Recebimentos" style={{background:"none",border:"none",color:"var(--pri)",padding:2,cursor:"pointer",fontSize:11}}>↗</button>
+              :<button onClick={()=>setModal({t:"detFin",d:f})} style={{background:"none",border:"none",color:"var(--tx3)",padding:2,cursor:"pointer"}}><I.Edit/></button>}
+            {f.fonteManual
+              ?<button onClick={e=>{e.stopPropagation();setRecebimentos(p=>p.filter(x=>x.id!==f.id));showToast("Removido","red")}} style={{background:"none",border:"none",color:"var(--rd)",padding:2,cursor:"pointer"}}><I.Trash/></button>
+              :<button onClick={e=>{e.stopPropagation();setFinanceiro(p=>p.filter(x=>x.id!==f.id));showToast("Removido","red")}} style={{background:"none",border:"none",color:"var(--rd)",padding:2,cursor:"pointer"}}><I.Trash/></button>}
           </div>
         </div>);
       })}{list.length===0&&<div style={{padding:30,textAlign:"center",color:"var(--tx3)",fontSize:14,fontWeight:600}}>Nenhuma conta</div>}</Card>

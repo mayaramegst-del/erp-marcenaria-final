@@ -1361,6 +1361,13 @@ export default function ERP(){
     localStorage.setItem('erp_'+k,JSON.stringify(v));
     clearTimeout(syncTimers.current[k]);
     syncTimers.current[k]=setTimeout(async()=>{
+      // Proteção: nunca sobrescrever cloud com dado vazio se cloud tem dados reais
+      const newLen=Array.isArray(v)?v.length:Object.keys(v||{}).length;
+      if(newLen===0){
+        const cloud=await dbGet(k);
+        const cloudLen=Array.isArray(cloud)?cloud.length:Object.keys(cloud||{}).length;
+        if(cloudLen>0){console.warn('[syncCloud] Abortado: evitando sobrescrever',cloudLen,'itens em nuvem com vazio',k);setSyncStatus("ok");return;}
+      }
       const ok=await dbSet(k,v);
       setSyncStatus(ok?"ok":"error");
     },600);
@@ -1411,7 +1418,7 @@ export default function ERP(){
     else{setSyncStatus("error");return{ok,fail};}
   },[getSnap,empresa]);
 
-  // Load from Supabase — pode ser chamado no mount e no refresh do marceneiro
+  // Load from Supabase — lógica: quem tem MAIS dados ganha (protege contra sobrescrita)
   const loadFromCloud=useCallback(async(isInitial=false)=>{
     setSyncStatus("syncing");
     const setters={clientes:setClientes,orcamentos:setOrcamentos,pedidos:setPedidos,
@@ -1426,23 +1433,36 @@ export default function ERP(){
         const local=localRaw?JSON.parse(localRaw):null;
         const cloudLen=Array.isArray(cloud)?cloud.length:Object.keys(cloud||{}).length;
         const localLen=Array.isArray(local)?local.length:Object.keys(local||{}).length;
-        if(cloud!==null&&cloudLen>0){
+        if(cloudLen>0&&cloudLen>=localLen){
+          // Cloud tem dados e é igual ou maior que local → cloud vence (sync multi-device)
           setters[k](cloud);
-        } else if(isInitial&&localLen>0){
+          localStorage.setItem('erp_'+k,JSON.stringify(cloud));
+        } else if(localLen>0&&localLen>cloudLen){
+          // Local tem MAIS dados que cloud → local vence, faz upload para cloud
+          setters[k](local);
           toUpload.push([k,local]);
         }
+        // ambos vazios → mantém estado inicial, não faz nada
       }catch(e){console.warn('[load] erro ao carregar',k,e);}
     }
     try{
       const cloud=await dbGet('empresa');
-      if(cloud!==null) setEmpresa(cur=>({...EMPRESA_DEF,...cur,...cloud}));
-      else if(isInitial){const localE=JSON.parse(localStorage.getItem('erpEmpresa')||'null');if(localE)toUpload.push(['empresa',localE]);}
+      const localE=JSON.parse(localStorage.getItem('erpEmpresa')||'null');
+      const cloudKeys=Object.keys(cloud||{}).filter(x=>!['loginAdmin','senhaAdmin'].includes(x)).length;
+      const localKeys=Object.keys(localE||{}).filter(x=>!['loginAdmin','senhaAdmin'].includes(x)).length;
+      if(cloudKeys>0&&cloudKeys>=localKeys){
+        setEmpresa(cur=>({...EMPRESA_DEF,...cur,...cloud}));
+        localStorage.setItem('erpEmpresa',JSON.stringify({...EMPRESA_DEF,...localE,...cloud}));
+      } else if(localKeys>0&&localKeys>cloudKeys){
+        // Local tem configs mais ricas → faz upload
+        toUpload.push(['empresa',localE]);
+      }
     }catch(e){console.warn('[load] erro empresa',e);}
     if(toUpload.length>0){
-      await dbSetMany(toUpload.filter(([k])=>k!=='empresa'));
       const empEntry=toUpload.find(([k])=>k==='empresa');
+      await dbSetMany(toUpload.filter(([k])=>k!=='empresa'));
       if(empEntry)await dbSet('empresa',empEntry[1]);
-      showToast(`☁️ ${toUpload.length} chave(s) sincronizada(s) com a nuvem!`);
+      showToast(`☁️ Dados locais enviados para nuvem (${toUpload.length} chave(s))`);
     }
     setDbLoaded(true);
     setSyncStatus("ok");

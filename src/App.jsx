@@ -1403,6 +1403,18 @@ export default function ERP(){
     showToast(fail.length===0?"Backup restaurado e sincronizado com a nuvem!":"Backup restaurado localmente (verifique conexão)","success");
   },[showToast]);
 
+  // Backup automático diário — salva snapshot em chave separada com data
+  const saveBackup=useCallback(async(snap,emp)=>{
+    try{
+      const today=new Date().toISOString().slice(0,10);
+      const backupKey=`backup_${today}`;
+      const existing=await dbGet(backupKey);
+      if(existing)return; // já tem backup de hoje
+      await dbSet(backupKey,{...snap,empresa:emp,ts:new Date().toISOString()});
+      console.log('[backup] Backup diário salvo:',backupKey);
+    }catch(e){console.warn('[backup] erro',e);}
+  },[]);
+
   // Sincronização forçada — salva tudo no Supabase e mostra resultado
   const forceSyncAll=useCallback(async()=>{
     setSyncStatus("syncing");
@@ -1414,9 +1426,11 @@ export default function ERP(){
       else localStorage.setItem('erp_'+k,JSON.stringify(v));
     });
     const {ok,fail}=await dbSetMany(entries);
+    // Salva backup diário junto
+    await saveBackup(snap,empresa);
     if(fail.length===0){setSyncStatus("ok");return{ok,fail};}
     else{setSyncStatus("error");return{ok,fail};}
-  },[getSnap,empresa]);
+  },[getSnap,empresa,saveBackup]);
 
   // Load from Supabase — lógica: quem tem MAIS dados ganha (protege contra sobrescrita)
   const loadFromCloud=useCallback(async(isInitial=false)=>{
@@ -1466,8 +1480,14 @@ export default function ERP(){
     }
     setDbLoaded(true);
     setSyncStatus("ok");
+    // Backup diário automático após carregamento
+    if(isInitial){
+      const snap2={clientes:JSON.parse(localStorage.getItem('erp_clientes')||'[]'),orcamentos:JSON.parse(localStorage.getItem('erp_orcamentos')||'[]'),pedidos:JSON.parse(localStorage.getItem('erp_pedidos')||'[]'),marceneiros:JSON.parse(localStorage.getItem('erp_marceneiros')||'[]'),estoque:JSON.parse(localStorage.getItem('erp_estoque')||'[]'),financeiro:JSON.parse(localStorage.getItem('erp_financeiro')||'[]'),leads:JSON.parse(localStorage.getItem('erp_leads')||'[]'),biblioteca:JSON.parse(localStorage.getItem('erp_biblioteca')||'[]'),recebimentos:JSON.parse(localStorage.getItem('erp_recebimentos')||'[]'),recorrentes:JSON.parse(localStorage.getItem('erp_recorrentes')||'[]'),vendedores:JSON.parse(localStorage.getItem('erp_vendedores')||'[]')};
+      const empSnap=JSON.parse(localStorage.getItem('erpEmpresa')||'{}');
+      saveBackup(snap2,empSnap);
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  },[]);
+  },[saveBackup]);
 
   useEffect(()=>{loadFromCloud(true);},[loadFromCloud]);
 
@@ -3118,6 +3138,17 @@ export default function ERP(){
               }} style={{width:"100%",justifyContent:"center",fontSize:10,
                 background:syncStatus==="error"?"var(--rdb)":"transparent",
                 color:syncStatus==="error"?"var(--rd)":"var(--tx2)"}}>☁ Salvar Tudo Agora</Btn>
+              <Btn v="ghost" small onClick={async()=>{
+                const today=new Date().toISOString().slice(0,10);
+                const yesterday=new Date(Date.now()-86400000).toISOString().slice(0,10);
+                const bk=await dbGet(`backup_${today}`)||await dbGet(`backup_${yesterday}`);
+                if(!bk){showToast("Nenhum backup encontrado","red");return;}
+                const keys=['clientes','orcamentos','pedidos','marceneiros','estoque','financeiro','leads','biblioteca','recebimentos','recorrentes','vendedores'];
+                const setters2={clientes:setClientes,orcamentos:setOrcamentos,pedidos:setPedidos,marceneiros:setMarceneiros,estoque:setEstoque,financeiro:setFinanceiro,leads:setLeads,biblioteca:setBiblioteca,recebimentos:setRecebimentos,recorrentes:setRecorrentes,vendedores:setVendedores};
+                keys.forEach(k=>{if(bk[k])setters2[k](bk[k]);});
+                if(bk.empresa)setEmpresa(bk.empresa);
+                showToast(`✓ Backup de ${bk.ts?.slice(0,10)||today} restaurado!`);
+              }} style={{width:"100%",justifyContent:"center",fontSize:10,color:"var(--am)"}}>🕐 Restaurar Backup</Btn>
               <Btn v="ghost" small onClick={()=>setLoginView({l:"",s:""})} style={{width:"100%",justifyContent:"center",fontSize:10}}><I.Lock/> Área Marceneiro</Btn>
               <Btn v="ghost" small onClick={()=>{localStorage.removeItem('erpUser');setUser(null);setLoginView(null);}} style={{width:"100%",justifyContent:"center",fontSize:10,color:"var(--rd)",border:"1px solid rgba(239,68,68,.2)",background:"var(--rdb)"}}><I.X/> Sair da Conta</Btn>
              </div>

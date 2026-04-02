@@ -259,8 +259,8 @@ function ModalEditLead({d,setModal,setLeads,showToast}){
   </>);
 }
 
-function ModalNewFin({setModal,setFinanceiro,setRecorrentes,showToast,cats:catsProp,fonteCartao}){
-  const [f,setF]=useState({tipo:"pagar",desc:"",valor:0,fornecedor:"",numParc:1,categoria:"Outros",venc:"",recorrente:false,diaRec:1});
+function ModalNewFin({setModal,setFinanceiro,setRecorrentes,showToast,cats:catsProp,fonteCartao,fontePool,fornecedorSugerido}){
+  const [f,setF]=useState({tipo:"pagar",desc:"",valor:0,fornecedor:fornecedorSugerido||"",numParc:1,categoria:"Outros",venc:"",recorrente:false,diaRec:1});
   const eCats=catsProp||getEmpresaCats();
   const cats=eCats[f.tipo]||eCats.pagar;
   return(<><h2 style={{fontSize:16,fontWeight:800,marginBottom:16}}>Nova Conta</h2>
@@ -306,7 +306,7 @@ function ModalNewFin({setModal,setFinanceiro,setRecorrentes,showToast,cats:catsP
             let vd="";if(f.venc){const d=new Date(f.venc+"T12:00:00");d.setMonth(d.getMonth()+i);vd=d.toISOString().split("T")[0];}
             return{id:uid(),valor:vParc,venc:vd,pago:false,dataPago:""};
           });
-          setFinanceiro(prev=>[...prev,{id:uid(),tipo:f.tipo,desc:f.desc,valor:f.valor,valorPago:0,parcelas,fornecedor:f.fornecedor,categoria:f.categoria||"Outros",status:"aberto",...(fonteCartao?{fonteCartao:true}:{})}]);
+          setFinanceiro(prev=>[...prev,{id:uid(),tipo:f.tipo,desc:f.desc,valor:f.valor,valorPago:0,parcelas,fornecedor:f.fornecedor,categoria:f.categoria||"Outros",status:"aberto",...(fonteCartao?{fonteCartao:true}:{}),...(fontePool?{fontePool}:{})}]);
           setModal(null);showToast("Conta criada!");
         }
       }}><I.Check/> {f.recorrente?"Criar Recorrente":"Criar"}</Btn>
@@ -1343,6 +1343,7 @@ export default function ERP(){
   const recNomeRef=useRef("");const recMesRef=useRef(hojeISO().slice(0,7));const [recAddingMes,setRecAddingMes]=useState(false);
   const [recExpId,setRecExpId]=useState(null);
   const [recTab,setRecTab]=useState("pedidos");
+  const [poolTab,setPoolTab]=useState("1012");
   const recorrentesRef=useRef(recorrentes);useEffect(()=>{recorrentesRef.current=recorrentes;},[recorrentes]);
   const EMPRESA_DEF={nome:"Marcenaria",endereco:"",telefone:"",email:"",cnpj:"",logo:"",loginAdmin:"admin",senhaAdmin:"admin123"};
   const [empresa,setEmpresa]=useState(()=>{try{const s=JSON.parse(localStorage.getItem('erpEmpresa'));return s?{...EMPRESA_DEF,...s}:EMPRESA_DEF;}catch{return EMPRESA_DEF;}});
@@ -2313,6 +2314,8 @@ export default function ERP(){
     const [showRec,setShowRec]=useState(false);
     const [recForm,setRecForm]=useState(null);
     const [fluxoTab,setFluxoTab]=useState("mes");
+    const [showStats,setShowStats]=useState(false);
+    const [showFluxo,setShowFluxo]=useState(false);
     const eCats=empresa.cats||CATS;
     const hj=hojeISO();
     const mesAtual=hj.slice(0,7);
@@ -2328,6 +2331,22 @@ export default function ERP(){
     // ── Cálculos por parcela ──
     const recParcelas=recebimentos.flatMap(r=>r.parcelas.map(p=>({...p,finId:r.id,tipo:"receber",desc:r.obs?`${r.cliente} — ${r.obs}`:r.cliente,categoria:"Recebimento Manual",fonteManual:true})));
     const todasParcelas=[...financeiro.flatMap(f=>f.parcelas.map(p=>({...p,finId:f.id,tipo:f.tipo,desc:f.desc,categoria:f.categoria,fornecedor:f.fornecedor}))),...recParcelas];
+    // ── Pools de Cartão ──
+    const FNS_1012=["mestre marceneiro","az ferragens"];
+    const FNS_18=["léo madeiras","leo madeiras"];
+    const matchForn=(forn,lista)=>lista.some(n=>(forn||"").toLowerCase().includes(n));
+    const pool1012Parc=todasParcelas.filter(p=>["cred_10x","cred_12x","cartao_cred"].includes(p.formaPag)&&p.tipo==="receber");
+    const pool18Parc=todasParcelas.filter(p=>p.formaPag==="cred_18x"&&p.tipo==="receber");
+    const pool1012Rec=pool1012Parc.filter(p=>p.pago).reduce((s,p)=>s+p.valor,0);
+    const pool1012Fut=pool1012Parc.filter(p=>!p.pago).reduce((s,p)=>s+p.valor,0);
+    const pool18Rec=pool18Parc.filter(p=>p.pago).reduce((s,p)=>s+p.valor,0);
+    const pool18Fut=pool18Parc.filter(p=>!p.pago).reduce((s,p)=>s+p.valor,0);
+    const pool1012FinPag=financeiro.filter(f=>f.tipo==="pagar"&&(f.fontePool==="1012"||matchForn(f.fornecedor,FNS_1012)));
+    const pool18FinPag=financeiro.filter(f=>f.tipo==="pagar"&&(f.fontePool==="18"||matchForn(f.fornecedor,FNS_18)));
+    const pool1012Pago=pool1012FinPag.reduce((s,f)=>s+f.valorPago,0);
+    const pool18Pago=pool18FinPag.reduce((s,f)=>s+f.valorPago,0);
+    const pool1012Saldo=pool1012Rec-pool1012Pago;
+    const pool18Saldo=pool18Rec-pool18Pago;
     // HOJE
     const parHojeRec=todasParcelas.filter(p=>p.pago&&normDate(p.dataPago)===hj&&p.tipo==="receber");
     const parHojePag=todasParcelas.filter(p=>p.pago&&normDate(p.dataPago)===hj&&p.tipo==="pagar");
@@ -2415,7 +2434,7 @@ export default function ERP(){
       <SH title="Financeiro" sub="Gestão de Caixa — Contas a Pagar e Receber" right={<Btn onClick={()=>setModal({t:"newFin"})}><I.Plus/> Nova Conta</Btn>}/>
 
       {/* ══ LINHA 1 — SALDO REAL ══ */}
-      <div style={{display:"grid",gridTemplateColumns:"2fr 1fr 1fr 1fr",gap:10,marginBottom:10}}>
+      <div style={{display:"grid",gridTemplateColumns:"2fr 1fr",gap:10,marginBottom:10}}>
         {/* Caixa do Dia */}
         <div style={{background:"linear-gradient(135deg,#0f172a 0%,#1e293b 100%)",borderRadius:"var(--rl)",padding:"18px 22px",position:"relative",overflow:"hidden"}}>
           <div style={{position:"absolute",right:16,top:16,fontSize:32,opacity:.08}}>💰</div>
@@ -2427,18 +2446,6 @@ export default function ERP(){
             <div><div style={{fontSize:8,color:"#ef4444",textTransform:"uppercase",fontWeight:700}}>Saiu Hoje</div><div style={{fontSize:12,fontWeight:800,color:"#f87171"}}>{R$(pagHoje)}</div></div>
           </div>
         </div>
-        {/* Saldo Projetado */}
-        <div style={{background:"linear-gradient(135deg,#0c1a2e,#162032)",borderRadius:"var(--rl)",padding:"14px 16px",border:"1px solid #1e40af33"}}>
-          <div style={{fontSize:8,fontWeight:800,color:"#60a5fa",textTransform:"uppercase",letterSpacing:"1px",marginBottom:4}}>📈 Saldo Projetado</div>
-          <div style={{fontSize:20,fontWeight:800,color:saldo>=0?"#60a5fa":"#f87171"}}>{R$(saldo)}</div>
-          <div style={{fontSize:9,color:"#475569",marginTop:4}}>Caixa + A Receber − A Pagar</div>
-        </div>
-        {/* Total a Receber */}
-        <div style={{background:"rgba(16,185,129,.07)",borderRadius:"var(--rl)",padding:"14px 16px",border:"1px solid rgba(16,185,129,.2)"}}>
-          <div style={{fontSize:8,fontWeight:800,color:"var(--gn)",textTransform:"uppercase",letterSpacing:"1px",marginBottom:4}}>💚 Total a Receber</div>
-          <div style={{fontSize:20,fontWeight:800,color:"var(--gn)"}}>{R$(totalAR)}</div>
-          <div style={{fontSize:9,color:"var(--tx3)",marginTop:4}}>{[...financeiro,...recAsF].filter(f=>f.tipo==="receber"&&f.status!=="pago").length} conta{[...financeiro,...recAsF].filter(f=>f.tipo==="receber"&&f.status!=="pago").length!==1?"s":""} em aberto</div>
-        </div>
         {/* Total a Pagar */}
         <div style={{background:"rgba(239,68,68,.07)",borderRadius:"var(--rl)",padding:"14px 16px",border:"1px solid rgba(239,68,68,.2)"}}>
           <div style={{fontSize:8,fontWeight:800,color:"var(--rd)",textTransform:"uppercase",letterSpacing:"1px",marginBottom:4}}>❤️ Total a Pagar</div>
@@ -2447,28 +2454,34 @@ export default function ERP(){
         </div>
       </div>
 
-      {/* ══ LINHA 2 — SEMANA / MÊS ══ */}
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:10,marginBottom:10}}>
-        <div style={{background:"var(--gnb)",borderRadius:"var(--rl)",padding:"12px 16px",border:"1px solid var(--gn)33"}}>
-          <div style={{fontSize:8,fontWeight:800,color:"var(--gn)",textTransform:"uppercase",letterSpacing:"1px",marginBottom:3}}>📅 Esta Semana — Entradas</div>
-          <div style={{fontSize:18,fontWeight:800,color:"var(--gn)"}}>{R$(semRecTotal)}</div>
-          <div style={{fontSize:9,color:"var(--tx3)",marginTop:2}}>{parSemPagoRec.length} recebida{parSemPagoRec.length!==1?"s":""} · {parSemRec.length} pendente{parSemRec.length!==1?"s":""}</div>
-        </div>
-        <div style={{background:"rgba(239,68,68,.05)",borderRadius:"var(--rl)",padding:"12px 16px",border:"1px solid rgba(239,68,68,.15)"}}>
-          <div style={{fontSize:8,fontWeight:800,color:"var(--rd)",textTransform:"uppercase",letterSpacing:"1px",marginBottom:3}}>📅 Esta Semana — Saídas</div>
-          <div style={{fontSize:18,fontWeight:800,color:"var(--rd)"}}>{R$(semPagTotal)}</div>
-          <div style={{fontSize:9,color:"var(--tx3)",marginTop:2}}>{parSemPagoPag.length} paga{parSemPagoPag.length!==1?"s":""} · {parSemPag.length} pendente{parSemPag.length!==1?"s":""}</div>
-        </div>
-        <div style={{background:"var(--gnb)",borderRadius:"var(--rl)",padding:"12px 16px",border:"1px solid var(--gn)33"}}>
-          <div style={{fontSize:8,fontWeight:800,color:"var(--gn)",textTransform:"uppercase",letterSpacing:"1px",marginBottom:3}}>🗓 Este Mês — Entradas</div>
-          <div style={{fontSize:18,fontWeight:800,color:"var(--gn)"}}>{R$(esteMesRec)}</div>
-          <div style={{fontSize:9,color:"var(--tx3)",marginTop:2}}>{parPagoMesRec.length} recebida{parPagoMesRec.length!==1?"s":""} · {parMesRec.length} pendente{parMesRec.length!==1?"s":""}</div>
-        </div>
-        <div style={{background:"rgba(239,68,68,.05)",borderRadius:"var(--rl)",padding:"12px 16px",border:"1px solid rgba(239,68,68,.15)"}}>
-          <div style={{fontSize:8,fontWeight:800,color:"var(--rd)",textTransform:"uppercase",letterSpacing:"1px",marginBottom:3}}>🗓 Este Mês — Saídas</div>
-          <div style={{fontSize:18,fontWeight:800,color:"var(--rd)"}}>{R$(esteMesPag)}</div>
-          <div style={{fontSize:9,color:"var(--tx3)",marginTop:2}}>{parPagoMesPag.length} paga{parPagoMesPag.length!==1?"s":""} · {parMesPag.length} pendente{parMesPag.length!==1?"s":""}</div>
-        </div>
+      {/* ══ LINHA 2 — SEMANA / MÊS (colapsável) ══ */}
+      <div style={{marginBottom:10}}>
+        <button onClick={()=>setShowStats(p=>!p)} style={{width:"100%",display:"flex",justifyContent:"space-between",alignItems:"center",padding:"9px 14px",borderRadius:"var(--r)",border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx2)",fontSize:11,fontWeight:700,cursor:"pointer",marginBottom:showStats?8:0}}>
+          <span>📊 Semana / Mês — Entradas & Saídas</span>
+          <span style={{fontSize:10}}>{showStats?"▲ Fechar":"▼ Abrir"}</span>
+        </button>
+        {showStats&&<div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:10}}>
+          <div style={{background:"var(--gnb)",borderRadius:"var(--rl)",padding:"12px 16px",border:"1px solid var(--gn)33"}}>
+            <div style={{fontSize:8,fontWeight:800,color:"var(--gn)",textTransform:"uppercase",letterSpacing:"1px",marginBottom:3}}>📅 Esta Semana — Entradas</div>
+            <div style={{fontSize:18,fontWeight:800,color:"var(--gn)"}}>{R$(semRecTotal)}</div>
+            <div style={{fontSize:9,color:"var(--tx3)",marginTop:2}}>{parSemPagoRec.length} recebida{parSemPagoRec.length!==1?"s":""} · {parSemRec.length} pendente{parSemRec.length!==1?"s":""}</div>
+          </div>
+          <div style={{background:"rgba(239,68,68,.05)",borderRadius:"var(--rl)",padding:"12px 16px",border:"1px solid rgba(239,68,68,.15)"}}>
+            <div style={{fontSize:8,fontWeight:800,color:"var(--rd)",textTransform:"uppercase",letterSpacing:"1px",marginBottom:3}}>📅 Esta Semana — Saídas</div>
+            <div style={{fontSize:18,fontWeight:800,color:"var(--rd)"}}>{R$(semPagTotal)}</div>
+            <div style={{fontSize:9,color:"var(--tx3)",marginTop:2}}>{parSemPagoPag.length} paga{parSemPagoPag.length!==1?"s":""} · {parSemPag.length} pendente{parSemPag.length!==1?"s":""}</div>
+          </div>
+          <div style={{background:"var(--gnb)",borderRadius:"var(--rl)",padding:"12px 16px",border:"1px solid var(--gn)33"}}>
+            <div style={{fontSize:8,fontWeight:800,color:"var(--gn)",textTransform:"uppercase",letterSpacing:"1px",marginBottom:3}}>🗓 Este Mês — Entradas</div>
+            <div style={{fontSize:18,fontWeight:800,color:"var(--gn)"}}>{R$(esteMesRec)}</div>
+            <div style={{fontSize:9,color:"var(--tx3)",marginTop:2}}>{parPagoMesRec.length} recebida{parPagoMesRec.length!==1?"s":""} · {parMesRec.length} pendente{parMesRec.length!==1?"s":""}</div>
+          </div>
+          <div style={{background:"rgba(239,68,68,.05)",borderRadius:"var(--rl)",padding:"12px 16px",border:"1px solid rgba(239,68,68,.15)"}}>
+            <div style={{fontSize:8,fontWeight:800,color:"var(--rd)",textTransform:"uppercase",letterSpacing:"1px",marginBottom:3}}>🗓 Este Mês — Saídas</div>
+            <div style={{fontSize:18,fontWeight:800,color:"var(--rd)"}}>{R$(esteMesPag)}</div>
+            <div style={{fontSize:9,color:"var(--tx3)",marginTop:2}}>{parPagoMesPag.length} paga{parPagoMesPag.length!==1?"s":""} · {parMesPag.length} pendente{parMesPag.length!==1?"s":""}</div>
+          </div>
+        </div>}
       </div>
 
       {/* ══ ALERTAS VENCIDOS ══ */}
@@ -2483,8 +2496,124 @@ export default function ERP(){
         </div>}
       </div>}
 
-      {/* ══ PAINEL FLUXO DE CAIXA ══ */}
+      {/* ══ POOLS DE CARTÃO DE CRÉDITO ══ */}
       <Card style={{marginBottom:14,padding:0,overflow:"hidden"}}>
+        {/* Cabeçalho + Tabs */}
+        <div style={{padding:"14px 20px 0",background:"var(--sf)"}}>
+          <div style={{fontSize:13,fontWeight:800,color:"var(--tx)",marginBottom:12}}>💳 Gestão de Recebimentos — Cartão de Crédito</div>
+          <div style={{display:"flex",gap:0,borderBottom:"2px solid var(--bd)"}}>
+            {[["1012","💳 Crédito 10x / 12x"],["18","💳 Crédito 18x"]].map(([k,l])=>(
+              <button key={k} onClick={()=>setPoolTab(k)} style={{padding:"10px 24px",fontSize:12,fontWeight:700,background:poolTab===k?"var(--prib)":"transparent",color:poolTab===k?"var(--pri)":"var(--tx3)",border:"none",cursor:"pointer",borderBottom:poolTab===k?"2px solid var(--pri)":"2px solid transparent",marginBottom:-2}}>{l}</button>
+            ))}
+          </div>
+        </div>
+        {/* Conteúdo Pool 10x/12x */}
+        {poolTab==="1012"&&(()=>{
+          const proxParc=pool1012Parc.filter(p=>!p.pago).sort((a,b)=>a.venc>b.venc?1:-1).slice(0,8);
+          return(<div style={{padding:16}}>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:10,marginBottom:14}}>
+              <div style={{background:"var(--gnb)",borderRadius:"var(--r)",padding:"12px 14px",border:"1px solid var(--gn)33"}}>
+                <div style={{fontSize:8,fontWeight:800,color:"var(--gn)",textTransform:"uppercase",letterSpacing:1,marginBottom:3}}>✅ Já Recebido</div>
+                <div style={{fontSize:18,fontWeight:800,color:"var(--gn)"}}>{R$(pool1012Rec)}</div>
+                <div style={{fontSize:9,color:"var(--tx3)",marginTop:2}}>via 10x e 12x</div>
+              </div>
+              <div style={{background:"var(--blb)",borderRadius:"var(--r)",padding:"12px 14px",border:"1px solid var(--bl)33"}}>
+                <div style={{fontSize:8,fontWeight:800,color:"var(--bl)",textTransform:"uppercase",letterSpacing:1,marginBottom:3}}>🔜 A Receber (futuro)</div>
+                <div style={{fontSize:18,fontWeight:800,color:"var(--bl)"}}>{R$(pool1012Fut)}</div>
+                <div style={{fontSize:9,color:"var(--tx3)",marginTop:2}}>{pool1012Parc.filter(p=>!p.pago).length} parcela{pool1012Parc.filter(p=>!p.pago).length!==1?"s":""} pendente{pool1012Parc.filter(p=>!p.pago).length!==1?"s":""}</div>
+              </div>
+              <div style={{background:"var(--rdb)",borderRadius:"var(--r)",padding:"12px 14px",border:"1px solid var(--rd)33"}}>
+                <div style={{fontSize:8,fontWeight:800,color:"var(--rd)",textTransform:"uppercase",letterSpacing:1,marginBottom:3}}>💸 Pago Fornecedores</div>
+                <div style={{fontSize:18,fontWeight:800,color:"var(--rd)"}}>{R$(pool1012Pago)}</div>
+                <div style={{fontSize:9,color:"var(--tx3)",marginTop:2}}>Mestre Marc. · AZ Ferragens</div>
+              </div>
+              <div style={{background:pool1012Saldo>=0?"var(--gnb)":"var(--rdb)",borderRadius:"var(--r)",padding:"12px 14px",border:`1px solid ${pool1012Saldo>=0?"var(--gn)":"var(--rd)"}33`}}>
+                <div style={{fontSize:8,fontWeight:800,color:pool1012Saldo>=0?"var(--gn)":"var(--rd)",textTransform:"uppercase",letterSpacing:1,marginBottom:3}}>⚖ Saldo Disponível</div>
+                <div style={{fontSize:18,fontWeight:800,color:pool1012Saldo>=0?"var(--gn)":"var(--rd)"}}>{R$(pool1012Saldo)}</div>
+                <div style={{fontSize:9,color:"var(--tx3)",marginTop:2}}>Recebido − Pago fornec.</div>
+              </div>
+            </div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+              <div>
+                <div style={{fontSize:10,fontWeight:800,color:"var(--bl)",textTransform:"uppercase",marginBottom:8}}>📅 Próximas parcelas a receber</div>
+                {proxParc.length===0?<div style={{fontSize:11,color:"var(--tx3)"}}>Nenhuma parcela futura cadastrada</div>
+                :proxParc.map((p,i)=><div key={i} style={{display:"flex",justifyContent:"space-between",padding:"6px 0",borderBottom:"1px solid var(--bd)",fontSize:12}}>
+                  <div><div style={{fontWeight:700,color:"var(--tx)"}}>{p.desc}</div><div style={{fontSize:10,color:"var(--tx3)"}}>{isoToBR(p.venc)} · {FORMAS_LAB[p.formaPag]||p.formaPag}</div></div>
+                  <span style={{fontWeight:800,color:"var(--bl)"}}>{R$(p.valor)}</span>
+                </div>)}
+              </div>
+              <div>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+                  <div style={{fontSize:10,fontWeight:800,color:"var(--rd)",textTransform:"uppercase"}}>💸 Pagamentos a fornecedores</div>
+                  <Btn small onClick={()=>setModal({t:"newFin",d:{fontePool:"1012",fornecedorSugerido:"Mestre Marceneiro"}})}><I.Plus/> Pagar Fornecedor</Btn>
+                </div>
+                {pool1012FinPag.length===0?<div style={{fontSize:11,color:"var(--tx3)"}}>Nenhum pagamento registrado</div>
+                :pool1012FinPag.slice(0,8).map(f=>{const proxV=f.parcelas?.[0];return(<div key={f.id} style={{display:"flex",justifyContent:"space-between",padding:"6px 0",borderBottom:"1px solid var(--bd)",fontSize:12}}>
+                  <div><div style={{fontWeight:700,color:"var(--tx)"}}>{f.fornecedor||f.desc}</div><div style={{fontSize:10,color:"var(--tx3)"}}>{proxV?isoToBR(proxV.venc):""}</div></div>
+                  <div style={{textAlign:"right"}}><div style={{fontWeight:800,color:"var(--rd)"}}>{R$(f.valor)}</div><div style={{fontSize:10,color:"var(--gn)",fontWeight:600}}>pago {R$(f.valorPago)}</div></div>
+                </div>);})}
+              </div>
+            </div>
+          </div>);
+        })()}
+        {/* Conteúdo Pool 18x */}
+        {poolTab==="18"&&(()=>{
+          const proxParc18=pool18Parc.filter(p=>!p.pago).sort((a,b)=>a.venc>b.venc?1:-1).slice(0,8);
+          return(<div style={{padding:16}}>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:10,marginBottom:14}}>
+              <div style={{background:"var(--gnb)",borderRadius:"var(--r)",padding:"12px 14px",border:"1px solid var(--gn)33"}}>
+                <div style={{fontSize:8,fontWeight:800,color:"var(--gn)",textTransform:"uppercase",letterSpacing:1,marginBottom:3}}>✅ Já Recebido</div>
+                <div style={{fontSize:18,fontWeight:800,color:"var(--gn)"}}>{R$(pool18Rec)}</div>
+                <div style={{fontSize:9,color:"var(--tx3)",marginTop:2}}>via 18x</div>
+              </div>
+              <div style={{background:"var(--ppb)",borderRadius:"var(--r)",padding:"12px 14px",border:"1px solid var(--pp)33"}}>
+                <div style={{fontSize:8,fontWeight:800,color:"var(--pp)",textTransform:"uppercase",letterSpacing:1,marginBottom:3}}>🔜 A Receber (futuro)</div>
+                <div style={{fontSize:18,fontWeight:800,color:"var(--pp)"}}>{R$(pool18Fut)}</div>
+                <div style={{fontSize:9,color:"var(--tx3)",marginTop:2}}>{pool18Parc.filter(p=>!p.pago).length} parcela{pool18Parc.filter(p=>!p.pago).length!==1?"s":""} pendente{pool18Parc.filter(p=>!p.pago).length!==1?"s":""}</div>
+              </div>
+              <div style={{background:"var(--rdb)",borderRadius:"var(--r)",padding:"12px 14px",border:"1px solid var(--rd)33"}}>
+                <div style={{fontSize:8,fontWeight:800,color:"var(--rd)",textTransform:"uppercase",letterSpacing:1,marginBottom:3}}>💸 Pago Fornecedores</div>
+                <div style={{fontSize:18,fontWeight:800,color:"var(--rd)"}}>{R$(pool18Pago)}</div>
+                <div style={{fontSize:9,color:"var(--tx3)",marginTop:2}}>Léo Madeiras</div>
+              </div>
+              <div style={{background:pool18Saldo>=0?"var(--gnb)":"var(--rdb)",borderRadius:"var(--r)",padding:"12px 14px",border:`1px solid ${pool18Saldo>=0?"var(--gn)":"var(--rd)"}33`}}>
+                <div style={{fontSize:8,fontWeight:800,color:pool18Saldo>=0?"var(--gn)":"var(--rd)",textTransform:"uppercase",letterSpacing:1,marginBottom:3}}>⚖ Saldo Disponível</div>
+                <div style={{fontSize:18,fontWeight:800,color:pool18Saldo>=0?"var(--gn)":"var(--rd)"}}>{R$(pool18Saldo)}</div>
+                <div style={{fontSize:9,color:"var(--tx3)",marginTop:2}}>Recebido − Pago fornec.</div>
+              </div>
+            </div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+              <div>
+                <div style={{fontSize:10,fontWeight:800,color:"var(--pp)",textTransform:"uppercase",marginBottom:8}}>📅 Próximas parcelas a receber</div>
+                {proxParc18.length===0?<div style={{fontSize:11,color:"var(--tx3)"}}>Nenhuma parcela futura cadastrada</div>
+                :proxParc18.map((p,i)=><div key={i} style={{display:"flex",justifyContent:"space-between",padding:"6px 0",borderBottom:"1px solid var(--bd)",fontSize:12}}>
+                  <div><div style={{fontWeight:700,color:"var(--tx)"}}>{p.desc}</div><div style={{fontSize:10,color:"var(--tx3)"}}>{isoToBR(p.venc)} · {FORMAS_LAB[p.formaPag]||p.formaPag}</div></div>
+                  <span style={{fontWeight:800,color:"var(--pp)"}}>{R$(p.valor)}</span>
+                </div>)}
+              </div>
+              <div>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+                  <div style={{fontSize:10,fontWeight:800,color:"var(--rd)",textTransform:"uppercase"}}>💸 Pagamentos a fornecedores</div>
+                  <Btn small onClick={()=>setModal({t:"newFin",d:{fontePool:"18",fornecedorSugerido:"Léo Madeiras"}})}><I.Plus/> Pagar Fornecedor</Btn>
+                </div>
+                {pool18FinPag.length===0?<div style={{fontSize:11,color:"var(--tx3)"}}>Nenhum pagamento registrado</div>
+                :pool18FinPag.slice(0,8).map(f=>{const proxV=f.parcelas?.[0];return(<div key={f.id} style={{display:"flex",justifyContent:"space-between",padding:"6px 0",borderBottom:"1px solid var(--bd)",fontSize:12}}>
+                  <div><div style={{fontWeight:700,color:"var(--tx)"}}>{f.fornecedor||f.desc}</div><div style={{fontSize:10,color:"var(--tx3)"}}>{proxV?isoToBR(proxV.venc):""}</div></div>
+                  <div style={{textAlign:"right"}}><div style={{fontWeight:800,color:"var(--rd)"}}>{R$(f.valor)}</div><div style={{fontSize:10,color:"var(--gn)",fontWeight:600}}>pago {R$(f.valorPago)}</div></div>
+                </div>);})}
+              </div>
+            </div>
+          </div>);
+        })()}
+      </Card>
+
+      {/* ══ PAINEL FLUXO DE CAIXA (colapsável) ══ */}
+      <div style={{marginBottom:14}}>
+        <button onClick={()=>setShowFluxo(p=>!p)} style={{width:"100%",display:"flex",justifyContent:"space-between",alignItems:"center",padding:"9px 14px",borderRadius:"var(--r)",border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx2)",fontSize:11,fontWeight:700,cursor:"pointer",marginBottom:showFluxo?8:0}}>
+          <span>⚡ Fluxo de Caixa — Hoje / Semana / Mês / Projeção</span>
+          <span style={{fontSize:10}}>{showFluxo?"▲ Fechar":"▼ Abrir"}</span>
+        </button>
+        {showFluxo&&<Card style={{padding:0,overflow:"hidden"}}>
         {/* Tabs */}
         <div style={{display:"flex",gap:0,borderBottom:"2px solid var(--bd)",background:"var(--sf)"}}>
           {[["hoje","⚡ Hoje"],["semana","📅 Semana"],["mes","🗓 Mês"],["anual","📊 Projeção Anual"]].map(([k,l])=>(
@@ -2648,7 +2777,8 @@ export default function ERP(){
           </>}
 
         </div>
-      </Card>
+        </Card>}
+      </div>
       {/* ── CONTROLES ── */}
       {editSaldoInicial&&<div style={{background:"var(--prib)",borderRadius:"var(--r)",padding:"10px 16px",marginBottom:12,display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
         <span style={{fontSize:12,fontWeight:700,color:"var(--tx)"}}>Abertura de Caixa:</span>
@@ -2658,7 +2788,6 @@ export default function ERP(){
       </div>}
       <div style={{marginBottom:14,display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
         <button onClick={()=>setEditSaldoInicial(!editSaldoInicial)} style={{background:"none",border:"1.5px solid var(--bd)",color:"var(--tx2)",fontSize:11,fontWeight:700,borderRadius:8,padding:"5px 12px",cursor:"pointer"}}>💰 Abertura de Caixa</button>
-        {stats.saldoCartao>0&&<button onClick={()=>setModal({t:"newFin",d:{fonteCartao:true}})} style={{background:"none",border:"1.5px solid var(--pp)",color:"var(--pp)",fontSize:11,fontWeight:700,borderRadius:8,padding:"5px 12px",cursor:"pointer"}}>💳 Pagar Fornecedor (Cartão)</button>}
       </div>
       {/* ── LISTA ── */}
       <div style={{display:"flex",gap:6,marginBottom:14,flexWrap:"wrap"}}>
@@ -3182,7 +3311,7 @@ export default function ERP(){
 
       {modal?.t==="detFin"&&<Modal onClose={()=>setModal(null)} wide><ModalDetFin f={modal.d} financeiro={financeiro} setModal={setModal} pagarParcela={pagarParcela} editParcela={editParcela} addParcela={addParcela} delParcela={delParcela} updFin={updFin} showToast={showToast} cats={empresa.cats||CATS}/></Modal>}
 
-      {modal?.t==="newFin"&&<Modal onClose={()=>setModal(null)}><ModalNewFin setModal={setModal} setFinanceiro={setFinanceiro} setRecorrentes={setRecorrentes} showToast={showToast} cats={empresa.cats||CATS} fonteCartao={modal.d?.fonteCartao}/></Modal>}
+      {modal?.t==="newFin"&&<Modal onClose={()=>setModal(null)}><ModalNewFin setModal={setModal} setFinanceiro={setFinanceiro} setRecorrentes={setRecorrentes} showToast={showToast} cats={empresa.cats||CATS} fonteCartao={modal.d?.fonteCartao} fontePool={modal.d?.fontePool} fornecedorSugerido={modal.d?.fornecedorSugerido}/></Modal>}
 
       {modal?.t==="novoRec"&&<Modal onClose={()=>setModal(null)}><ModalNovoRec clientes={clientes} setModal={setModal} setRecebimentos={setRecebimentos} showToast={showToast}/></Modal>}
       {modal?.t==="baixaRec"&&<Modal onClose={()=>setModal(null)}><ModalBaixaRec modal={modal} setModal={setModal} setRecebimentos={setRecebimentos} showToast={showToast}/></Modal>}

@@ -272,7 +272,7 @@ function ModalNewFin({setModal,setFinanceiro,setRecorrentes,showToast,cats:catsP
       <Field label="Valor Total" type="number" value={f.valor} onChange={v=>setF(p=>({...p,valor:+v}))}/>
       {!f.recorrente&&<Field label="Nº Parcelas" type="number" value={f.numParc} onChange={v=>setF(p=>({...p,numParc:Math.max(1,+v)}))}/>}
       {!f.recorrente&&<Field label="1º Vencimento" type="date" value={f.venc} onChange={v=>setF(p=>({...p,venc:v}))}/>}
-      {f.recorrente&&<Field label="Dia do mês" type="number" value={f.diaRec} onChange={v=>setF(p=>({...p,diaRec:Math.min(28,Math.max(1,+v))}))}/>}
+      {f.recorrente&&<Field label="Dia do mês" type="number" value={f.diaRec} onChange={v=>setF(p=>({...p,diaRec:Math.min(31,Math.max(1,+v))}))}/>}
     </div>
     {f.tipo==="pagar"&&<Field label="Fornecedor/Credor" value={f.fornecedor} onChange={v=>setF(p=>({...p,fornecedor:v}))}/>}
     {/* Toggle recorrente */}
@@ -2348,6 +2348,10 @@ export default function ERP(){
       if(fTipo==="este_mes")return f.parcelas.some(p=>!p.pago&&p.venc?.startsWith(mesAtual));
       if(fTipo==="vencido")return f.parcelas.some(p=>!p.pago&&p.venc&&p.venc<hj);
       return true;
+    }).sort((a,b)=>{
+      const va=(a.parcelas.filter(p=>!p.pago&&p.venc).sort((x,y)=>x.venc>y.venc?1:-1)[0]?.venc||a.parcelas[0]?.venc||"9999");
+      const vb=(b.parcelas.filter(p=>!p.pago&&p.venc).sort((x,y)=>x.venc>y.venc?1:-1)[0]?.venc||b.parcelas[0]?.venc||"9999");
+      return va>vb?1:va<vb?-1:0;
     });
     const inpST={padding:"5px 8px",borderRadius:6,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:11,outline:"none"};
     // Helper renderizador de linhas do painel de fluxo

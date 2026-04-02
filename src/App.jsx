@@ -3060,21 +3060,24 @@ export default function ERP(){
               </div>
             </div>
             {/* GRID PARCELAS */}
-            <div style={{display:"grid",gridTemplateColumns:"38px 110px 110px 90px 130px 80px",gap:6,padding:"5px 8px",borderBottom:"1.5px solid var(--bd)",marginBottom:4}}>
+            <div style={{display:"grid",gridTemplateColumns:"38px 110px 110px 90px 155px 80px",gap:6,padding:"5px 8px",borderBottom:"1.5px solid var(--bd)",marginBottom:4}}>
               {["#","Vencimento","Valor R$","Status","Forma Pag.","Ação"].map(h=><span key={h} style={{fontSize:9,fontWeight:800,textTransform:"uppercase",color:"var(--tx3)",letterSpacing:".5px"}}>{h}</span>)}
             </div>
             {r.parcelas.map(p=>{
               const atrasada=vencAtrasado(p);
               const rowBg=p.pago?"rgba(16,185,129,.05)":atrasada?"rgba(239,68,68,.04)":"transparent";
-              return(<div key={p.id} style={{display:"grid",gridTemplateColumns:"38px 110px 110px 90px 130px 80px",gap:6,padding:"6px 8px",borderBottom:"1px solid var(--bd)",alignItems:"center",background:rowBg}}>
+              return(<div key={p.id} style={{display:"grid",gridTemplateColumns:"38px 110px 110px 90px 155px 80px",gap:6,padding:"6px 8px",borderBottom:"1px solid var(--bd)",alignItems:"center",background:rowBg}}>
                 <span style={{fontWeight:800,fontSize:12,color:"var(--tx3)",textAlign:"center"}}>#{p.num}</span>
                 <BlurInput type="date" value={p.venc||""} onCommit={v=>updParc(r.id,p.id,{venc:v})} style={{width:"100%",padding:"4px 6px",borderRadius:6,border:`1.5px solid ${p.pago?"var(--gn)":atrasada?"var(--rd)":"var(--bd)"}`,background:"var(--sf)",color:"var(--tx)",fontSize:11,outline:"none"}}/>
                 <BlurInput type="number" value={p.valor} onCommit={v=>updParc(r.id,p.id,{valor:+v})} step="0.01" style={{width:"100%",padding:"4px 6px",borderRadius:6,border:"1.5px solid var(--bd)",background:p.pago?"var(--gnb)":"var(--sf)",color:p.pago?"var(--gn)":"var(--tx)",fontSize:12,fontWeight:700,outline:"none",textAlign:"right"}}/>
                 {p.pago?<Badge color="green">✓ Pago</Badge>:atrasada?<Badge color="red">Atrasado</Badge>:<Badge color="blue">Pendente</Badge>}
                 <div style={{display:"flex",alignItems:"center",gap:4}}>
-                  {p.formaPag&&<Badge color={FORMA_CLR[p.formaPag]||"pri"}>{FORMAS_LAB[p.formaPag]||p.formaPag}</Badge>}
-                  {p.pago&&<span style={{fontSize:10,color:"var(--tx3)",fontWeight:600}}>{p.dataPago}</span>}
-                  {!p.formaPag&&!p.pago&&<span style={{fontSize:10,color:"var(--tx3)"}}>—</span>}
+                  {p.pago
+                    ?<>{p.formaPag&&<Badge color={FORMA_CLR[p.formaPag]||"pri"}>{FORMAS_LAB[p.formaPag]||p.formaPag}</Badge>}<span style={{fontSize:10,color:"var(--tx3)",fontWeight:600,marginLeft:2}}>{p.dataPago}</span></>
+                    :<select value={p.formaPag||""} onChange={e=>updParc(r.id,p.id,{formaPag:e.target.value})} style={{width:"100%",padding:"4px 5px",borderRadius:6,border:"1.5px solid var(--bd)",background:"var(--sf)",color:p.formaPag?"var(--tx)":"var(--tx3)",fontSize:11,outline:"none",cursor:"pointer"}}>
+                      <option value="">— Selecionar —</option>
+                      {FORMAS.map(fm=><option key={fm.v} value={fm.v}>{fm.l}</option>)}
+                    </select>}
                 </div>
                 <div style={{display:"flex",gap:3,alignItems:"center"}}>
                   {!p.pago&&<Btn v="success" small onClick={()=>setModal({t:"baixaRec",d:{rec:r,parcela:p}})}>$ Baixar</Btn>}

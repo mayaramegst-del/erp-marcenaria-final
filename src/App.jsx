@@ -2398,13 +2398,13 @@ export default function ERP(){
     });
     const inpST={padding:"5px 8px",borderRadius:6,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:11,outline:"none"};
     // Helper renderizador de linhas do painel de fluxo
-    const FluxoRow=({p,cor})=><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 0",borderBottom:"1px solid var(--bd)",fontSize:11}}>
+    const FluxoRow=({p,cor})=><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 0",borderBottom:"1px solid var(--bd)",fontSize:13}}>
       <div style={{flex:1,minWidth:0}}>
         <span style={{fontWeight:700,color:"var(--tx)",display:"block",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.desc}</span>
-        <span style={{color:"var(--tx3)",fontSize:9}}>{p.pago?normDate(p.dataPago):p.venc}{p.formaPag&&" · "}{p.formaPag&&(FORMAS_LAB[p.formaPag]||p.formaPag)}</span>
+        <span style={{color:"var(--tx3)",fontSize:11}}>{p.pago?isoToBR(normDate(p.dataPago)):isoToBR(p.venc)}{p.formaPag&&" · "}{p.formaPag&&(FORMAS_LAB[p.formaPag]||p.formaPag)}</span>
       </div>
       <div style={{display:"flex",alignItems:"center",gap:6,flexShrink:0}}>
-        {p.pago&&<span style={{fontSize:9,color:"var(--gn)",fontWeight:700}}>✓</span>}
+        {p.pago&&<span style={{fontSize:11,color:"var(--gn)",fontWeight:700}}>✓</span>}
         <span style={{fontWeight:800,color:cor,fontSize:13}}>{R$(p.valor)}</span>
       </div>
     </div>;
@@ -2520,21 +2520,21 @@ export default function ERP(){
           {fluxoTab==="semana"&&<>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16}}>
               <div>
-                <div style={{fontSize:10,fontWeight:800,color:"var(--gn)",textTransform:"uppercase",marginBottom:8}}>Entradas — {R$(semRecTotal)}</div>
-                {parSemPagoRec.length>0&&<><div style={{fontSize:9,color:"var(--tx3)",fontWeight:700,textTransform:"uppercase",marginBottom:4}}>✅ Recebidas ({parSemPagoRec.length})</div>{parSemPagoRec.map((p,i)=><FluxoRow key={"sr"+i} p={p} cor="var(--gn)"/>)}</>}
-                {parSemRec.length>0&&<><div style={{fontSize:9,color:"var(--tx3)",fontWeight:700,textTransform:"uppercase",marginBottom:4,marginTop:8}}>🔜 A Receber ({parSemRec.length})</div>{parSemRec.sort((a,b)=>a.venc>b.venc?1:-1).map((p,i)=><FluxoRow key={"sr2"+i} p={p} cor="var(--gn)"/>)}</>}
+                <div style={{fontSize:13,fontWeight:800,color:"var(--gn)",textTransform:"uppercase",marginBottom:8}}>Entradas —{R$(semRecTotal)}</div>
+                {parSemPagoRec.length>0&&<><div style={{fontSize:12,color:"var(--tx3)",fontWeight:700,textTransform:"uppercase",marginBottom:4}}>✅ Recebidas ({parSemPagoRec.length})</div>{parSemPagoRec.map((p,i)=><FluxoRow key={"sr"+i} p={p} cor="var(--gn)"/>)}</>}
+                {parSemRec.length>0&&<><div style={{fontSize:12,color:"var(--tx3)",fontWeight:700,textTransform:"uppercase",marginBottom:4,marginTop:8}}>🔜 A Receber ({parSemRec.length})</div>{parSemRec.sort((a,b)=>a.venc>b.venc?1:-1).map((p,i)=><FluxoRow key={"sr2"+i} p={p} cor="var(--gn)"/>)}</>}
                 {parSemPagoRec.length===0&&parSemRec.length===0&&<div style={{fontSize:11,color:"var(--tx3)"}}>Nenhuma entrada esta semana</div>}
               </div>
               <div>
-                <div style={{fontSize:10,fontWeight:800,color:"var(--rd)",textTransform:"uppercase",marginBottom:8}}>Saídas — {R$(semPagTotal)}</div>
-                {parSemPagoPag.length>0&&<><div style={{fontSize:9,color:"var(--tx3)",fontWeight:700,textTransform:"uppercase",marginBottom:4}}>✅ Pagas ({parSemPagoPag.length})</div>{parSemPagoPag.map((p,i)=><FluxoRow key={"sp"+i} p={p} cor="var(--rd)"/>)}</>}
-                {parSemPag.length>0&&<><div style={{fontSize:9,color:"var(--tx3)",fontWeight:700,textTransform:"uppercase",marginBottom:4,marginTop:8}}>🔜 A Pagar ({parSemPag.length})</div>{parSemPag.sort((a,b)=>a.venc>b.venc?1:-1).map((p,i)=><FluxoRow key={"sp2"+i} p={p} cor="var(--rd)"/>)}</>}
+                <div style={{fontSize:13,fontWeight:800,color:"var(--rd)",textTransform:"uppercase",marginBottom:8}}>Saídas —{R$(semPagTotal)}</div>
+                {parSemPagoPag.length>0&&<><div style={{fontSize:12,color:"var(--tx3)",fontWeight:700,textTransform:"uppercase",marginBottom:4}}>✅ Pagas ({parSemPagoPag.length})</div>{parSemPagoPag.map((p,i)=><FluxoRow key={"sp"+i} p={p} cor="var(--rd)"/>)}</>}
+                {parSemPag.length>0&&<><div style={{fontSize:12,color:"var(--tx3)",fontWeight:700,textTransform:"uppercase",marginBottom:4,marginTop:8}}>🔜 A Pagar ({parSemPag.length})</div>{parSemPag.sort((a,b)=>a.venc>b.venc?1:-1).map((p,i)=><FluxoRow key={"sp2"+i} p={p} cor="var(--rd)"/>)}</>}
                 {parSemPagoPag.length===0&&parSemPag.length===0&&<div style={{fontSize:11,color:"var(--tx3)"}}>Nenhuma saída esta semana</div>}
               </div>
             </div>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:12,paddingTop:12,borderTop:"1.5px solid var(--bd)"}}>
-              <span style={{fontSize:12,fontWeight:800,color:semRecTotal-semPagTotal>=0?"var(--gn)":"var(--rd)"}}>Resultado da Semana: {R$(semRecTotal-semPagTotal)}</span>
-              <span style={{fontSize:10,color:"var(--tx3)",fontWeight:600}}>{semIni} → {semFim}</span>
+              <span style={{fontSize:14,fontWeight:800,color:semRecTotal-semPagTotal>=0?"var(--gn)":"var(--rd)"}}>Resultado da Semana: {R$(semRecTotal-semPagTotal)}</span>
+              <span style={{fontSize:12,color:"var(--tx3)",fontWeight:600}}>{isoToBR(semIni)} → {isoToBR(semFim)}</span>
             </div>
           </>}
 
@@ -2542,21 +2542,21 @@ export default function ERP(){
           {fluxoTab==="mes"&&<>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16}}>
               <div>
-                <div style={{fontSize:10,fontWeight:800,color:"var(--gn)",textTransform:"uppercase",marginBottom:8}}>Entradas — {R$(esteMesRec)}</div>
-                {parPagoMesRec.length>0&&<><div style={{fontSize:9,color:"var(--tx3)",fontWeight:700,textTransform:"uppercase",marginBottom:4}}>✅ Recebidas ({parPagoMesRec.length})</div>{parPagoMesRec.sort((a,b)=>normDate(a.dataPago)>normDate(b.dataPago)?1:-1).map((p,i)=><FluxoRow key={"mr"+i} p={p} cor="var(--gn)"/>)}</>}
-                {parMesRec.length>0&&<><div style={{fontSize:9,color:"var(--tx3)",fontWeight:700,textTransform:"uppercase",marginBottom:4,marginTop:8}}>🔜 A Receber ({parMesRec.length})</div>{parMesRec.sort((a,b)=>a.venc>b.venc?1:-1).map((p,i)=><FluxoRow key={"mr2"+i} p={p} cor="var(--gn)"/>)}</>}
+                <div style={{fontSize:13,fontWeight:800,color:"var(--gn)",textTransform:"uppercase",marginBottom:8}}>Entradas —{R$(esteMesRec)}</div>
+                {parPagoMesRec.length>0&&<><div style={{fontSize:12,color:"var(--tx3)",fontWeight:700,textTransform:"uppercase",marginBottom:4}}>✅ Recebidas ({parPagoMesRec.length})</div>{parPagoMesRec.sort((a,b)=>normDate(a.dataPago)>normDate(b.dataPago)?1:-1).map((p,i)=><FluxoRow key={"mr"+i} p={p} cor="var(--gn)"/>)}</>}
+                {parMesRec.length>0&&<><div style={{fontSize:12,color:"var(--tx3)",fontWeight:700,textTransform:"uppercase",marginBottom:4,marginTop:8}}>🔜 A Receber ({parMesRec.length})</div>{parMesRec.sort((a,b)=>a.venc>b.venc?1:-1).map((p,i)=><FluxoRow key={"mr2"+i} p={p} cor="var(--gn)"/>)}</>}
                 {parPagoMesRec.length===0&&parMesRec.length===0&&<div style={{fontSize:11,color:"var(--tx3)"}}>Nenhuma entrada este mês</div>}
               </div>
               <div>
-                <div style={{fontSize:10,fontWeight:800,color:"var(--rd)",textTransform:"uppercase",marginBottom:8}}>Saídas — {R$(esteMesPag)}</div>
-                {parPagoMesPag.length>0&&<><div style={{fontSize:9,color:"var(--tx3)",fontWeight:700,textTransform:"uppercase",marginBottom:4}}>✅ Pagas ({parPagoMesPag.length})</div>{parPagoMesPag.sort((a,b)=>normDate(a.dataPago)>normDate(b.dataPago)?1:-1).map((p,i)=><FluxoRow key={"mp"+i} p={p} cor="var(--rd)"/>)}</>}
-                {parMesPag.length>0&&<><div style={{fontSize:9,color:"var(--tx3)",fontWeight:700,textTransform:"uppercase",marginBottom:4,marginTop:8}}>🔜 A Pagar ({parMesPag.length})</div>{parMesPag.sort((a,b)=>a.venc>b.venc?1:-1).map((p,i)=><FluxoRow key={"mp2"+i} p={p} cor="var(--rd)"/>)}</>}
+                <div style={{fontSize:13,fontWeight:800,color:"var(--rd)",textTransform:"uppercase",marginBottom:8}}>Saídas —{R$(esteMesPag)}</div>
+                {parPagoMesPag.length>0&&<><div style={{fontSize:12,color:"var(--tx3)",fontWeight:700,textTransform:"uppercase",marginBottom:4}}>✅ Pagas ({parPagoMesPag.length})</div>{parPagoMesPag.sort((a,b)=>normDate(a.dataPago)>normDate(b.dataPago)?1:-1).map((p,i)=><FluxoRow key={"mp"+i} p={p} cor="var(--rd)"/>)}</>}
+                {parMesPag.length>0&&<><div style={{fontSize:12,color:"var(--tx3)",fontWeight:700,textTransform:"uppercase",marginBottom:4,marginTop:8}}>🔜 A Pagar ({parMesPag.length})</div>{parMesPag.sort((a,b)=>a.venc>b.venc?1:-1).map((p,i)=><FluxoRow key={"mp2"+i} p={p} cor="var(--rd)"/>)}</>}
                 {parPagoMesPag.length===0&&parMesPag.length===0&&<div style={{fontSize:11,color:"var(--tx3)"}}>Nenhuma saída este mês</div>}
               </div>
             </div>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:12,paddingTop:12,borderTop:"1.5px solid var(--bd)"}}>
-              <span style={{fontSize:12,fontWeight:800,color:esteMesRec-esteMesPag>=0?"var(--gn)":"var(--rd)"}}>Resultado do Mês: {R$(esteMesRec-esteMesPag)}</span>
-              <span style={{fontSize:10,color:"var(--tx3)",fontWeight:600}}>{R$(recebidoMes)} recebido · {R$(saidoMes)} pago</span>
+              <span style={{fontSize:14,fontWeight:800,color:esteMesRec-esteMesPag>=0?"var(--gn)":"var(--rd)"}}>Resultado do Mês: {R$(esteMesRec-esteMesPag)}</span>
+              <span style={{fontSize:12,color:"var(--tx3)",fontWeight:600}}>{R$(recebidoMes)} recebido · {R$(saidoMes)} pago</span>
             </div>
           </>}
 

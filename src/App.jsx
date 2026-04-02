@@ -1447,13 +1447,15 @@ export default function ERP(){
         const local=localRaw?JSON.parse(localRaw):null;
         const cloudLen=Array.isArray(cloud)?cloud.length:Object.keys(cloud||{}).length;
         const localLen=Array.isArray(local)?local.length:Object.keys(local||{}).length;
+        const cloudJson=JSON.stringify(cloud);
         if(cloudLen>0&&cloudLen>=localLen){
-          // Cloud tem dados e é igual ou maior que local → cloud vence (sync multi-device)
-          setters[k](cloud);
-          localStorage.setItem('erp_'+k,JSON.stringify(cloud));
+          // Cloud vence — só atualiza estado se dados realmente mudaram (evita re-render desnecessário)
+          if(cloudJson!==localRaw){
+            setters[k](cloud);
+            localStorage.setItem('erp_'+k,cloudJson);
+          }
         } else if(localLen>0&&localLen>cloudLen){
-          // Local tem MAIS dados que cloud → local vence, faz upload para cloud
-          setters[k](local);
+          // Local vence — não chama setter (estado já correto), só faz upload
           toUpload.push([k,local]);
         }
         // ambos vazios → mantém estado inicial, não faz nada
@@ -1496,7 +1498,7 @@ export default function ERP(){
     if(!dbLoaded)return;
     const onVisible=()=>{if(document.visibilityState==='visible')loadFromCloud(false);};
     document.addEventListener('visibilitychange',onVisible);
-    const t=setInterval(()=>loadFromCloud(false),30000);
+    const t=setInterval(()=>loadFromCloud(false),60000);
     return()=>{document.removeEventListener('visibilitychange',onVisible);clearInterval(t);};
   },[dbLoaded,loadFromCloud]);
 

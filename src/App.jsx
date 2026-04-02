@@ -900,7 +900,7 @@ function ModalPDF({o,empresa,getCli,setModal,totalOrcFinal,totalOrc,totalOrcComN
   const InfoGrid=()=><>
     <div className="sec-title">Informações básicas</div>
     <div className="info-grid">
-      <div className="info-cell"><div className="info-lbl">Validade do orçamento</div><div className="info-val">{validadeTxt}</div></div>
+      {!isOS&&<div className="info-cell"><div className="info-lbl">Validade do orçamento</div><div className="info-val">{validadeTxt}</div></div>}
       <div className="info-cell"><div className="info-lbl">Prazo de execução</div><div className="info-val">{prazoTxt}</div></div>
     </div>
     <div className="sec-title">Serviços</div>

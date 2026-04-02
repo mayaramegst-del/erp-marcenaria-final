@@ -644,20 +644,22 @@ function ModalPDF({o,empresa,getCli,setModal,totalOrcFinal,totalOrc,totalOrcComN
     .td-desc p{font-size:12.5pt;color:#555;white-space:pre-line;line-height:1.6;margin:0}
     .td-val{font-size:13pt;font-weight:800;color:#111;text-align:right;padding:12px 0;vertical-align:top;white-space:nowrap}
     /* condições */
-    .cond-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:0;border:1px solid #e2e2e2;margin-top:18px}
-    .cond-card{padding:14px 16px;border-right:1px solid #e2e2e2}
+    .cond-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:0;border:1px solid #e2e2e2;margin-top:18px;break-inside:avoid;page-break-inside:avoid}
+    .cond-card{padding:14px 16px;border-right:1px solid #e2e2e2;break-inside:avoid;page-break-inside:avoid}
     .cond-card:last-child{border-right:none}
     .cond-title{font-size:13pt;font-weight:800;text-transform:uppercase;letter-spacing:1.2px;color:${A};margin-bottom:9px}
-    .cond-body{font-size:12.5pt;color:#333;white-space:pre-line;line-height:1.7}
+    .cond-body{font-size:12.5pt;color:#333;white-space:pre-line;line-height:1.7;word-break:keep-all;overflow-wrap:break-word}
     /* assinatura */
-    .sign-area{display:flex;justify-content:space-between;align-items:flex-end;margin-top:40px}
+    .sign-area{display:flex;justify-content:space-between;align-items:flex-end;margin-top:40px;break-inside:avoid;page-break-inside:avoid}
     .sign-local{font-size:11pt;font-weight:600;color:#333}
-    .sign-block{text-align:center;min-width:200px}
+    .sign-block{text-align:center;min-width:200px;break-inside:avoid;page-break-inside:avoid}
     .sign-line{border-top:1px solid #555;padding-top:8px;margin-top:52px}
     .sign-name{font-size:11pt;font-weight:700;color:#111}
     .sign-role{font-size:9pt;color:#888;margin-top:2px}
     /* footer */
-    .footer{text-align:center;font-size:9pt;color:#bbb;padding:14px 0 4px;border-top:1px solid #ebebeb;margin-top:24px}
+    .footer{text-align:center;font-size:9pt;color:#bbb;padding:14px 0 4px;border-top:1px solid #ebebeb;margin-top:24px;break-inside:avoid;page-break-inside:avoid}
+    /* blocos gerais — nunca quebrar internamente */
+    .hdr,.orc-banner,.cli-row,.info-grid,.info-cell,.sec-title,.total-row,.sign-wrap,.footer-wrap{break-inside:avoid;page-break-inside:avoid}
     @page{size:A4;margin:12mm 10mm}
     @media print{body{padding:0}.doc{max-width:100%}}
   `;
@@ -779,12 +781,13 @@ function ModalPDF({o,empresa,getCli,setModal,totalOrcFinal,totalOrc,totalOrcComN
       const el=zoneRef.current;
       const prevMax=el.style.maxHeight,prevOv=el.style.overflowY;
       el.style.maxHeight='none';el.style.overflowY='visible';
-      // Captura posição dos ambientes (tr da tabela) antes de renderizar
+      // Captura posição de TODOS os blocos que não devem ser quebrados entre páginas
       const elRect=el.getBoundingClientRect();
-      const rowBounds=Array.from(el.querySelectorAll('.svc-table tbody tr')).map(row=>{
+      const noBreakSel='.svc-table tbody tr,.cond-card,.cond-grid,.sign-area,.sign-wrap,.info-grid,.total-row,.hdr,.orc-banner,.cli-row,.sec-title,.footer-wrap,.footer';
+      const rowBounds=Array.from(el.querySelectorAll(noBreakSel)).map(row=>{
         const r=row.getBoundingClientRect();
         return{topPx:Math.round((r.top-elRect.top)*2),botPx:Math.round((r.bottom-elRect.top)*2)};
-      });
+      }).sort((a,b)=>a.topPx-b.topPx);
       const canvas=await html2canvas(el,{scale:2,useCORS:true,backgroundColor:'#fff',logging:false,scrollY:-window.scrollY});
       el.style.maxHeight=prevMax;el.style.overflowY=prevOv;
       const pdf=new jsPDF({orientation:'p',unit:'mm',format:'a4'});
@@ -796,11 +799,17 @@ function ModalPDF({o,empresa,getCli,setModal,totalOrcFinal,totalOrc,totalOrcComN
       let pageStart=0,pageNum=0;
       while(pageStart<canvas.height){
         let pageEnd=Math.min(pageStart+pageHpx,canvas.height);
-        // Evita cortar dentro de um ambiente: move a quebra para antes da linha
+        // Evita cortar dentro de qualquer bloco: move a quebra para antes do bloco mais externo afetado
         if(pageEnd<canvas.height){
+          let safeEnd=pageEnd;
           for(const rb of rowBounds){
-            if(rb.topPx<pageEnd&&rb.botPx>pageEnd){pageEnd=rb.topPx;break;}
+            if(rb.topPx<safeEnd&&rb.botPx>safeEnd){
+              safeEnd=rb.topPx; // retrocede para antes do bloco
+            }
           }
+          // Se retrocedeu demais (bloco maior que a página), avança forçado para não travar
+          if(safeEnd<=pageStart)safeEnd=pageEnd;
+          pageEnd=safeEnd;
         }
         const cropH=Math.round(pageEnd-pageStart);
         if(cropH<=0){pageStart=Math.round(pageEnd)+1;continue;}

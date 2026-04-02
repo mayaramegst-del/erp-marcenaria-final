@@ -48,6 +48,7 @@ const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,7);
 const R$=v=>(v||0).toLocaleString("pt-BR",{style:"currency",currency:"BRL"});
 const hoje=()=>new Date().toLocaleDateString("pt-BR");
 const hojeISO=()=>new Date().toISOString().split("T")[0];
+const isoToBR=d=>{if(!d)return"";const p=d.split("-");return p.length===3?`${p[2]}/${p[1]}/${p[0]}`:d;};
 const MARKUP=3.2;
 const CATS={pagar:["Aluguel","Folha/Comissão","Fornecedores","Marketing","Manutenção","Impostos","Utilidades","Outros"],receber:["Venda Móveis","Serviços","Outros"]};
 const getEmpresaCats=()=>{try{const e=JSON.parse(localStorage.getItem('erpEmpresa'));return{pagar:(e?.cats?.pagar?.length?e.cats.pagar:CATS.pagar),receber:(e?.cats?.receber?.length?e.cats.receber:CATS.receber)};}catch{return CATS;}};
@@ -2671,7 +2672,7 @@ export default function ERP(){
             <div style={{color:"var(--tx)",fontWeight:700}}>{f.desc}</div>
             {f.categoria&&<div style={{fontSize:12,color:"var(--tx3)",fontWeight:600}}>{f.categoria}{f.fornecedor?" • "+f.fornecedor:""}</div>}
           </div>
-          <span style={{fontWeight:700,fontSize:13,color:atrasado?"var(--rd)":estesMes?"var(--pri)":"var(--tx3)"}}>{proxVenc?<>{atrasado?"⚠ ":""}{proxVenc.venc}</>:"—"}</span>
+          <span style={{fontWeight:700,fontSize:13,color:atrasado?"var(--rd)":estesMes?"var(--pri)":"var(--tx3)"}}>{proxVenc?<>{atrasado?"⚠ ":""}{isoToBR(proxVenc.venc)}</>:"—"}</span>
           <span style={{fontWeight:700,color:"var(--tx)"}}>{R$(f.valor)}</span>
           <span style={{fontWeight:600,color:"var(--gn)"}}>{R$(f.valorPago)}</span>
           <span style={{fontWeight:700,color:f.valor-f.valorPago>0?"var(--rd)":"var(--gn)"}}>{R$(f.valor-f.valorPago)}</span>

@@ -2407,7 +2407,7 @@ export default function ERP(){
     const parVencHojeRec=todasParcelas.filter(p=>!p.pago&&p.venc===hj&&p.tipo==="receber");
     const parVencHojePag=todasParcelas.filter(p=>!p.pago&&p.venc===hj&&p.tipo==="pagar");
     // Filtros de lista
-    const list=[...financeiro,...recAsF].filter(f=>{
+    const list=[...financeiro].filter(f=>{
       if(fTipo==="receber")return f.tipo==="receber";
       if(fTipo==="pagar")return f.tipo==="pagar";
       if(fTipo==="este_mes")return f.parcelas.some(p=>!p.pago&&p.venc?.startsWith(mesAtual));

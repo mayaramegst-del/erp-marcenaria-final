@@ -2490,9 +2490,12 @@ export default function ERP(){
           <div><div style={{fontSize:9,fontWeight:800,color:"#d97706",textTransform:"uppercase"}}>⚠ Atrasado a Receber</div><div style={{fontSize:16,fontWeight:800,color:"#d97706"}}>{R$(vencidoRec)}</div></div>
           <div style={{fontSize:11,color:"#92400e",fontWeight:700}}>{parVencRec.length} parc.</div>
         </div>}
-        {vencidoPag>0&&<div style={{background:"rgba(239,68,68,.1)",borderRadius:"var(--rl)",padding:"10px 16px",border:"1.5px solid rgba(239,68,68,.35)",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-          <div><div style={{fontSize:9,fontWeight:800,color:"var(--rd)",textTransform:"uppercase"}}>⚠ Atrasado a Pagar</div><div style={{fontSize:16,fontWeight:800,color:"var(--rd)"}}>{R$(vencidoPag)}</div></div>
-          <div style={{fontSize:11,color:"#991b1b",fontWeight:700}}>{parVencPag.length} parc.</div>
+        {vencidoPag>0&&<div style={{background:"rgba(239,68,68,.1)",borderRadius:"var(--rl)",padding:"10px 16px",border:"1.5px solid rgba(239,68,68,.35)"}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+            <div><div style={{fontSize:9,fontWeight:800,color:"var(--rd)",textTransform:"uppercase"}}>⚠ Atrasado a Pagar</div><div style={{fontSize:16,fontWeight:800,color:"var(--rd)"}}>{R$(vencidoPag)}</div></div>
+            <div style={{fontSize:11,color:"#991b1b",fontWeight:700}}>{parVencPag.length} parc.</div>
+          </div>
+          <div style={{marginTop:4,fontSize:10,color:"#991b1b"}}>{parVencPag.map(p=>`${p.desc||p.fornecedor||"?"} (venc. ${isoToBR(p.venc)})`).join(" · ")}</div>
         </div>}
       </div>}
 
@@ -2509,7 +2512,8 @@ export default function ERP(){
         </div>
         {/* Conteúdo Pool 10x/12x */}
         {poolTab==="1012"&&(()=>{
-          const proxParc=pool1012Parc.filter(p=>!p.pago).sort((a,b)=>a.venc>b.venc?1:-1).slice(0,8);
+          const mesAtual=new Date().toISOString().slice(0,7);
+          const proxParc=pool1012Parc.filter(p=>!p.pago&&p.venc&&p.venc.startsWith(mesAtual)).sort((a,b)=>a.venc>b.venc?1:-1);
           return(<div style={{padding:16}}>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:10,marginBottom:14}}>
               <div style={{background:"var(--gnb)",borderRadius:"var(--r)",padding:"12px 14px",border:"1px solid var(--gn)33"}}>
@@ -2535,8 +2539,8 @@ export default function ERP(){
             </div>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
               <div>
-                <div style={{fontSize:10,fontWeight:800,color:"var(--bl)",textTransform:"uppercase",marginBottom:8}}>📅 Próximas parcelas a receber</div>
-                {proxParc.length===0?<div style={{fontSize:11,color:"var(--tx3)"}}>Nenhuma parcela futura cadastrada</div>
+                <div style={{fontSize:10,fontWeight:800,color:"var(--bl)",textTransform:"uppercase",marginBottom:8}}>📅 Parcelas do mês — {new Date().toLocaleString("pt-BR",{month:"long",year:"numeric"})}</div>
+                {proxParc.length===0?<div style={{fontSize:11,color:"var(--tx3)"}}>Nenhuma parcela neste mês</div>
                 :proxParc.map((p,i)=><div key={i} style={{display:"flex",justifyContent:"space-between",padding:"6px 0",borderBottom:"1px solid var(--bd)",fontSize:12}}>
                   <div><div style={{fontWeight:700,color:"var(--tx)"}}>{p.desc}</div><div style={{fontSize:10,color:"var(--tx3)"}}>{isoToBR(p.venc)} · {FORMAS_LAB[p.formaPag]||p.formaPag}</div></div>
                   <span style={{fontWeight:800,color:"var(--bl)"}}>{R$(p.valor)}</span>
@@ -2558,7 +2562,8 @@ export default function ERP(){
         })()}
         {/* Conteúdo Pool 18x */}
         {poolTab==="18"&&(()=>{
-          const proxParc18=pool18Parc.filter(p=>!p.pago).sort((a,b)=>a.venc>b.venc?1:-1).slice(0,8);
+          const mesAtual=new Date().toISOString().slice(0,7);
+          const proxParc18=pool18Parc.filter(p=>!p.pago&&p.venc&&p.venc.startsWith(mesAtual)).sort((a,b)=>a.venc>b.venc?1:-1);
           return(<div style={{padding:16}}>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:10,marginBottom:14}}>
               <div style={{background:"var(--gnb)",borderRadius:"var(--r)",padding:"12px 14px",border:"1px solid var(--gn)33"}}>
@@ -2584,8 +2589,8 @@ export default function ERP(){
             </div>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
               <div>
-                <div style={{fontSize:10,fontWeight:800,color:"var(--pp)",textTransform:"uppercase",marginBottom:8}}>📅 Próximas parcelas a receber</div>
-                {proxParc18.length===0?<div style={{fontSize:11,color:"var(--tx3)"}}>Nenhuma parcela futura cadastrada</div>
+                <div style={{fontSize:10,fontWeight:800,color:"var(--pp)",textTransform:"uppercase",marginBottom:8}}>📅 Parcelas do mês — {new Date().toLocaleString("pt-BR",{month:"long",year:"numeric"})}</div>
+                {proxParc18.length===0?<div style={{fontSize:11,color:"var(--tx3)"}}>Nenhuma parcela neste mês</div>
                 :proxParc18.map((p,i)=><div key={i} style={{display:"flex",justifyContent:"space-between",padding:"6px 0",borderBottom:"1px solid var(--bd)",fontSize:12}}>
                   <div><div style={{fontWeight:700,color:"var(--tx)"}}>{p.desc}</div><div style={{fontSize:10,color:"var(--tx3)"}}>{isoToBR(p.venc)} · {FORMAS_LAB[p.formaPag]||p.formaPag}</div></div>
                   <span style={{fontWeight:800,color:"var(--pp)"}}>{R$(p.valor)}</span>

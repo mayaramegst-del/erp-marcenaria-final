@@ -2616,20 +2616,20 @@ export default function ERP(){
       </div>
       {/* ── LISTA ── */}
       <div style={{display:"flex",gap:6,marginBottom:14,flexWrap:"wrap"}}>
-        {[{k:"todos",l:"Todos"},{k:"este_mes",l:"📅 Este Mês"},{k:"vencido",l:"⚠ Vencido"},{k:"receber",l:"A Receber"},{k:"pagar",l:"A Pagar"}].map(t=><button key={t.k} onClick={()=>setFTipo(t.k)} style={{padding:"6px 14px",borderRadius:20,border:"1.5px solid "+(fTipo===t.k?"var(--pri)":"var(--bd)"),background:fTipo===t.k?"var(--prib)":"transparent",color:fTipo===t.k?"var(--pri)":"var(--tx3)",fontSize:11,fontWeight:700}}>{t.l}</button>)}
+        {[{k:"todos",l:"Todos"},{k:"este_mes",l:"📅 Este Mês"},{k:"vencido",l:"⚠ Vencido"},{k:"receber",l:"A Receber"},{k:"pagar",l:"A Pagar"}].map(t=><button key={t.k} onClick={()=>setFTipo(t.k)} style={{padding:"7px 16px",borderRadius:20,border:"1.5px solid "+(fTipo===t.k?"var(--pri)":"var(--bd)"),background:fTipo===t.k?"var(--prib)":"transparent",color:fTipo===t.k?"var(--pri)":"var(--tx3)",fontSize:13,fontWeight:700}}>{t.l}</button>)}
       </div>
       <Card><TH cols={[{l:"Tipo",w:"70px"},{l:"Descrição / Categoria",w:"2fr"},{l:"Próx. Venc.",w:"100px"},{l:"Valor",w:"100px"},{l:"Pago",w:"100px"},{l:"Restante",w:"100px"},{l:"Status",w:"75px"},{l:"",w:"50px"}]}/>
       {list.map(f=>{
         const proxVenc=f.parcelas.filter(p=>!p.pago&&p.venc).sort((a,b)=>a.venc>b.venc?1:-1)[0];
         const atrasado=proxVenc&&proxVenc.venc<hj;
         const estesMes=proxVenc&&proxVenc.venc?.startsWith(mesAtual);
-        return(<div key={f.id} style={{display:"grid",gridTemplateColumns:"70px 2fr 100px 100px 100px 100px 75px 50px",gap:6,padding:"9px 18px",borderBottom:"1.5px solid var(--bd)",alignItems:"center",fontSize:12,background:atrasado?"rgba(239,68,68,.03)":estesMes?"rgba(99,102,241,.03)":"transparent"}}>
+        return(<div key={f.id} style={{display:"grid",gridTemplateColumns:"70px 2fr 100px 100px 100px 100px 75px 50px",gap:6,padding:"11px 18px",borderBottom:"1.5px solid var(--bd)",alignItems:"center",fontSize:14,background:atrasado?"rgba(239,68,68,.03)":estesMes?"rgba(99,102,241,.03)":"transparent"}}>
           <Badge color={f.tipo==="receber"?"green":"red"}>{f.tipo==="receber"?"Receber":"Pagar"}</Badge>
           <div onClick={()=>setModal({t:"detFin",d:f})} style={{cursor:"pointer"}}>
             <div style={{color:"var(--tx)",fontWeight:700}}>{f.desc}</div>
-            {f.categoria&&<div style={{fontSize:10,color:"var(--tx3)",fontWeight:600}}>{f.categoria}{f.fornecedor?" • "+f.fornecedor:""}</div>}
+            {f.categoria&&<div style={{fontSize:12,color:"var(--tx3)",fontWeight:600}}>{f.categoria}{f.fornecedor?" • "+f.fornecedor:""}</div>}
           </div>
-          <span style={{fontWeight:700,fontSize:11,color:atrasado?"var(--rd)":estesMes?"var(--pri)":"var(--tx3)"}}>{proxVenc?<>{atrasado?"⚠ ":""}{proxVenc.venc}</>:"—"}</span>
+          <span style={{fontWeight:700,fontSize:13,color:atrasado?"var(--rd)":estesMes?"var(--pri)":"var(--tx3)"}}>{proxVenc?<>{atrasado?"⚠ ":""}{proxVenc.venc}</>:"—"}</span>
           <span style={{fontWeight:700,color:"var(--tx)"}}>{R$(f.valor)}</span>
           <span style={{fontWeight:600,color:"var(--gn)"}}>{R$(f.valorPago)}</span>
           <span style={{fontWeight:700,color:f.valor-f.valorPago>0?"var(--rd)":"var(--gn)"}}>{R$(f.valor-f.valorPago)}</span>
@@ -2639,7 +2639,7 @@ export default function ERP(){
             <button onClick={e=>{e.stopPropagation();setFinanceiro(p=>p.filter(x=>x.id!==f.id));showToast("Removido","red")}} style={{background:"none",border:"none",color:"var(--rd)",padding:2,cursor:"pointer"}}><I.Trash/></button>
           </div>
         </div>);
-      })}{list.length===0&&<div style={{padding:30,textAlign:"center",color:"var(--tx3)",fontSize:12,fontWeight:600}}>Nenhuma conta</div>}</Card>
+      })}{list.length===0&&<div style={{padding:30,textAlign:"center",color:"var(--tx3)",fontSize:14,fontWeight:600}}>Nenhuma conta</div>}</Card>
     </div>);};
 
   // ESTOQUE

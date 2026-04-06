@@ -2341,7 +2341,6 @@ export default function ERP(){
 
   // FINANCEIRO
   const PgFin=()=>{
-    const [fTipo,setFTipo]=useState("todos");
     const [showRec,setShowRec]=useState(false);
     const [recForm,setRecForm]=useState(null);
     const [fluxoTab,setFluxoTab]=useState("mes");
@@ -2438,28 +2437,32 @@ export default function ERP(){
     // VENCIMENTOS DE HOJE (pendentes)
     const parVencHojeRec=todasParcelas.filter(p=>!p.pago&&p.venc===hj&&p.tipo==="receber");
     const parVencHojePag=todasParcelas.filter(p=>!p.pago&&p.venc===hj&&p.tipo==="pagar");
-    // Filtros de lista
-    const list=[...financeiro].filter(f=>{
-      if(fTipo==="receber")return f.tipo==="receber";
-      if(fTipo==="pagar")return f.tipo==="pagar";
-      if(fTipo==="este_mes")return f.parcelas.some(p=>!p.pago&&p.venc?.startsWith(mesAtual));
-      if(fTipo==="vencido")return f.parcelas.some(p=>!p.pago&&p.venc&&p.venc<hj);
-      return true;
-    }).sort((a,b)=>{
-      const va=(a.parcelas.filter(p=>!p.pago&&p.venc).sort((x,y)=>x.venc>y.venc?1:-1)[0]?.venc||a.parcelas[0]?.venc||"9999");
-      const vb=(b.parcelas.filter(p=>!p.pago&&p.venc).sort((x,y)=>x.venc>y.venc?1:-1)[0]?.venc||b.parcelas[0]?.venc||"9999");
-      return va>vb?1:va<vb?-1:0;
-    });
     const inpST={padding:"5px 8px",borderRadius:6,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:11,outline:"none"};
-    // Helper renderizador de linhas do painel de fluxo
+    // Baixar parcela — funciona para financeiro e recebimentos manuais
+    const baixarParc=(p)=>{
+      if(p.fonteManual){
+        setRecebimentos(prev=>prev.map(r=>r.id!==p.finId?r:{...r,parcelas:r.parcelas.map(pa=>pa.id!==p.id?pa:{...pa,pago:true,dataPago:hojeISO()})}));
+        showToast("Baixado!");
+      } else {
+        pagarParcela(p.finId,p.id,p.valor,p.formaPag||"");
+      }
+    };
+    const abrirEdicao=(p)=>{
+      const f=financeiro.find(x=>x.id===p.finId);
+      if(f)setModal({t:"detFin",d:f});
+    };
+    // FluxoRow com ações de baixar / editar
     const FluxoRow=({p,cor})=><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 0",borderBottom:"1px solid var(--bd)",fontSize:13}}>
       <div style={{flex:1,minWidth:0}}>
         <span style={{fontWeight:700,color:"var(--tx)",display:"block",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.desc}</span>
         <span style={{color:"var(--tx3)",fontSize:11}}>{p.pago?isoToBR(normDate(p.dataPago)):isoToBR(p.venc)}{p.formaPag&&" · "}{p.formaPag&&(FORMAS_LAB[p.formaPag]||p.formaPag)}</span>
       </div>
       <div style={{display:"flex",alignItems:"center",gap:6,flexShrink:0}}>
-        {p.pago&&<span style={{fontSize:11,color:"var(--gn)",fontWeight:700}}>✓</span>}
-        <span style={{fontWeight:800,color:cor,fontSize:13}}>{R$(p.valor)}</span>
+        {p.pago
+          ?<span style={{fontSize:11,color:"var(--gn)",fontWeight:700}}>✓ Pago</span>
+          :<Btn v="success" small onClick={()=>baixarParc(p)}>✓ Baixar</Btn>}
+        {!p.fonteManual&&<button onClick={()=>abrirEdicao(p)} title="Editar" style={{background:"none",border:"none",color:"var(--tx3)",padding:2,cursor:"pointer",fontSize:14}}><I.Edit/></button>}
+        <span style={{fontWeight:800,color:cor,fontSize:13,minWidth:80,textAlign:"right"}}>{R$(p.valor)}</span>
       </div>
     </div>;
     return(<div style={{animation:"fadeIn .3s"}}>
@@ -2816,7 +2819,7 @@ export default function ERP(){
         </div>
         </Card>}
       </div>
-      {/* ── CONTROLES ── */}
+      {/* ── ABERTURA DE CAIXA ── */}
       {editSaldoInicial&&<div style={{background:"var(--prib)",borderRadius:"var(--r)",padding:"10px 16px",marginBottom:12,display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
         <span style={{fontSize:12,fontWeight:700,color:"var(--tx)"}}>Abertura de Caixa:</span>
         <input type="number" defaultValue={saldoInicial} id="siInput" step="0.01" style={{padding:"5px 10px",borderRadius:8,border:"1.5px solid var(--pri)",background:"var(--sf)",color:"var(--tx)",fontSize:13,fontWeight:700,outline:"none",width:140}}/>
@@ -2826,36 +2829,6 @@ export default function ERP(){
       <div style={{marginBottom:14,display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
         <button onClick={()=>setEditSaldoInicial(!editSaldoInicial)} style={{background:"none",border:"1.5px solid var(--bd)",color:"var(--tx2)",fontSize:11,fontWeight:700,borderRadius:8,padding:"5px 12px",cursor:"pointer"}}>💰 Abertura de Caixa</button>
       </div>
-      {/* ── LISTA ── */}
-      <div style={{display:"flex",gap:6,marginBottom:14,flexWrap:"wrap"}}>
-        {[{k:"todos",l:"Todos"},{k:"este_mes",l:"📅 Este Mês"},{k:"vencido",l:"⚠ Vencido"},{k:"receber",l:"A Receber"},{k:"pagar",l:"A Pagar"}].map(t=><button key={t.k} onClick={()=>setFTipo(t.k)} style={{padding:"7px 16px",borderRadius:20,border:"1.5px solid "+(fTipo===t.k?"var(--pri)":"var(--bd)"),background:fTipo===t.k?"var(--prib)":"transparent",color:fTipo===t.k?"var(--pri)":"var(--tx3)",fontSize:13,fontWeight:700}}>{t.l}</button>)}
-      </div>
-      <Card><TH cols={[{l:"Tipo",w:"70px"},{l:"Descrição / Categoria",w:"2fr"},{l:"Próx. Venc.",w:"100px"},{l:"Valor",w:"100px"},{l:"Pago",w:"100px"},{l:"Restante",w:"100px"},{l:"Status",w:"75px"},{l:"",w:"50px"}]}/>
-      {list.map(f=>{
-        const proxVenc=f.parcelas.filter(p=>!p.pago&&p.venc).sort((a,b)=>a.venc>b.venc?1:-1)[0];
-        const atrasado=proxVenc&&proxVenc.venc<hj;
-        const estesMes=proxVenc&&proxVenc.venc?.startsWith(mesAtual);
-        return(<div key={f.id} style={{display:"grid",gridTemplateColumns:"70px 2fr 100px 100px 100px 100px 75px 50px",gap:6,padding:"11px 18px",borderBottom:"1.5px solid var(--bd)",alignItems:"center",fontSize:14,background:atrasado?"rgba(239,68,68,.03)":estesMes?"rgba(99,102,241,.03)":"transparent"}}>
-          <Badge color={f.tipo==="receber"?"green":"red"}>{f.tipo==="receber"?"Receber":"Pagar"}</Badge>
-          <div onClick={f.fonteManual?()=>{setTab("recebimentos");setRecTab("manuais");}:()=>setModal({t:"detFin",d:f})} style={{cursor:"pointer"}}>
-            <div style={{color:"var(--tx)",fontWeight:700}}>{f.desc}</div>
-            <div style={{fontSize:12,color:"var(--tx3)",fontWeight:600}}>{f.categoria||""}{f.fonteManual?" 📋":""}{ f.fornecedor?" • "+f.fornecedor:""}</div>
-          </div>
-          <span style={{fontWeight:700,fontSize:13,color:atrasado?"var(--rd)":estesMes?"var(--pri)":"var(--tx3)"}}>{proxVenc?<>{atrasado?"⚠ ":""}{isoToBR(proxVenc.venc)}</>:"—"}</span>
-          <span style={{fontWeight:700,color:"var(--tx)"}}>{R$(f.valor)}</span>
-          <span style={{fontWeight:600,color:"var(--gn)"}}>{R$(f.valorPago)}</span>
-          <span style={{fontWeight:700,color:f.valor-f.valorPago>0?"var(--rd)":"var(--gn)"}}>{R$(f.valor-f.valorPago)}</span>
-          <Badge color={f.status==="pago"?"green":f.status==="parcial"?"amber":"blue"}>{f.status}</Badge>
-          <div style={{display:"flex",gap:2}}>
-            {f.fonteManual
-              ?<button onClick={()=>{setTab("recebimentos");setRecTab("manuais");}} title="Ver em Recebimentos" style={{background:"none",border:"none",color:"var(--pri)",padding:2,cursor:"pointer",fontSize:11}}>↗</button>
-              :<button onClick={()=>setModal({t:"detFin",d:f})} style={{background:"none",border:"none",color:"var(--tx3)",padding:2,cursor:"pointer"}}><I.Edit/></button>}
-            {f.fonteManual
-              ?<button onClick={e=>{e.stopPropagation();setRecebimentos(p=>p.filter(x=>x.id!==f.id));showToast("Removido","red")}} style={{background:"none",border:"none",color:"var(--rd)",padding:2,cursor:"pointer"}}><I.Trash/></button>
-              :<button onClick={e=>{e.stopPropagation();if(f.recorrenteId){const cancelar=window.confirm(`"${f.desc}" é uma conta recorrente.\n\nOK = excluir ESTE MÊS e CANCELAR a recorrência\nCancelar = excluir só este mês (voltará no próximo)`);if(cancelar)setRecorrentes(p=>p.map(r=>r.id===f.recorrenteId?{...r,ativo:false}:r));}setFinanceiro(p=>p.filter(x=>x.id!==f.id));showToast("Removido","red")}} style={{background:"none",border:"none",color:"var(--rd)",padding:2,cursor:"pointer"}}><I.Trash/></button>}
-          </div>
-        </div>);
-      })}{list.length===0&&<div style={{padding:30,textAlign:"center",color:"var(--tx3)",fontSize:14,fontWeight:600}}>Nenhuma conta</div>}</Card>
     </div>);};
 
   // ESTOQUE

@@ -1639,19 +1639,31 @@ export default function ERP(){
   const delMat=(pid,mid)=>setPedidos(prev=>prev.map(p=>{if(p.id!==pid)return p;const mats=p.mats.filter(m=>m.id!==mid);const cm=mats.reduce((s,m)=>s+m.sub,0);return{...p,mats,cm};}));
 
   const gerarPedido=orc=>{
+    // Guard: impede duplicata se orçamento já foi aprovado (duplo-clique ou re-aprovação)
+    if(pedidos.some(x=>x.orcId===orc.id)){showToast("Este orçamento já foi aprovado!","red");return;}
     const mats=[];orc.ambientes.forEach(a=>a.insumos.forEach(i=>{if(i.nome)mats.push({id:uid(),nome:i.nome,qtd:i.qtd,vu:i.vu,sub:i.qtd*i.vu})}));
     const vt=totalOrc(orc);const cm=mats.reduce((s,m)=>s+m.sub,0);
     const vtFinal=totalOrcFinal(orc);
-    const p={id:uid(),num:`PED-${String(pedidos.length+1).padStart(4,"0")}`,orcId:orc.id,clienteId:orc.clienteId,data:hoje(),dataEntrega:"",status:"em_espera",marcId:"",stage:"aguardando",mats,cm,vt:vtFinal,comPerc:0,comVal:0,vendedorId:orc.vendedorId||"",percNF:orc.percNF||0,pags:[],arquivos:[],ambs:orc.ambientes.map(a=>({nome:a.nome,desc:a.desc,val:a.valorTotal})),garantia:orc.garantia,pgTermos:orc.pagamento};
-    setPedidos(prev=>[...prev,p]);updOrc(orc.id,{status:"aprovado"});
-    // Gerar conta a receber
-    const parcelas=[{id:uid(),valor:vtFinal*0.5,venc:hojeISO(),pago:false,dataPago:""},{id:uid(),valor:vtFinal*0.3,venc:"",pago:false,dataPago:""},{id:uid(),valor:vtFinal*0.2,venc:"",pago:false,dataPago:""}];
-    setFinanceiro(prev=>[...prev,{id:uid(),tipo:"receber",desc:`${p.num} - ${getCli(orc.clienteId)?.nome}`,valor:vtFinal,valorPago:0,parcelas,pedidoId:p.id,clienteId:orc.clienteId,status:"aberto"}]);
-    // Gerar conta a pagar (materiais)
-    if(cm>0){setFinanceiro(prev=>[...prev,{id:uid(),tipo:"pagar",desc:`Materiais ${p.num}`,valor:cm,valorPago:0,parcelas:[{id:uid(),valor:cm,venc:hojeISO(),pago:false,dataPago:""}],pedidoId:p.id,fornecedor:"Fornecedor",status:"aberto"}])}
-    // Gerar comissão do vendedor
-    if(orc.vendedorId){const vend=vendedores.find(v=>v.id===orc.vendedorId);if(vend){const comVend=vtFinal*(vend.comissao/100);setFinanceiro(prev=>[...prev,{id:uid(),tipo:"pagar",desc:`Comissão Vendedor ${vend.nome} - ${p.num}`,valor:comVend,valorPago:0,parcelas:[{id:uid(),valor:comVend,venc:"",pago:false,dataPago:""}],pedidoId:p.id,vendedorId:vend.id,fornecedor:vend.nome,categoria:"Folha/Comissão",status:"aberto"}]);}}
-    showToast(`Pedido ${p.num} gerado!`);setTab("pedidos");
+    // Usa functional update para pegar o tamanho real do array (evita closure stale em duplo-clique)
+    const pid=uid();
+    setPedidos(prev=>{
+      if(prev.some(x=>x.orcId===orc.id))return prev; // guard extra dentro do update
+      const num=`PED-${String(prev.length+1).padStart(4,"0")}`;
+      const p={id:pid,num,orcId:orc.id,clienteId:orc.clienteId,data:hoje(),dataEntrega:"",status:"em_espera",marcId:"",stage:"aguardando",mats,cm,vt:vtFinal,comPerc:0,comVal:0,vendedorId:orc.vendedorId||"",percNF:orc.percNF||0,pags:[],arquivos:[],ambs:orc.ambientes.map(a=>({nome:a.nome,desc:a.desc,val:a.valorTotal})),garantia:orc.garantia,pgTermos:orc.pagamento};
+      // Gera financeiro dentro do mesmo update para manter coerência
+      setFinanceiro(ff=>{
+        if(ff.some(f=>f.pedidoId===pid))return ff;
+        const parcelas=[{id:uid(),valor:vtFinal*0.5,venc:hojeISO(),pago:false,dataPago:""},{id:uid(),valor:vtFinal*0.3,venc:"",pago:false,dataPago:""},{id:uid(),valor:vtFinal*0.2,venc:"",pago:false,dataPago:""}];
+        const novas=[{id:uid(),tipo:"receber",desc:`${num} - ${getCli(orc.clienteId)?.nome}`,valor:vtFinal,valorPago:0,parcelas,pedidoId:pid,clienteId:orc.clienteId,status:"aberto"}];
+        if(cm>0)novas.push({id:uid(),tipo:"pagar",desc:`Materiais ${num}`,valor:cm,valorPago:0,parcelas:[{id:uid(),valor:cm,venc:hojeISO(),pago:false,dataPago:""}],pedidoId:pid,fornecedor:"Fornecedor",status:"aberto"});
+        return[...ff,...novas];
+      });
+      return[...prev,p];
+    });
+    updOrc(orc.id,{status:"aprovado"});
+    // Comissão do vendedor (separada, usa pid)
+    if(orc.vendedorId){const vend=vendedores.find(v=>v.id===orc.vendedorId);if(vend){const comVend=vtFinal*(vend.comissao/100);setFinanceiro(prev=>{if(prev.some(f=>f.pedidoId===pid&&f.vendedorId===vend.id))return prev;return[...prev,{id:uid(),tipo:"pagar",desc:`Comissão Vendedor ${vend.nome}`,valor:comVend,valorPago:0,parcelas:[{id:uid(),valor:comVend,venc:"",pago:false,dataPago:""}],pedidoId:pid,vendedorId:vend.id,fornecedor:vend.nome,categoria:"Folha/Comissão",status:"aberto"}];});}}
+    showToast("Pedido gerado!");setTab("pedidos");
   };
 
   const updPed=useCallback((id,fn)=>setPedidos(p=>p.map(o=>o.id===id?(typeof fn==="function"?fn(o):{...o,...fn}):o)),[]);

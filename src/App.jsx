@@ -1784,6 +1784,7 @@ export default function ERP(){
   const [vendedores,setVendedores]=useState(()=>LS('vendedores')||[]);
   const [cortadores,setCortadores]=useState(()=>LS('cortadores')||[]);
   const [ordensCort,setOrdensCort]=useState(()=>LS('ordensCort')||[]);
+  const [showComissoes,setShowComissoes]=useState(false);
   const [saldoInicial,setSaldoInicial]=useState(()=>+(LS('saldoInicial')||0));
   const [editSaldoInicial,setEditSaldoInicial]=useState(false);
   const [dreAno,setDreAno]=useState(new Date().getFullYear());
@@ -3102,7 +3103,6 @@ export default function ERP(){
     const [showStats,setShowStats]=useState(false);
     const [semSel,setSemSel]=useState(null);
     const [showFluxo,setShowFluxo]=useState(false);
-    const [showComissoes,setShowComissoes]=useState(false);
     const eCats=empresa.cats||CATS;
     // Comissões de marceneiros
     const comEntries=financeiro.filter(f=>f.marcId&&f.tipo==="pagar");

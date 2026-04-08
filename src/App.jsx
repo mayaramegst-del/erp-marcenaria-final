@@ -2633,7 +2633,7 @@ export default function ERP(){
     const [showStats,setShowStats]=useState(false);
     const [semSel,setSemSel]=useState(null);
     const [showFluxo,setShowFluxo]=useState(false);
-    const [showComissoes,setShowComissoes]=useState(true);
+    const [showComissoes,setShowComissoes]=useState(false);
     const eCats=empresa.cats||CATS;
     // Comissões de marceneiros
     const comEntries=financeiro.filter(f=>f.marcId&&f.tipo==="pagar");
@@ -2976,76 +2976,81 @@ export default function ERP(){
         })()}
       </Card>
 
-      {/* ══ COMISSÕES DE MARCENEIROS ══ */}
-      <Card style={{marginBottom:14,padding:0,border:"2px solid rgba(239,68,68,.3)"}}>
-        <div style={{padding:"12px 16px",borderBottom:"1px solid var(--bd)",display:"flex",justifyContent:"space-between",alignItems:"center",background:"rgba(239,68,68,.04)"}}>
-          <span style={{fontSize:13,fontWeight:800,color:"var(--tx)"}}>👷 Comissões de Marceneiros</span>
-          {comPendTotal>0&&<Badge color="red">A pagar: {R$(comPendTotal)}</Badge>}
-        </div>
-        <div style={{padding:"12px 16px"}}>
-          {semLancamento.length===0&&comEntries.length===0&&(
-            <div style={{fontSize:12,color:"var(--tx3)",textAlign:"center",padding:"10px 0"}}>Nenhum pedido com marceneiro designado ainda.</div>
-          )}
-          {semLancamento.map(ped=>{
-            const m=marceneiros.find(x=>x.id===ped.marcId);
-            const comVal=+(ped.vt*(m?.comissao||0)/100).toFixed(2);
-            return(<div key={ped.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 0",borderBottom:"1px solid var(--bd)",gap:8,flexWrap:"wrap"}}>
-              <div>
-                <div style={{fontSize:12,fontWeight:700,color:"var(--tx)"}}>Pedido {ped.num} — {ped.cliente}</div>
-                <div style={{fontSize:10,color:"var(--tx3)"}}>{m?.nome} · {m?.comissao}% · <strong style={{color:"var(--rd)"}}>{R$(comVal)}</strong></div>
-              </div>
-              <Btn small onClick={()=>gerarLancamento(ped)}><I.Plus/> Gerar Lançamento</Btn>
-            </div>);
-          })}
-          {comEntries.map(f=>{
-            const marc=marceneiros.find(m=>m.id===f.marcId);
-            const pago=(f.parcelas||[]).filter(p=>p.pago).reduce((s,p)=>s+p.valor,0);
-            const pendente=(f.parcelas||[]).filter(p=>!p.pago).reduce((s,p)=>s+p.valor,0);
-            return(<div key={f.id} style={{borderBottom:"1px solid var(--bd)",paddingBottom:12,marginBottom:12}}>
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+      {/* ══ COMISSÕES DE MARCENEIROS (colapsável) ══ */}
+      <div style={{marginBottom:14}}>
+        <button onClick={()=>setShowComissoes(p=>!p)} style={{width:"100%",display:"flex",justifyContent:"space-between",alignItems:"center",padding:"9px 14px",borderRadius:"var(--r)",border:"1.5px solid rgba(239,68,68,.4)",background:"var(--sf)",color:"var(--tx2)",fontSize:11,fontWeight:700,cursor:"pointer",marginBottom:showComissoes?8:0}}>
+          <span>👷 Comissões de Marceneiros{comPendTotal>0?` — A pagar: ${R$(comPendTotal)}`:""}</span>
+          <span style={{fontSize:10}}>{showComissoes?"▲ Fechar":"▼ Abrir"}</span>
+        </button>
+        {showComissoes&&<Card style={{padding:0,border:"1.5px solid rgba(239,68,68,.2)"}}>
+          <div style={{padding:"12px 16px"}}>
+            {semLancamento.length===0&&comEntries.length===0&&(
+              <div style={{fontSize:12,color:"var(--tx3)",textAlign:"center",padding:"10px 0"}}>Nenhum pedido com marceneiro designado ainda.</div>
+            )}
+            {semLancamento.map(ped=>{
+              const m=marceneiros.find(x=>x.id===ped.marcId);
+              const comVal=+(ped.vt*(m?.comissao||0)/100).toFixed(2);
+              return(<div key={ped.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 0",borderBottom:"1px solid var(--bd)",gap:8,flexWrap:"wrap"}}>
                 <div>
-                  <div style={{fontSize:12,fontWeight:800,color:"var(--tx)"}}>{f.desc}</div>
-                  <div style={{fontSize:10,color:"var(--tx3)",display:"flex",gap:10,marginTop:2}}>
-                    <span>{marc?.nome}</span><span>Total: <b>{R$(f.valor)}</b></span>
-                    <span style={{color:"var(--gn)"}}>Pago: <b>{R$(pago)}</b></span>
-                    <span style={{color:pendente>0?"var(--rd)":"var(--tx3)"}}>Pendente: <b>{R$(pendente)}</b></span>
+                  <div style={{fontSize:12,fontWeight:700,color:"var(--tx)"}}>Pedido {ped.num} — {ped.cliente}</div>
+                  <div style={{fontSize:10,color:"var(--tx3)"}}>{m?.nome} · {m?.comissao}% · <strong style={{color:"var(--rd)"}}>{R$(comVal)}</strong></div>
+                </div>
+                <Btn small onClick={()=>gerarLancamento(ped)}><I.Plus/> Gerar Lançamento</Btn>
+              </div>);
+            })}
+            {comEntries.map(f=>{
+              const marc=marceneiros.find(m=>m.id===f.marcId);
+              const pago=(f.parcelas||[]).filter(p=>p.pago).reduce((s,p)=>s+p.valor,0);
+              const pendente=(f.parcelas||[]).filter(p=>!p.pago).reduce((s,p)=>s+p.valor,0);
+              return(<div key={f.id} style={{borderBottom:"1px solid var(--bd)",paddingBottom:12,marginBottom:12}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+                  <div>
+                    <div style={{fontSize:12,fontWeight:800,color:"var(--tx)"}}>{f.desc}</div>
+                    <div style={{fontSize:10,color:"var(--tx3)",display:"flex",gap:10,marginTop:2,flexWrap:"wrap"}}>
+                      <span>{marc?.nome}</span><span>Total: <b>{R$(f.valor)}</b></span>
+                      <span style={{color:"var(--gn)"}}>Pago: <b>{R$(pago)}</b></span>
+                      <span style={{color:pendente>0?"var(--rd)":"var(--tx3)"}}>Pendente: <b>{R$(pendente)}</b></span>
+                    </div>
+                  </div>
+                  <div style={{display:"flex",gap:6,alignItems:"center"}}>
+                    <Badge color={pendente===0?"green":"red"}>{pendente===0?"✓ Quitado":"Pendente"}</Badge>
+                    <button onClick={()=>{if(window.confirm("Cancelar esta comissão? O lançamento será removido."))setFinanceiro(ff=>ff.filter(x=>x.id!==f.id));}} style={{padding:"3px 8px",borderRadius:5,background:"none",border:"1px solid var(--rd)",color:"var(--rd)",fontSize:10,cursor:"pointer",fontWeight:700}} title="Cancelar comissão">✕ Cancelar</button>
                   </div>
                 </div>
-                <Badge color={pendente===0?"green":"red"}>{pendente===0?"✓ Quitado":"Pendente"}</Badge>
-              </div>
-              {(f.parcelas||[]).length===0&&<div style={{fontSize:11,color:"var(--tx3)",fontStyle:"italic",marginBottom:6}}>Sem parcelas. Use "+ Parcela".</div>}
-              {(f.parcelas||[]).map((p,pi)=>(
-                <div key={p.id||pi} style={{display:"grid",gridTemplateColumns:"140px 100px 110px 1fr 28px",gap:6,alignItems:"flex-end",padding:"6px 0",borderBottom:"1px solid var(--bd)33"}}>
-                  <div><div style={{fontSize:8,color:"var(--tx3)",fontWeight:700,marginBottom:2}}>VENC.</div>
-                    <input type="date" value={p.venc||""} onChange={e=>{const v=e.target.value;setFinanceiro(ff=>ff.map(x=>x.id===f.id?{...x,parcelas:x.parcelas.map((q,qi)=>qi===pi?{...q,venc:v}:q)}:x));}} style={{padding:"5px 6px",borderRadius:6,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:11,width:"100%"}}/>
+                {(f.parcelas||[]).length===0&&<div style={{fontSize:11,color:"var(--tx3)",fontStyle:"italic",marginBottom:6}}>Sem parcelas. Use "+ Parcela".</div>}
+                {(f.parcelas||[]).map((p,pi)=>(
+                  <div key={p.id||pi} style={{display:"grid",gridTemplateColumns:"140px 100px 110px 1fr 28px",gap:6,alignItems:"flex-end",padding:"6px 0",borderBottom:"1px solid var(--bd)33"}}>
+                    <div><div style={{fontSize:8,color:"var(--tx3)",fontWeight:700,marginBottom:2}}>VENC.</div>
+                      <input type="date" value={p.venc||""} onChange={e=>{const v=e.target.value;setFinanceiro(ff=>ff.map(x=>x.id===f.id?{...x,parcelas:x.parcelas.map((q,qi)=>qi===pi?{...q,venc:v}:q)}:x));}} style={{padding:"5px 6px",borderRadius:6,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:11,width:"100%"}}/>
+                    </div>
+                    <div><div style={{fontSize:8,color:"var(--tx3)",fontWeight:700,marginBottom:2}}>VALOR</div>
+                      <input type="number" value={p.valor||0} step="0.01" onChange={e=>{const v=+e.target.value;setFinanceiro(ff=>ff.map(x=>x.id===f.id?{...x,parcelas:x.parcelas.map((q,qi)=>qi===pi?{...q,valor:v}:q)}:x));}} style={{padding:"5px 6px",borderRadius:6,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:11,width:"100%"}}/>
+                    </div>
+                    <div><div style={{fontSize:8,color:"var(--tx3)",fontWeight:700,marginBottom:2}}>FORMA</div>
+                      <select value={p.formaPag||"pix"} onChange={e=>{const v=e.target.value;setFinanceiro(ff=>ff.map(x=>x.id===f.id?{...x,parcelas:x.parcelas.map((q,qi)=>qi===pi?{...q,formaPag:v}:q)}:x));}} style={{padding:"5px 6px",borderRadius:6,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:11,width:"100%"}}>
+                        <option value="pix">PIX</option><option value="ted">TED</option><option value="dinheiro">Dinheiro</option><option value="cheque">Cheque</option>
+                      </select>
+                    </div>
+                    <div style={{display:"flex",justifyContent:"center"}}>
+                      {p.pago
+                        ?<div style={{textAlign:"center"}}>
+                            <div style={{fontSize:9,color:"var(--gn)",fontWeight:800}}>✓{isoToBR(p.dataPago)}</div>
+                            <button onClick={()=>{setFinanceiro(ff=>ff.map(x=>x.id===f.id?{...x,valorPago:Math.max(0,(x.valorPago||0)-p.valor),parcelas:x.parcelas.map((q,qi)=>qi===pi?{...q,pago:false,dataPago:""}:q)}:x));showToast("Reaberto");}} style={{padding:"2px 6px",borderRadius:4,background:"none",border:"1px solid var(--rd)",color:"var(--rd)",fontSize:9,cursor:"pointer"}}>↩</button>
+                          </div>
+                        :<button onClick={()=>{setFinanceiro(ff=>ff.map(x=>x.id===f.id?{...x,valorPago:(x.valorPago||0)+p.valor,parcelas:x.parcelas.map((q,qi)=>qi===pi?{...q,pago:true,dataPago:hojeISO()}:q)}:x));showToast("Pago!");}} style={{padding:"6px 10px",borderRadius:6,background:"var(--gnb)",border:"1.5px solid var(--gn)",color:"var(--gn)",fontSize:11,fontWeight:800,cursor:"pointer"}}>✓ Baixar</button>
+                      }
+                    </div>
+                    <button onClick={()=>setFinanceiro(ff=>ff.map(x=>x.id===f.id?{...x,parcelas:x.parcelas.filter((_,qi)=>qi!==pi)}:x))} style={{background:"none",border:"none",color:"var(--rd)",cursor:"pointer",fontSize:16,paddingBottom:4}}>×</button>
                   </div>
-                  <div><div style={{fontSize:8,color:"var(--tx3)",fontWeight:700,marginBottom:2}}>VALOR</div>
-                    <input type="number" value={p.valor||0} step="0.01" onChange={e=>{const v=+e.target.value;setFinanceiro(ff=>ff.map(x=>x.id===f.id?{...x,parcelas:x.parcelas.map((q,qi)=>qi===pi?{...q,valor:v}:q)}:x));}} style={{padding:"5px 6px",borderRadius:6,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:11,width:"100%"}}/>
-                  </div>
-                  <div><div style={{fontSize:8,color:"var(--tx3)",fontWeight:700,marginBottom:2}}>FORMA</div>
-                    <select value={p.formaPag||"pix"} onChange={e=>{const v=e.target.value;setFinanceiro(ff=>ff.map(x=>x.id===f.id?{...x,parcelas:x.parcelas.map((q,qi)=>qi===pi?{...q,formaPag:v}:q)}:x));}} style={{padding:"5px 6px",borderRadius:6,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:11,width:"100%"}}>
-                      <option value="pix">PIX</option><option value="ted">TED</option><option value="dinheiro">Dinheiro</option><option value="cheque">Cheque</option>
-                    </select>
-                  </div>
-                  <div style={{display:"flex",justifyContent:"center"}}>
-                    {p.pago
-                      ?<div style={{textAlign:"center"}}>
-                          <div style={{fontSize:9,color:"var(--gn)",fontWeight:800}}>✓{isoToBR(p.dataPago)}</div>
-                          <button onClick={()=>{setFinanceiro(ff=>ff.map(x=>x.id===f.id?{...x,valorPago:Math.max(0,(x.valorPago||0)-p.valor),parcelas:x.parcelas.map((q,qi)=>qi===pi?{...q,pago:false,dataPago:""}:q)}:x));showToast("Reaberto");}} style={{padding:"2px 6px",borderRadius:4,background:"none",border:"1px solid var(--rd)",color:"var(--rd)",fontSize:9,cursor:"pointer"}}>↩</button>
-                        </div>
-                      :<button onClick={()=>{setFinanceiro(ff=>ff.map(x=>x.id===f.id?{...x,valorPago:(x.valorPago||0)+p.valor,parcelas:x.parcelas.map((q,qi)=>qi===pi?{...q,pago:true,dataPago:hojeISO()}:q)}:x));showToast("Pago!");}} style={{padding:"6px 10px",borderRadius:6,background:"var(--gnb)",border:"1.5px solid var(--gn)",color:"var(--gn)",fontSize:11,fontWeight:800,cursor:"pointer"}}>✓ Baixar</button>
-                    }
-                  </div>
-                  <button onClick={()=>setFinanceiro(ff=>ff.map(x=>x.id===f.id?{...x,parcelas:x.parcelas.filter((_,qi)=>qi!==pi)}:x))} style={{background:"none",border:"none",color:"var(--rd)",cursor:"pointer",fontSize:16,paddingBottom:4}}>×</button>
+                ))}
+                <div style={{marginTop:8}}>
+                  <Btn v="ghost" small onClick={()=>setFinanceiro(ff=>ff.map(x=>x.id===f.id?{...x,parcelas:[...(x.parcelas||[]),{id:uid(),valor:pendente>0?+(pendente.toFixed(2)):f.valor,venc:"",pago:false,dataPago:"",formaPag:"pix"}]}:x))}><I.Plus/> Parcela</Btn>
                 </div>
-              ))}
-              <div style={{marginTop:8}}>
-                <Btn v="ghost" small onClick={()=>setFinanceiro(ff=>ff.map(x=>x.id===f.id?{...x,parcelas:[...(x.parcelas||[]),{id:uid(),valor:pendente>0?+(pendente.toFixed(2)):f.valor,venc:"",pago:false,dataPago:"",formaPag:"pix"}]}:x))}><I.Plus/> Parcela</Btn>
-              </div>
-            </div>);
-          })}
-        </div>
-      </Card>
+              </div>);
+            })}
+          </div>
+        </Card>}
+      </div>
 
       {/* ══ PAINEL FLUXO DE CAIXA (colapsável) ══ */}
       <div style={{marginBottom:14}}>

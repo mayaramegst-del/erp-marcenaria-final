@@ -3475,7 +3475,7 @@ export default function ERP(){
               return(<div key={f.id} style={{borderBottom:"1px solid var(--bd)",paddingBottom:12,marginBottom:12}}>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
                   <div>
-                    <div style={{fontSize:12,fontWeight:800,color:"var(--tx)"}}>{f.desc}{pedCom?.cliente&&<span style={{fontWeight:600,color:"var(--tx2)",marginLeft:6}}>— {pedCom.cliente}</span>}</div>
+                    <div style={{fontSize:12,fontWeight:800,color:"var(--tx)"}}>{f.desc}{(()=>{const cliNome=getCli(pedCom?.clienteId)?.nome||pedCom?.cliente;return cliNome?<span style={{fontWeight:600,color:"var(--tx2)",marginLeft:6}}>— {cliNome}</span>:null;})()}</div>
                     <div style={{fontSize:10,color:"var(--tx3)",display:"flex",gap:10,marginTop:2,flexWrap:"wrap"}}>
                       <span>{marc?.nome}</span><span>Total: <b>{R$(f.valor)}</b></span>
                       <span style={{color:"var(--gn)"}}>Pago: <b>{R$(pago)}</b></span>

@@ -696,8 +696,8 @@ function ModalPDF({o,empresa,getCli,setModal,totalOrcFinal,totalOrc,totalOrcComN
   const cssLayouts={
     tradicional:`
       .hdr{padding:24px 36px 20px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #d0d0d0}
-      .logo-col{flex:0 0 58%;display:flex;align-items:center}
-      .hdr-logo{max-height:130px;max-width:290px;object-fit:contain}
+      .logo-col{flex:0 0 62%;display:flex;align-items:center}
+      .hdr-logo{max-height:190px;max-width:380px;object-fit:contain}
       .hdr-info-col{flex:0 0 38%;text-align:right}
       .hdr-nome{font-size:19pt;font-weight:800;color:#111;margin-bottom:3px;line-height:1.2}
       .hdr-sub{font-size:11pt;color:#888;font-style:italic;margin-bottom:5px}
@@ -730,8 +730,8 @@ function ModalPDF({o,empresa,getCli,setModal,totalOrcFinal,totalOrc,totalOrcComN
     `,
     moderno:`
       .hdr{border-top:5px solid ${A};padding:24px 36px 20px;display:flex;justify-content:space-between;align-items:center}
-      .logo-col{flex:0 0 58%;display:flex;align-items:center}
-      .hdr-logo{max-height:140px;max-width:300px;object-fit:contain}
+      .logo-col{flex:0 0 62%;display:flex;align-items:center}
+      .hdr-logo{max-height:190px;max-width:380px;object-fit:contain}
       .hdr-info-col{flex:0 0 38%;text-align:right}
       .hdr-nome{font-size:19pt;font-weight:800;color:${D};margin-bottom:4px;line-height:1.15}
       .hdr-sub{font-size:11pt;color:${A};font-weight:600;margin-bottom:6px}
@@ -765,8 +765,8 @@ function ModalPDF({o,empresa,getCli,setModal,totalOrcFinal,totalOrc,totalOrcComN
     `,
     minimalista:`
       .hdr{padding:20px 36px 16px;display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid ${D}}
-      .logo-col{flex:0 0 58%;display:flex;align-items:center}
-      .hdr-logo{max-height:110px;max-width:270px;object-fit:contain}
+      .logo-col{flex:0 0 62%;display:flex;align-items:center}
+      .hdr-logo{max-height:190px;max-width:380px;object-fit:contain}
       .hdr-info-col{flex:0 0 38%;text-align:right}
       .hdr-nome{font-size:18pt;font-weight:800;color:#111;margin-bottom:2px}
       .hdr-sub{font-size:11pt;color:#888;margin-bottom:4px}

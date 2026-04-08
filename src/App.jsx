@@ -2027,11 +2027,13 @@ export default function ERP(){
   // Visibilidade: flush ao sair, reload ao voltar só se ficou 3+ min fora
   const hiddenAtRef=useRef(0);
   const mainRef=useRef(null);
-  const scrollSave=useRef({tab:'',pos:0});
+  const lastTabRef=useRef(tab);
+  // Lê posição ANTES do React alterar o DOM (fase de render, seguro via ref)
+  const preCommitScroll=mainRef.current&&tab===lastTabRef.current?mainRef.current.scrollTop:0;
   useLayoutEffect(()=>{
     const el=mainRef.current;if(!el)return;
-    if(scrollSave.current.tab!==tab){scrollSave.current={tab,pos:0};el.scrollTop=0;}
-    else{el.scrollTop=scrollSave.current.pos;}
+    if(tab!==lastTabRef.current){lastTabRef.current=tab;el.scrollTop=0;return;}
+    if(preCommitScroll>0)el.scrollTop=preCommitScroll;
   });
   useEffect(()=>{
     if(!dbLoaded)return;
@@ -4302,7 +4304,7 @@ export default function ERP(){
       </aside>
 
       {/* MAIN */}
-      <main ref={mainRef} onScroll={e=>{scrollSave.current.pos=e.target.scrollTop;}} className="erp-main" style={{flex:1,padding:"20px 24px",minHeight:"100vh",overflowY:"auto"}}>{tab==="configuracao"?<PgConfig empresa={empresa} saveEmpresa={saveEmpresa} getBackup={getBackup} importBackup={importBackup} limparDuplicatas={limparDuplicatas}/>:<Pg/>}</main>
+      <main ref={mainRef} className="erp-main" style={{flex:1,padding:"20px 24px",minHeight:"100vh",overflowY:"auto"}}>{tab==="configuracao"?<PgConfig empresa={empresa} saveEmpresa={saveEmpresa} getBackup={getBackup} importBackup={importBackup} limparDuplicatas={limparDuplicatas}/>:<Pg/>}</main>
 
       {/* MODALS */}
       {modal?.t==="editCli"&&<Modal onClose={()=>setModal(null)}><ModalEditCli d={modal.d} setModal={setModal} saveCli={saveCli}/></Modal>}

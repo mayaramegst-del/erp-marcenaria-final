@@ -1757,6 +1757,9 @@ function ModalBaixaRec({modal,setModal,setRecebimentos,showToast}){
   </>);
 }
 
+// Wrapper estável: identidade fixa → React nunca desmonta ao re-renderizar o pai
+function StablePageWrapper({renderFn}){return renderFn();}
+
 export default function ERP(){
   const [user,setUser]=useState(()=>{try{const u=localStorage.getItem('erpUser');return u?JSON.parse(u):null;}catch{return null;}});
   const [loginView,setLoginView]=useState(null);
@@ -2026,15 +2029,6 @@ export default function ERP(){
 
   // Visibilidade: flush ao sair, reload ao voltar só se ficou 3+ min fora
   const hiddenAtRef=useRef(0);
-  const mainRef=useRef(null);
-  const lastTabRef=useRef(tab);
-  // Lê posição ANTES do React alterar o DOM (fase de render, seguro via ref)
-  const preCommitScroll=mainRef.current&&tab===lastTabRef.current?mainRef.current.scrollTop:0;
-  useLayoutEffect(()=>{
-    const el=mainRef.current;if(!el)return;
-    if(tab!==lastTabRef.current){lastTabRef.current=tab;el.scrollTop=0;return;}
-    if(preCommitScroll>0)el.scrollTop=preCommitScroll;
-  });
   useEffect(()=>{
     if(!dbLoaded)return;
     const onVisibility=()=>{
@@ -4304,7 +4298,7 @@ export default function ERP(){
       </aside>
 
       {/* MAIN */}
-      <main ref={mainRef} className="erp-main" style={{flex:1,padding:"20px 24px",minHeight:"100vh",overflowY:"auto"}}>{tab==="configuracao"?<PgConfig empresa={empresa} saveEmpresa={saveEmpresa} getBackup={getBackup} importBackup={importBackup} limparDuplicatas={limparDuplicatas}/>:<Pg/>}</main>
+      <main className="erp-main" style={{flex:1,padding:"20px 24px",minHeight:"100vh",overflowY:"auto"}}>{tab==="configuracao"?<PgConfig empresa={empresa} saveEmpresa={saveEmpresa} getBackup={getBackup} importBackup={importBackup} limparDuplicatas={limparDuplicatas}/>:tab==="financeiro"?<StablePageWrapper renderFn={PgFin}/>:<Pg/>}</main>
 
       {/* MODALS */}
       {modal?.t==="editCli"&&<Modal onClose={()=>setModal(null)}><ModalEditCli d={modal.d} setModal={setModal} saveCli={saveCli}/></Modal>}

@@ -3003,12 +3003,13 @@ export default function ERP(){
             })}
             {comEntries.map(f=>{
               const marc=marceneiros.find(m=>m.id===f.marcId);
+              const pedCom=pedidos.find(p=>p.id===f.pedidoId);
               const pago=(f.parcelas||[]).filter(p=>p.pago).reduce((s,p)=>s+p.valor,0);
               const pendente=(f.parcelas||[]).filter(p=>!p.pago).reduce((s,p)=>s+p.valor,0);
               return(<div key={f.id} style={{borderBottom:"1px solid var(--bd)",paddingBottom:12,marginBottom:12}}>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
                   <div>
-                    <div style={{fontSize:12,fontWeight:800,color:"var(--tx)"}}>{f.desc}</div>
+                    <div style={{fontSize:12,fontWeight:800,color:"var(--tx)"}}>{f.desc}{pedCom?.cliente&&<span style={{fontWeight:600,color:"var(--tx2)",marginLeft:6}}>— {pedCom.cliente}</span>}</div>
                     <div style={{fontSize:10,color:"var(--tx3)",display:"flex",gap:10,marginTop:2,flexWrap:"wrap"}}>
                       <span>{marc?.nome}</span><span>Total: <b>{R$(f.valor)}</b></span>
                       <span style={{color:"var(--gn)"}}>Pago: <b>{R$(pago)}</b></span>

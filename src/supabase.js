@@ -26,15 +26,31 @@ export const dbGet = async (k) => {
   } catch (e) { console.warn('[dbGet] error', k, e); return null; }
 };
 
-export const dbSet = async (k, v) => {
+// Retorna { data, updatedAt } — usado no loadFromCloud para comparação de timestamps
+export const dbGetRow = async (k) => {
+  if (!ENABLED) return null;
+  try {
+    const res = await fetch(
+      `${SB_URL}/rest/v1/erp_data?select=data,updated_at&key=eq.${encodeURIComponent(k)}&limit=1`,
+      { headers: { 'apikey': SB_KEY, 'Authorization': `Bearer ${SB_KEY}` } }
+    );
+    if (!res.ok) { console.warn('[dbGetRow] HTTP', res.status, k); return null; }
+    const rows = await res.json();
+    return rows.length ? { data: rows[0].data, updatedAt: rows[0].updated_at } : null;
+  } catch (e) { console.warn('[dbGetRow] error', k, e); return null; }
+};
+
+export const dbSet = async (k, v, keepalive = false) => {
   if (!ENABLED) return false;
   try {
+    const body = JSON.stringify({ key: k, data: v, updated_at: new Date().toISOString() });
     const res = await fetch(
       `${SB_URL}/rest/v1/erp_data?on_conflict=key`,
       {
         method:  'POST',
         headers: headers(),
-        body:    JSON.stringify({ key: k, data: v, updated_at: new Date().toISOString() }),
+        body,
+        ...(keepalive ? { keepalive: true } : {}),
       }
     );
     if (!res.ok) {

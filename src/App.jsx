@@ -1,6 +1,8 @@
 import { useState, useCallback, useMemo, useRef, useEffect } from "react";
-import { dbGet, dbSet, dbSetMany } from "./supabase";
+import { dbGet, dbGetRow, dbSet, dbSetMany } from "./supabase";
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, Legend } from "recharts";
+import html2canvas from "html2canvas";
+import { jsPDF } from "jspdf";
 
 /* ═══════════════════════════════════════════
    ICONS
@@ -119,22 +121,39 @@ const Modal=({children,onClose,wide,xwide})=>(
 
 // commitOnBlur=true: uncontrolled (não causa re-render no parent a cada tecla)
 function Field({label,value,onChange,placeholder,type="text",rows,disabled,style:sx,options,commitOnBlur}){
-  const ref=useRef(null);
-  // Sincroniza valor externo → input apenas se não estiver focado
-  useEffect(()=>{
-    if(commitOnBlur&&ref.current&&document.activeElement!==ref.current)
-      ref.current.value=value==null?"":String(value);
-  },[value,commitOnBlur]);
-  const IS=commitOnBlur
-    ?{ref,defaultValue:value==null?"":String(value),onBlur:e=>onChange(type==="number"?+e.target.value:e.target.value)}
-    :{value:value==null?"":String(value),onChange:e=>onChange(type==="number"?+e.target.value:e.target.value)};
   const ST={width:"100%",padding:"10px 12px",borderRadius:"var(--r)",border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:13,fontWeight:500,outline:"none"};
+  if(commitOnBlur){
+    // Estado local: preserva o texto digitado mesmo quando o pai re-renderiza
+    // (evita perda de texto ao clicar em botões próximos antes de fazer blur)
+    const [local,setLocal]=useState(value==null?"":String(value));
+    const editing=useRef(false);
+    useEffect(()=>{
+      // Só sincroniza do pai se o campo não estiver sendo editado
+      if(!editing.current)setLocal(value==null?"":String(value));
+    },[value]);
+    const commit=v=>{editing.current=false;onChange(type==="number"?+v:v);};
+    return(
+      <div style={{marginBottom:12,...sx}}>
+        {label&&<label style={{display:"block",fontSize:13,fontWeight:800,color:"var(--tx2)",textTransform:"uppercase",letterSpacing:".5px",marginBottom:5}}>{label}</label>}
+        {rows
+          ?<textarea value={local} placeholder={placeholder} rows={rows} disabled={disabled}
+              style={{...ST,resize:"vertical",lineHeight:1.5}}
+              onChange={e=>{editing.current=true;setLocal(e.target.value);}}
+              onBlur={e=>commit(e.target.value)}/>
+          :<input type={type} value={local} placeholder={placeholder} disabled={disabled}
+              style={ST}
+              onChange={e=>{editing.current=true;setLocal(e.target.value);}}
+              onBlur={e=>commit(e.target.value)}/>}
+      </div>
+    );
+  }
+  // Modo controlado normal (sem commitOnBlur)
   return(
     <div style={{marginBottom:12,...sx}}>
       {label&&<label style={{display:"block",fontSize:13,fontWeight:800,color:"var(--tx2)",textTransform:"uppercase",letterSpacing:".5px",marginBottom:5}}>{label}</label>}
-      {options?<select value={value} onChange={e=>onChange(e.target.value)} disabled={disabled} style={ST}>{options.map(o=><option key={o.v||o} value={o.v||o}>{o.l||o}</option>)}</select>
-      :rows?<textarea {...IS} placeholder={placeholder} rows={rows} disabled={disabled} style={{...ST,resize:"vertical",lineHeight:1.5}}/>
-      :<input type={type} {...IS} placeholder={placeholder} disabled={disabled} style={ST}/>}
+      {options?<select value={value==null?"":String(value)} onChange={e=>onChange(e.target.value)} disabled={disabled} style={ST}>{options.map(o=><option key={o.v||o} value={o.v||o}>{o.l||o}</option>)}</select>
+      :rows?<textarea value={value==null?"":String(value)} onChange={e=>onChange(type==="number"?+e.target.value:e.target.value)} placeholder={placeholder} rows={rows} disabled={disabled} style={{...ST,resize:"vertical",lineHeight:1.5}}/>
+      :<input type={type} value={value==null?"":String(value)} onChange={e=>onChange(type==="number"?+e.target.value:e.target.value)} placeholder={placeholder} disabled={disabled} style={ST}/>}
     </div>
   );
 }
@@ -144,6 +163,12 @@ function BlurInput({value,onCommit,type="text",placeholder,style:sx,...rest}){
   const ref=useRef(null);
   useEffect(()=>{if(ref.current&&document.activeElement!==ref.current)ref.current.value=value==null?"":String(value);},[value]);
   return <input ref={ref} type={type} defaultValue={value==null?"":String(value)} onBlur={e=>onCommit(type==="number"?+e.target.value:e.target.value)} placeholder={placeholder} style={sx} {...rest}/>;
+}
+// Textarea sem re-render no parent a cada tecla (uncontrolled + commit onBlur)
+function BlurTextarea({value,onCommit,placeholder,rows=3,style:sx,...rest}){
+  const ref=useRef(null);
+  useEffect(()=>{if(ref.current&&document.activeElement!==ref.current)ref.current.value=value==null?"":String(value);},[value]);
+  return <textarea ref={ref} defaultValue={value==null?"":String(value)} onBlur={e=>onCommit(e.target.value)} placeholder={placeholder} rows={rows} style={sx} {...rest}/>;
 }
 
 const Btn=({children,onClick,v="primary",small,style:sx,disabled})=>{
@@ -314,7 +339,7 @@ function ModalNewFin({setModal,setFinanceiro,setRecorrentes,showToast,cats:catsP
   </>);
 }
 
-function PgConfig({empresa,saveEmpresa,getBackup,importBackup}){
+function PgConfig({empresa,saveEmpresa,getBackup,importBackup,limparDuplicatas}){
   const [f,setF]=useState({...empresa});
   const u=(k,v)=>setF(p=>({...p,[k]:v}));
   const handleLogo=e=>{const file=e.target.files[0];if(!file)return;const reader=new FileReader();reader.onload=ev=>u("logo",ev.target.result);reader.readAsDataURL(file);};
@@ -462,6 +487,7 @@ function PgConfig({empresa,saveEmpresa,getBackup,importBackup}){
               reader.readAsText(file);
             }}/>
           </label>
+          {limparDuplicatas&&<Btn v="ghost" onClick={()=>{if(window.confirm('Remover entradas duplicadas do financeiro? Serão mantidas as versões com maior valor pago.'))limparDuplicatas();}} style={{color:"var(--rd)",border:"1px solid rgba(239,68,68,.2)",background:"var(--rdb)"}}><I.Trash/> Limpar Duplicatas</Btn>}
         </div>
       </div>
       <div style={{marginTop:16,padding:20,background:"var(--bg)",borderRadius:"var(--rl)",border:"1.5px solid var(--bd)"}}>
@@ -778,7 +804,7 @@ function ModalPDF({o,empresa,getCli,setModal,totalOrcFinal,totalOrc,totalOrcComN
   const downloadPDF=async()=>{
     setDownloading(true);
     try{
-      const [{default:html2canvas},{default:jsPDF}]=await Promise.all([import('html2canvas'),import('jspdf')]);
+      // html2canvas e jsPDF importados estaticamente no topo — sem risco de chunk hash stale
       const el=zoneRef.current;
       const prevMax=el.style.maxHeight,prevOv=el.style.overflowY;
       el.style.maxHeight='none';el.style.overflowY='visible';
@@ -1359,6 +1385,7 @@ export default function ERP(){
   const [recTab,setRecTab]=useState("pedidos");
   const [poolTab,setPoolTab]=useState("1012");
   const recorrentesRef=useRef(recorrentes);useEffect(()=>{recorrentesRef.current=recorrentes;},[recorrentes]);
+  const recGeradoRef=useRef(false);
   const EMPRESA_DEF={nome:"Marcenaria",endereco:"",telefone:"",email:"",cnpj:"",logo:"",loginAdmin:"admin",senhaAdmin:"admin123"};
   const [empresa,setEmpresa]=useState(()=>{try{const s=JSON.parse(localStorage.getItem('erpEmpresa'));return s?{...EMPRESA_DEF,...s}:EMPRESA_DEF;}catch{return EMPRESA_DEF;}});
 
@@ -1368,26 +1395,81 @@ export default function ERP(){
   // ── SUPABASE SYNC ──
   const DB_KEYS=['clientes','orcamentos','pedidos','marceneiros','estoque','financeiro','leads','biblioteca','recebimentos','recorrentes','vendedores'];
   const syncTimers=useRef({});
+  const pendingSync=useRef(new Set()); // chaves com gravações pendentes (debounce ativo)
 
   const getSnap=useCallback(()=>({
     clientes,orcamentos,pedidos,marceneiros,estoque,financeiro,
     leads,biblioteca,recebimentos,recorrentes,vendedores,
   }),[clientes,orcamentos,pedidos,marceneiros,estoque,financeiro,leads,biblioteca,recebimentos,recorrentes,vendedores]);
 
-  const syncCloud=(k,v)=>{
-    localStorage.setItem('erp_'+k,JSON.stringify(v));
-    clearTimeout(syncTimers.current[k]);
-    syncTimers.current[k]=setTimeout(async()=>{
-      // Proteção: nunca sobrescrever cloud com dado vazio se cloud tem dados reais
-      const newLen=Array.isArray(v)?v.length:Object.keys(v||{}).length;
-      if(newLen===0){
-        const cloud=await dbGet(k);
-        const cloudLen=Array.isArray(cloud)?cloud.length:Object.keys(cloud||{}).length;
-        if(cloudLen>0){console.warn('[syncCloud] Abortado: evitando sobrescrever',cloudLen,'itens em nuvem com vazio',k);setSyncStatus("ok");return;}
+  const _getFinMes=(f)=>{
+    const venc=f.parcelas&&f.parcelas.find(p=>p.venc)?.venc;
+    if(venc)return venc.slice(0,7);
+    return((f.desc||'').match(/\d{4}-\d{2}/)||[])[0]||'';
+  };
+  const _deduplicateFin=(arr)=>{
+    const seen=new Map();const keep=[];
+    for(const f of arr){
+      let key=null;
+      if(f.pedidoId)key='ped|'+f.pedidoId+'|'+f.tipo+'|'+(f.marcId||'')+'|'+(f.vendedorId||'');
+      else if(f.recorrenteId)key='rec|'+f.recorrenteId+'|'+_getFinMes(f);
+      if(key){
+        if(seen.has(key)){
+          const ex=seen.get(key);
+          const fHasVenc=!!(f.parcelas&&f.parcelas.find(p=>p.venc));
+          const exHasVenc=!!(ex.parcelas&&ex.parcelas.find(p=>p.venc));
+          if((fHasVenc&&!exHasVenc)||((fHasVenc||!exHasVenc)&&(f.valorPago||0)>(ex.valorPago||0))){
+            keep.splice(keep.indexOf(ex),1);keep.push(f);seen.set(key,f);
+          }
+        }else{seen.set(key,f);keep.push(f);}
+      }else keep.push(f);
+    }
+    return keep;
+  };
+
+  // ── SAVE ENGINE ─────────────────────────────────────────────────────────────
+  // Financeiro: escrita imediata + retry. Outros: debounce 800ms.
+  // writeInFlight evita gravações simultâneas para a mesma chave.
+  const writeInFlight=useRef({});
+
+  const _writeWithRetry=useCallback(async(k,val,attempt=0)=>{
+    if(writeInFlight.current[k]){
+      // Já tem uma gravação em andamento — agenda re-check após ela terminar
+      writeInFlight.current[k+'_queued']=val;
+      return;
+    }
+    writeInFlight.current[k]=true;
+    setSyncStatus("syncing");
+    const ok=await dbSet(k,val);
+    writeInFlight.current[k]=false;
+    if(ok){
+      pendingSync.current.delete(k);
+      setSyncStatus("ok");
+      // Se houve atualização enquanto gravava, gravar a versão mais recente
+      if(writeInFlight.current[k+'_queued']!==undefined){
+        const next=writeInFlight.current[k+'_queued'];
+        delete writeInFlight.current[k+'_queued'];
+        _writeWithRetry(k,next,0);
       }
-      const ok=await dbSet(k,v);
-      setSyncStatus(ok?"ok":"error");
-    },600);
+    } else {
+      setSyncStatus("error");
+      if(attempt<4){
+        // Retry exponencial: 2s, 4s, 8s, 16s
+        setTimeout(()=>_writeWithRetry(k,val,attempt+1),2000*(attempt+1));
+      }
+    }
+  },[]);
+
+  const syncCloud=(k,v)=>{
+    const val=k==='financeiro'?_deduplicateFin(v):v;
+    // Salva timestamp local junto com os dados
+    const ts=new Date().toISOString();
+    localStorage.setItem('erp_'+k,JSON.stringify(val));
+    localStorage.setItem('erp_ts_'+k,ts);
+    pendingSync.current.add(k);
+    // Todos os dados críticos: escrita IMEDIATA sem debounce
+    clearTimeout(syncTimers.current[k]);
+    _writeWithRetry(k,val,0);
   };
 
   // Backup: lê do estado em memória (não do localStorage)
@@ -1458,22 +1540,41 @@ export default function ERP(){
       recorrentes:setRecorrentes,vendedores:setVendedores};
     const toUpload=[];
     for(const k of DB_KEYS){
+      // Nunca sobrescrever mudanças locais não sincronizadas (evita reverter delete/edição)
+      if(pendingSync.current.has(k))continue;
       try{
-        const cloud=await dbGet(k);
+        const row=await dbGetRow(k);
         const localRaw=localStorage.getItem('erp_'+k);
         const local=localRaw?JSON.parse(localRaw):null;
-        const cloudLen=Array.isArray(cloud)?cloud.length:Object.keys(cloud||{}).length;
-        const localLen=Array.isArray(local)?local.length:Object.keys(local||{}).length;
-        const cloudJson=JSON.stringify(cloud);
-        if(cloudLen>0&&cloudLen>=localLen){
-          // Cloud vence — só atualiza estado se dados realmente mudaram (evita re-render desnecessário)
+        const localTs=localStorage.getItem('erp_ts_'+k)||'';
+        const cloud=row?.data??null;
+        const cloudTs=row?.updatedAt||'';
+        const hasCloud=cloud!=null&&(Array.isArray(cloud)?cloud.length>0:Object.keys(cloud).length>0);
+        const hasLocal=local!=null&&(Array.isArray(local)?local.length>0:Object.keys(local).length>0);
+        // Comparação por timestamp: quem foi gravado mais recentemente vence
+        // Isso garante que deleções/edições nunca sejam revertidas por dispositivo desatualizado
+        const cloudNewer=!localTs||(cloudTs&&cloudTs>localTs);
+        if(hasCloud&&cloudNewer){
+          // Cloud é mais recente — usa cloud
+          const cloudJson=JSON.stringify(cloud);
           if(cloudJson!==localRaw){
-            setters[k](cloud);
-            localStorage.setItem('erp_'+k,cloudJson);
+            const val=k==='financeiro'?_deduplicateFin(cloud):cloud;
+            setters[k](val);
+            localStorage.setItem('erp_'+k,JSON.stringify(val));
+            localStorage.setItem('erp_ts_'+k,cloudTs);
           }
-        } else if(localLen>0&&localLen>cloudLen){
-          // Local vence — não chama setter (estado já correto), só faz upload
-          toUpload.push([k,local]);
+        } else if(hasLocal&&!cloudNewer){
+          // Local é mais recente — sobe para cloud
+          toUpload.push([k, k==='financeiro'?_deduplicateFin(local):local]);
+        } else if(hasCloud&&!hasLocal){
+          // Só tem cloud — carrega cloud (primeiro acesso neste dispositivo)
+          const val=k==='financeiro'?_deduplicateFin(cloud):cloud;
+          setters[k](val);
+          localStorage.setItem('erp_'+k,JSON.stringify(val));
+          localStorage.setItem('erp_ts_'+k,cloudTs);
+        } else if(hasLocal&&!hasCloud){
+          // Só tem local — sobe para cloud
+          toUpload.push([k, k==='financeiro'?_deduplicateFin(local):local]);
         }
         // ambos vazios → mantém estado inicial, não faz nada
       }catch(e){console.warn('[load] erro ao carregar',k,e);}
@@ -1510,14 +1611,32 @@ export default function ERP(){
 
   useEffect(()=>{loadFromCloud(true);},[loadFromCloud]);
 
-  // Auto-refresh: ao voltar para a aba e a cada 30s — garante dados sempre frescos
+  // Visibilidade: flush ao sair, reload ao voltar só se ficou 3+ min fora
+  const hiddenAtRef=useRef(0);
   useEffect(()=>{
     if(!dbLoaded)return;
-    const onVisible=()=>{if(document.visibilityState==='visible')loadFromCloud(false);};
-    document.addEventListener('visibilitychange',onVisible);
-    const t=setInterval(()=>loadFromCloud(false),60000);
-    return()=>{document.removeEventListener('visibilitychange',onVisible);clearInterval(t);};
-  },[dbLoaded,loadFromCloud]);
+    const onVisibility=()=>{
+      if(document.visibilityState==='hidden'){
+        hiddenAtRef.current=Date.now();
+        // Flush imediato com keepalive ao sair da aba
+        Object.values(syncTimers.current).forEach(t=>clearTimeout(t));
+        const snap=getSnap();
+        Object.entries(snap).forEach(([k,v])=>{
+          if(pendingSync.current.has(k)){
+            const val=k==='financeiro'?_deduplicateFin(v):v;
+            localStorage.setItem('erp_'+k,JSON.stringify(val));
+            dbSet(k,val,true);
+          }
+        });
+      } else {
+        // Voltou para a aba: só recarregar se ficou 3+ minutos fora
+        const away=Date.now()-hiddenAtRef.current;
+        if(away>180000)loadFromCloud(false);
+      }
+    };
+    document.addEventListener('visibilitychange',onVisibility);
+    return()=>document.removeEventListener('visibilitychange',onVisibility);
+  },[dbLoaded,loadFromCloud,getSnap]);
 
   // Auto-sync a cada mudança de estado
   useEffect(()=>{if(dbLoaded)syncCloud('clientes',clientes);},[clientes,dbLoaded]);
@@ -1532,15 +1651,16 @@ export default function ERP(){
   useEffect(()=>{if(dbLoaded)syncCloud('recorrentes',recorrentes);},[recorrentes,dbLoaded]);
   useEffect(()=>{if(dbLoaded)syncCloud('vendedores',vendedores);},[vendedores,dbLoaded]);
 
-  // Flush antes de fechar a aba — salva local + dispara cloud imediatamente
+  // Flush antes de fechar a aba — keepalive=true garante que o request complete mesmo após unload
   useEffect(()=>{
     const flush=()=>{
       if(!dbLoaded)return;
       Object.values(syncTimers.current).forEach(t=>clearTimeout(t));
       const snap=getSnap();
       Object.entries(snap).forEach(([k,v])=>{
-        localStorage.setItem('erp_'+k,JSON.stringify(v));
-        dbSet(k,v);
+        const val=k==='financeiro'?_deduplicateFin(v):v;
+        localStorage.setItem('erp_'+k,JSON.stringify(val));
+        dbSet(k,val,true); // keepalive=true: request sobrevive ao fechamento da aba
       });
     };
     window.addEventListener('beforeunload',flush);
@@ -1577,16 +1697,35 @@ export default function ERP(){
     }catch{}
   };
 
-  // Auto-gerar contas recorrentes no mês atual
-  // Guard baseado nos próprios dados (não localStorage) para funcionar em multi-dispositivos
+  // Reconcilia vt dos pedidos com o orçamento vinculado ao carregar (corrige divergências históricas)
   useEffect(()=>{
     if(!dbLoaded)return;
+    setPedidos(prev=>{
+      let changed=false;
+      const next=prev.map(p=>{
+        const o=orcamentos.find(x=>x.id===p.orcId);
+        if(!o)return p;
+        const vtCorreto=Math.max(0,((o.ambientes||[]).reduce((s,a)=>s+(a.valorTotal||0),0))-(o.descontoR||0))*(1-(o.desconto||0)/100);
+        if(Math.abs(vtCorreto-p.vt)>0.01){changed=true;return{...p,vt:vtCorreto};}
+        return p;
+      });
+      return changed?next:prev;
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[dbLoaded]);
+
+  // Auto-gerar contas recorrentes no mês atual
+  // Lock de sessão (recGeradoRef) + guard por dados: nunca gera duas vezes
+  useEffect(()=>{
+    if(!dbLoaded||recGeradoRef.current)return;
+    recGeradoRef.current=true;
     const mes=hojeISO().slice(0,7);
     const recs=recorrentesRef.current.filter(r=>r.ativo);
     if(!recs.length)return;
     setFinanceiro(prev=>{
+      // Verifica existência usando _getFinMes para cobrir casos com venc=undefined
       const novas=recs.filter(r=>
-        !prev.some(f=>f.recorrenteId===r.id&&f.parcelas.some(p=>p.venc?.startsWith(mes)))
+        !prev.some(f=>f.recorrenteId===r.id&&_getFinMes(f)===mes)
       ).map(r=>({id:uid(),tipo:r.tipo||"pagar",desc:`${r.desc} ${mes}`,valor:r.valor,valorPago:0,parcelas:[{id:uid(),valor:r.valor,venc:`${mes}-${String(r.dia||1).padStart(2,"0")}`,pago:false,dataPago:""}],categoria:r.categoria||"Outros",recorrenteId:r.id,fornecedor:r.fornecedor||"",status:"aberto"}));
       if(!novas.length)return prev;
       setTimeout(()=>showToast(`${novas.length} conta(s) recorrente(s) gerada(s)!`),200);
@@ -1608,9 +1747,10 @@ export default function ERP(){
     setOrcamentos(prev=>prev.map(o=>{
       if(o.id!==id)return o;
       const updated=typeof fn==="function"?fn(o):{...o,...fn};
-      // Se desconto mudou, sincroniza valor do pedido e financeiro vinculados
-      if(('desconto' in (typeof fn==="function"?{}:fn))||('descontoR' in (typeof fn==="function"?{}:fn))){
-        const vtFinalNew=Math.max(0,((updated.ambientes||[]).reduce((s,a)=>s+(a.valorTotal||0),0))-(updated.descontoR||0))*(1-(updated.desconto||0)/100);
+      // Sempre recalcula total e sincroniza pedido/financeiro vinculados se o valor mudou
+      const vtOld=Math.max(0,((o.ambientes||[]).reduce((s,a)=>s+(a.valorTotal||0),0))-(o.descontoR||0))*(1-(o.desconto||0)/100);
+      const vtFinalNew=Math.max(0,((updated.ambientes||[]).reduce((s,a)=>s+(a.valorTotal||0),0))-(updated.descontoR||0))*(1-(updated.desconto||0)/100);
+      if(vtFinalNew!==vtOld){
         setPedidos(pp=>pp.map(p=>p.orcId===id?{...p,vt:vtFinalNew}:p));
         setFinanceiro(ff=>ff.map(f=>{
           if(!f.pedidoId)return f;
@@ -1712,6 +1852,34 @@ export default function ERP(){
   };
   const updFin=(id,d)=>setFinanceiro(prev=>prev.map(f=>f.id===id?{...f,...d}:f));
 
+  const limparDuplicatas=()=>{
+    let removidos=0;
+    setFinanceiro(prev=>{
+      const seen=new Map();
+      const keep=[];
+      for(const f of prev){
+        let key=null;
+        if(f.pedidoId){
+          key=`ped|${f.pedidoId}|${f.tipo}|${f.marcId||''}|${f.vendedorId||''}`;
+        }else if(f.recorrenteId){
+          const mes=f.parcelas[0]?.venc?.slice(0,7)||'';
+          key=`rec|${f.recorrenteId}|${mes}`;
+        }
+        if(key){
+          if(seen.has(key)){
+            const ex=seen.get(key);
+            if((f.valorPago||0)>(ex.valorPago||0)){
+              keep.splice(keep.indexOf(ex),1);keep.push(f);seen.set(key,f);
+            }
+            removidos++;
+          }else{seen.set(key,f);keep.push(f);}
+        }else{keep.push(f);}
+      }
+      return keep;
+    });
+    setTimeout(()=>showToast(`Limpeza concluída! Duplicatas removidas.`),100);
+  };
+
   // Login
   const handleLogin=(l,s)=>{
     const lt=(l||"").trim();const st=(s||"").trim();
@@ -1804,78 +1972,157 @@ export default function ERP(){
 
   // DASHBOARD
   const PgDash=()=>{
-    const dreData=[{name:"Receita",valor:stats.rec},{name:"Materiais",valor:stats.cMat},{name:"Comissões",valor:stats.cCom},{name:"Lucro",valor:stats.lucro}];
-    const pieData=[{name:"A Receber",value:stats.aReceber,color:"#10b981"},{name:"A Pagar",value:stats.aPagar,color:"#ef4444"}];
-    const leadsByStage=LEAD_STAGES.map((s,i)=>({name:s.split("/")[0],value:leads.filter(l=>l.etapa===s).length,color:LEAD_COLORS[i]}));
     const hj=hojeISO();
-    const d=new Date();const mon=new Date(d);mon.setDate(d.getDate()-(d.getDay()||7)+1);const sun=new Date(mon);sun.setDate(mon.getDate()+6);
-    const monStr=mon.toISOString().split("T")[0];const sunStr=sun.toISOString().split("T")[0];
-    const contasHoje=financeiro.flatMap(f=>f.parcelas.filter(p=>!p.pago&&p.venc===hj).map(p=>({...p,tipo:f.tipo,desc:f.desc,finId:f.id})));
-    const contasSemana=financeiro.flatMap(f=>f.parcelas.filter(p=>!p.pago&&p.venc>hj&&p.venc>=monStr&&p.venc<=sunStr).map(p=>({...p,tipo:f.tipo,desc:f.desc})));
-    const pagarHoje=contasHoje.filter(p=>p.tipo==="pagar").reduce((s,p)=>s+p.valor,0);
-    const receberHoje=contasHoje.filter(p=>p.tipo==="receber").reduce((s,p)=>s+p.valor,0);
-    const pagarSem=contasSemana.filter(p=>p.tipo==="pagar").reduce((s,p)=>s+p.valor,0);
-    const receberSem=contasSemana.filter(p=>p.tipo==="receber").reduce((s,p)=>s+p.valor,0);
+    const mesAtual=hj.slice(0,7);
+    const nd=d=>{if(!d)return"";if(/^\d{4}-\d{2}-\d{2}/.test(d))return d;const pts=d.split("/");return pts.length===3?`${pts[2]}-${pts[1]}-${pts[0]}`:d;};
+    // Semana atual seg→dom
+    const hjD=new Date(hj+"T12:00");const dow=hjD.getDay();
+    const monD=new Date(hjD);monD.setDate(hjD.getDate()-(dow===0?6:dow-1));
+    const sunD=new Date(monD);sunD.setDate(monD.getDate()+6);
+    const semIni=monD.toISOString().split("T")[0];
+    const semFim=sunD.toISOString().split("T")[0];
+    // Todas parcelas financeiro
+    const todasParc=financeiro.flatMap(f=>f.parcelas.map(p=>({...p,tipo:f.tipo,desc:f.desc,finId:f.id})));
+    // ── MÊS VIGENTE ──
+    const mesRecebido=todasParc.filter(p=>p.pago&&p.tipo==="receber"&&nd(p.dataPago).startsWith(mesAtual)).reduce((s,p)=>s+p.valor,0);
+    const mesPago_=todasParc.filter(p=>p.pago&&p.tipo==="pagar"&&nd(p.dataPago).startsWith(mesAtual)).reduce((s,p)=>s+p.valor,0);
+    const mesAReceber=todasParc.filter(p=>!p.pago&&p.tipo==="receber"&&p.venc?.startsWith(mesAtual)).reduce((s,p)=>s+p.valor,0);
+    const mesAPagar=todasParc.filter(p=>!p.pago&&p.tipo==="pagar"&&p.venc?.startsWith(mesAtual)).reduce((s,p)=>s+p.valor,0);
+    const mesSaldo=mesRecebido-mesPago_;
+    // ── SEMANA ── (inclui pagos e pendentes)
+    const parcSemPagRec=todasParc.filter(p=>p.pago&&p.tipo==="receber"&&nd(p.dataPago)>=semIni&&nd(p.dataPago)<=semFim);
+    const parcSemPagPag=todasParc.filter(p=>p.pago&&p.tipo==="pagar"&&nd(p.dataPago)>=semIni&&nd(p.dataPago)<=semFim);
+    const parcSemPendRec=todasParc.filter(p=>!p.pago&&p.tipo==="receber"&&p.venc&&p.venc>=semIni&&p.venc<=semFim);
+    const parcSemPendPag=todasParc.filter(p=>!p.pago&&p.tipo==="pagar"&&p.venc&&p.venc>=semIni&&p.venc<=semFim);
+    const semRecTotal=parcSemPagRec.reduce((s,p)=>s+p.valor,0)+parcSemPendRec.reduce((s,p)=>s+p.valor,0);
+    const semPagTotal=parcSemPagPag.reduce((s,p)=>s+p.valor,0)+parcSemPendPag.reduce((s,p)=>s+p.valor,0);
+    // ── ALERTAS ──
+    const atrasados=todasParc.filter(p=>!p.pago&&p.venc&&p.venc<hj);
+    const venceHoje=todasParc.filter(p=>!p.pago&&p.venc===hj);
+    const atrasadosPag=atrasados.filter(p=>p.tipo==="pagar");
+    const atrasadosRec=atrasados.filter(p=>p.tipo==="receber");
+    // ── CHARTS ──
+    const dreData=[{name:"Receitas",valor:mesRecebido},{name:"Despesas",valor:mesPago_},{name:"A Receber",valor:mesAReceber},{name:"A Pagar",valor:mesAPagar}];
+    const nomeMes=new Date(mesAtual+"-15").toLocaleDateString("pt-BR",{month:"long",year:"numeric"});
+    // Linha de itens da semana
+    const SemRow=({p,pago})=>(<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 0",borderBottom:"1px solid var(--bd)"}}>
+      <div style={{flex:1,minWidth:0}}>
+        <div style={{fontSize:11,fontWeight:700,color:pago?"var(--tx3)":"var(--tx)",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{pago&&"✓ "}{p.desc}</div>
+        <div style={{fontSize:9,color:"var(--tx3)",fontWeight:600}}>{pago?`pago ${nd(p.dataPago)}`:`venc. ${p.venc}`}</div>
+      </div>
+      <span style={{fontWeight:800,fontSize:12,marginLeft:8,flexShrink:0,color:pago?"var(--tx3)":p.tipo==="pagar"?"var(--rd)":"var(--gn)"}}>{R$(p.valor)}</span>
+    </div>);
     return(
       <div style={{animation:"fadeIn .3s"}}>
         <SH title="Dashboard" sub={`Bem-vindo! ${hoje()}`} right={<><Btn onClick={()=>setModal({t:"selCli"})}><I.Plus/> Orçamento</Btn><Btn v="secondary" onClick={()=>setModal({t:"editLead",d:{}})}><I.Target/> Novo Lead</Btn></>}/>
-        <div style={{display:"flex",gap:12,flexWrap:"wrap",marginBottom:20}}>
-          <KPI label="Leads Quentes" value={stats.leadsQuentes} sub={`${stats.leads} total`} icon={<I.Zap/>} color="pk"/>
-          <KPI label="Orçamentos" value={stats.orc} icon={<I.File/>} color="pri"/>
-          <KPI label="Em Produção" value={stats.pedProd} icon={<I.Hammer/>} color="am"/>
-          <KPI label="Faturamento" value={R$(stats.rec)} icon={<I.Dollar/>} color="gn"/>
-          <KPI label="A Receber" value={R$(stats.aReceber)} icon={<I.Wallet/>} color="bl"/>
+
+        {/* ── ALERTAS ── */}
+        {(atrasados.length>0||venceHoje.length>0)&&<div style={{display:"flex",gap:10,marginBottom:16,flexWrap:"wrap"}}>
+          {atrasados.length>0&&<div style={{flex:1,minWidth:220,background:"rgba(239,68,68,.08)",border:"1.5px solid rgba(239,68,68,.25)",borderRadius:"var(--rl)",padding:"12px 16px",display:"flex",gap:12,alignItems:"center"}}>
+            <div style={{width:36,height:36,borderRadius:10,background:"var(--rd)",display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontSize:16,flexShrink:0}}>⚠</div>
+            <div><div style={{fontSize:12,fontWeight:800,color:"var(--rd)"}}>Contas Atrasadas!</div>
+              <div style={{fontSize:11,color:"var(--tx2)",marginTop:2}}>{atrasadosPag.length} a pagar ({R$(atrasadosPag.reduce((s,p)=>s+p.valor,0))}) · {atrasadosRec.length} a receber ({R$(atrasadosRec.reduce((s,p)=>s+p.valor,0))})</div>
+            </div>
+            <button onClick={()=>setTab("financeiro")} style={{marginLeft:"auto",padding:"5px 12px",borderRadius:8,border:"1.5px solid var(--rd)",background:"transparent",color:"var(--rd)",fontSize:11,fontWeight:700,cursor:"pointer",flexShrink:0}}>Ver →</button>
+          </div>}
+          {venceHoje.length>0&&<div style={{flex:1,minWidth:220,background:"rgba(245,158,11,.08)",border:"1.5px solid rgba(245,158,11,.3)",borderRadius:"var(--rl)",padding:"12px 16px",display:"flex",gap:12,alignItems:"center"}}>
+            <div style={{width:36,height:36,borderRadius:10,background:"#f59e0b",display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontSize:16,flexShrink:0}}>📅</div>
+            <div><div style={{fontSize:12,fontWeight:800,color:"#b45309"}}>Vence Hoje</div>
+              <div style={{fontSize:11,color:"var(--tx2)",marginTop:2}}>{venceHoje.length} conta{venceHoje.length!==1?"s":""} — {R$(venceHoje.reduce((s,p)=>s+p.valor,0))}</div>
+            </div>
+            <button onClick={()=>setTab("financeiro")} style={{marginLeft:"auto",padding:"5px 12px",borderRadius:8,border:"1.5px solid #f59e0b",background:"transparent",color:"#b45309",fontSize:11,fontWeight:700,cursor:"pointer",flexShrink:0}}>Ver →</button>
+          </div>}
+        </div>}
+
+        {/* ── KPIs DO MÊS ── */}
+        <div style={{marginBottom:6}}><span style={{fontSize:10,fontWeight:800,color:"var(--tx3)",textTransform:"uppercase",letterSpacing:"1px"}}>Resumo de {nomeMes}</span></div>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:10,marginBottom:18}}>
+          {[
+            {l:"Recebido",v:mesRecebido,c:"#10b981",bg:"rgba(16,185,129,.08)",icon:"💰"},
+            {l:"Pago",v:mesPago_,c:"#ef4444",bg:"rgba(239,68,68,.06)",icon:"📤"},
+            {l:"Saldo",v:mesSaldo,c:mesSaldo>=0?"#10b981":"#ef4444",bg:mesSaldo>=0?"rgba(16,185,129,.08)":"rgba(239,68,68,.06)",icon:"📊"},
+            {l:"A Receber",v:mesAReceber,c:"#3b82f6",bg:"rgba(59,130,246,.07)",icon:"🔜"},
+            {l:"A Pagar",v:mesAPagar,c:"#f59e0b",bg:"rgba(245,158,11,.07)",icon:"⏰"},
+          ].map(k=>(
+            <div key={k.l} style={{background:k.bg,borderRadius:"var(--rl)",padding:"14px 16px",border:`1.5px solid ${k.c}22`}}>
+              <div style={{fontSize:10,fontWeight:800,color:"var(--tx3)",textTransform:"uppercase",marginBottom:6,display:"flex",alignItems:"center",gap:4}}>{k.icon} {k.l}</div>
+              <div style={{fontSize:18,fontWeight:800,color:k.c,lineHeight:1}}>{R$(k.v)}</div>
+            </div>
+          ))}
         </div>
-        {/* HOJE / SEMANA */}
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:14}}>
+
+        {/* ── OPERAÇÕES ── */}
+        <div style={{display:"flex",gap:10,marginBottom:18,flexWrap:"wrap"}}>
+          {[
+            {l:"Em Produção",v:stats.pedProd,c:"am",icon:<I.Hammer/>,click:()=>setTab("pedidos")},
+            {l:"Aguardando",v:stats.pedEsp,c:"bl",icon:<I.Clock/>,click:()=>setTab("pedidos")},
+            {l:"Orçamentos",v:stats.orc,c:"pri",icon:<I.File/>,click:()=>setTab("orcamentos")},
+            {l:"Leads Quentes",v:stats.leadsQuentes,c:"pk",icon:<I.Zap/>,click:()=>setTab("crm")},
+          ].map(k=>(
+            <div key={k.l} onClick={k.click} className="hr" style={{flex:1,minWidth:130,cursor:"pointer",background:"var(--sf)",borderRadius:"var(--rl)",padding:"12px 16px",border:"1.5px solid var(--bd)",display:"flex",alignItems:"center",gap:10}}>
+              <div style={{width:36,height:36,borderRadius:10,background:`var(--${k.c}b)`,display:"flex",alignItems:"center",justifyContent:"center",color:`var(--${k.c})`,fontSize:16}}>{k.icon}</div>
+              <div><div style={{fontSize:22,fontWeight:800,color:"var(--tx)",lineHeight:1}}>{k.v}</div><div style={{fontSize:10,fontWeight:700,color:"var(--tx3)",marginTop:2}}>{k.l}</div></div>
+            </div>
+          ))}
+        </div>
+
+        {/* ── SEMANA ATUAL ── */}
+        <div style={{marginBottom:6,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+          <span style={{fontSize:10,fontWeight:800,color:"var(--tx3)",textTransform:"uppercase",letterSpacing:"1px"}}>Semana Atual — {isoToBR(semIni)} a {isoToBR(semFim)}</span>
+          <div style={{display:"flex",gap:16}}>
+            <span style={{fontSize:11,fontWeight:700,color:"var(--gn)"}}>Entradas: {R$(semRecTotal)}</span>
+            <span style={{fontSize:11,fontWeight:700,color:"var(--rd)"}}>Saídas: {R$(semPagTotal)}</span>
+          </div>
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:18}}>
+          {/* A PAGAR */}
           <Card>
-            <CardHead title="Vence Hoje" right={<Badge color={contasHoje.length>0?"red":"blue"}>{contasHoje.length}</Badge>}/>
-            {contasHoje.length===0?<div style={{padding:"14px 18px",color:"var(--tx3)",fontSize:12,fontWeight:600}}>Nenhum vencimento hoje</div>
-            :<>
-              <div style={{display:"flex",gap:8,padding:"8px 18px",borderBottom:"1.5px solid var(--bd)"}}>
-                <div style={{flex:1,background:"var(--rdb)",borderRadius:8,padding:"6px 10px",textAlign:"center"}}><div style={{fontSize:9,color:"var(--tx3)",fontWeight:800,textTransform:"uppercase"}}>A Pagar</div><div style={{fontSize:14,fontWeight:800,color:"var(--rd)"}}>{R$(pagarHoje)}</div></div>
-                <div style={{flex:1,background:"var(--gnb)",borderRadius:8,padding:"6px 10px",textAlign:"center"}}><div style={{fontSize:9,color:"var(--tx3)",fontWeight:800,textTransform:"uppercase"}}>A Receber</div><div style={{fontSize:14,fontWeight:800,color:"var(--gn)"}}>{R$(receberHoje)}</div></div>
+            <div style={{padding:"12px 16px 0"}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+                <span style={{fontSize:12,fontWeight:800,color:"var(--rd)"}}>Saídas da Semana</span>
+                <div style={{display:"flex",gap:6}}>
+                  {parcSemPagPag.length>0&&<Badge color="green">{parcSemPagPag.length} pago{parcSemPagPag.length!==1?"s":""}</Badge>}
+                  {parcSemPendPag.length>0&&<Badge color="red">{parcSemPendPag.length} pendente{parcSemPendPag.length!==1?"s":""}</Badge>}
+                </div>
               </div>
-              {contasHoje.slice(0,4).map((p,i)=><div key={i} style={{padding:"7px 18px",borderBottom:"1px solid var(--bd)",display:"flex",justifyContent:"space-between",fontSize:11}}>
-                <span style={{color:"var(--tx)",fontWeight:600}}>{p.desc}</span>
-                <span style={{fontWeight:800,color:p.tipo==="pagar"?"var(--rd)":"var(--gn)"}}>{R$(p.valor)}</span>
-              </div>)}
-              {contasHoje.length>4&&<div style={{padding:"5px 18px",fontSize:10,color:"var(--tx3)",fontWeight:700}}>+{contasHoje.length-4} mais</div>}
-            </>}
+            </div>
+            <div style={{padding:"0 16px 12px",maxHeight:220,overflowY:"auto"}}>
+              {parcSemPendPag.length===0&&parcSemPagPag.length===0&&<div style={{fontSize:11,color:"var(--tx3)",padding:"8px 0"}}>Nenhuma saída esta semana</div>}
+              {parcSemPendPag.sort((a,b)=>a.venc>b.venc?1:-1).map((p,i)=><SemRow key={i} p={p} pago={false}/>)}
+              {parcSemPagPag.length>0&&<div style={{fontSize:9,fontWeight:800,color:"var(--tx3)",textTransform:"uppercase",margin:"8px 0 4px"}}>Já pagos esta semana</div>}
+              {parcSemPagPag.sort((a,b)=>nd(a.dataPago)>nd(b.dataPago)?1:-1).map((p,i)=><SemRow key={"pg"+i} p={p} pago={true}/>)}
+            </div>
           </Card>
+          {/* A RECEBER */}
           <Card>
-            <CardHead title="Esta Semana" right={<Badge color="am">{contasSemana.length}</Badge>}/>
-            {contasSemana.length===0?<div style={{padding:"14px 18px",color:"var(--tx3)",fontSize:12,fontWeight:600}}>Sem vencimentos esta semana</div>
-            :<>
-              <div style={{display:"flex",gap:8,padding:"8px 18px",borderBottom:"1.5px solid var(--bd)"}}>
-                <div style={{flex:1,background:"var(--rdb)",borderRadius:8,padding:"6px 10px",textAlign:"center"}}><div style={{fontSize:9,color:"var(--tx3)",fontWeight:800,textTransform:"uppercase"}}>A Pagar</div><div style={{fontSize:14,fontWeight:800,color:"var(--rd)"}}>{R$(pagarSem)}</div></div>
-                <div style={{flex:1,background:"var(--gnb)",borderRadius:8,padding:"6px 10px",textAlign:"center"}}><div style={{fontSize:9,color:"var(--tx3)",fontWeight:800,textTransform:"uppercase"}}>A Receber</div><div style={{fontSize:14,fontWeight:800,color:"var(--gn)"}}>{R$(receberSem)}</div></div>
+            <div style={{padding:"12px 16px 0"}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+                <span style={{fontSize:12,fontWeight:800,color:"var(--gn)"}}>Entradas da Semana</span>
+                <div style={{display:"flex",gap:6}}>
+                  {parcSemPagRec.length>0&&<Badge color="green">{parcSemPagRec.length} recebido{parcSemPagRec.length!==1?"s":""}</Badge>}
+                  {parcSemPendRec.length>0&&<Badge color="blue">{parcSemPendRec.length} pendente{parcSemPendRec.length!==1?"s":""}</Badge>}
+                </div>
               </div>
-              {contasSemana.slice(0,4).map((p,i)=><div key={i} style={{padding:"7px 18px",borderBottom:"1px solid var(--bd)",display:"flex",justifyContent:"space-between",fontSize:11}}>
-                <div><span style={{color:"var(--tx)",fontWeight:600}}>{p.desc}</span><span style={{color:"var(--tx3)",marginLeft:8,fontSize:10}}>venc. {p.venc}</span></div>
-                <span style={{fontWeight:800,color:p.tipo==="pagar"?"var(--rd)":"var(--gn)"}}>{R$(p.valor)}</span>
-              </div>)}
-              {contasSemana.length>4&&<div style={{padding:"5px 18px",fontSize:10,color:"var(--tx3)",fontWeight:700}}>+{contasSemana.length-4} mais</div>}
-            </>}
+            </div>
+            <div style={{padding:"0 16px 12px",maxHeight:220,overflowY:"auto"}}>
+              {parcSemPendRec.length===0&&parcSemPagRec.length===0&&<div style={{fontSize:11,color:"var(--tx3)",padding:"8px 0"}}>Nenhuma entrada esta semana</div>}
+              {parcSemPendRec.sort((a,b)=>a.venc>b.venc?1:-1).map((p,i)=><SemRow key={i} p={p} pago={false}/>)}
+              {parcSemPagRec.length>0&&<div style={{fontSize:9,fontWeight:800,color:"var(--tx3)",textTransform:"uppercase",margin:"8px 0 4px"}}>Já recebidos esta semana</div>}
+              {parcSemPagRec.sort((a,b)=>nd(a.dataPago)>nd(b.dataPago)?1:-1).map((p,i)=><SemRow key={"pg"+i} p={p} pago={true}/>)}
+            </div>
           </Card>
         </div>
-        <div style={{display:"grid",gridTemplateColumns:"2fr 1fr",gap:14,marginBottom:14}}>
-          <Card><CardHead title="DRE Resumo"/>
-            <div style={{padding:16,height:220}}><ResponsiveContainer><BarChart data={dreData}><CartesianGrid strokeDasharray="3 3" stroke="var(--bd)"/><XAxis dataKey="name" tick={{fontSize:11,fontWeight:700,fill:"var(--tx2)"}}/><YAxis tick={{fontSize:10,fill:"var(--tx3)"}}/><Tooltip formatter={v=>R$(v)}/><Bar dataKey="valor" radius={[8,8,0,0]}>{dreData.map((e,i)=><Cell key={i} fill={["#10b981","#ef4444","#f59e0b","#6366f1"][i]}/>)}</Bar></BarChart></ResponsiveContainer></div>
+
+        {/* ── GRÁFICO + PEDIDOS ── */}
+        <div style={{display:"grid",gridTemplateColumns:"2fr 1fr",gap:14}}>
+          <Card><CardHead title={`DRE — ${nomeMes}`}/>
+            <div style={{padding:16,height:210}}><ResponsiveContainer><BarChart data={dreData}><CartesianGrid strokeDasharray="3 3" stroke="var(--bd)"/><XAxis dataKey="name" tick={{fontSize:11,fontWeight:700,fill:"var(--tx2)"}}/><YAxis tick={{fontSize:10,fill:"var(--tx3)"}}/><Tooltip formatter={v=>R$(v)}/><Bar dataKey="valor" radius={[8,8,0,0]}>{dreData.map((e,i)=><Cell key={i} fill={["#10b981","#ef4444","#3b82f6","#f59e0b"][i]}/>)}</Bar></BarChart></ResponsiveContainer></div>
           </Card>
-          <Card><CardHead title="Financeiro"/>
-            <div style={{padding:16,height:220,display:"flex",alignItems:"center",justifyContent:"center"}}>{stats.aReceber+stats.aPagar>0?<ResponsiveContainer><PieChart><Pie data={pieData} cx="50%" cy="50%" innerRadius={50} outerRadius={75} dataKey="value" paddingAngle={4}>{pieData.map((e,i)=><Cell key={i} fill={e.color}/>)}</Pie><Tooltip formatter={v=>R$(v)}/><Legend iconType="circle" wrapperStyle={{fontSize:11,fontWeight:700}}/></PieChart></ResponsiveContainer>:<span style={{color:"var(--tx3)",fontSize:13,fontWeight:600}}>Sem dados</span>}</div>
-          </Card>
-        </div>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
-          <Card><CardHead title="Leads por Etapa"/>
-            <div style={{padding:16,height:180}}><ResponsiveContainer><BarChart data={leadsByStage} layout="vertical"><CartesianGrid strokeDasharray="3 3" stroke="var(--bd)"/><XAxis type="number" tick={{fontSize:10,fill:"var(--tx3)"}}/><YAxis type="category" dataKey="name" tick={{fontSize:10,fontWeight:700,fill:"var(--tx2)"}} width={100}/><Tooltip/><Bar dataKey="value" radius={[0,6,6,0]}>{leadsByStage.map((e,i)=><Cell key={i} fill={e.color}/>)}</Bar></BarChart></ResponsiveContainer></div>
-          </Card>
-          <Card><CardHead title="Pedidos Recentes" right={<Badge color="pri">{pedidos.length}</Badge>}/>
-            {pedidos.slice(-4).reverse().map(p=>{const c=getCli(p.clienteId);return(
-              <div key={p.id} className="hr" onClick={()=>{setPedAtivo(p.id);setTab("pedidos")}} style={{padding:"10px 18px",borderBottom:"1.5px solid var(--bd)",cursor:"pointer",display:"flex",justifyContent:"space-between",alignItems:"center",fontSize:12}}>
-                <div><span style={{fontWeight:800,color:"var(--pri)"}}>{p.num}</span> <span style={{color:"var(--tx2)",marginLeft:6}}>{c?.nome}</span></div>
-                <Badge color={p.status==="concluido"?"green":p.status==="em_producao"?"amber":"blue"}>{p.status==="em_espera"?"Espera":p.status==="em_producao"?"Produção":"OK"}</Badge>
+          <Card><CardHead title="Pedidos Recentes" right={<Btn v="ghost" small onClick={()=>setTab("pedidos")}>Ver todos</Btn>}/>
+            {pedidos.slice(-5).reverse().map(p=>{const c=getCli(p.clienteId);return(
+              <div key={p.id} className="hr" onClick={()=>{setPedAtivo(p.id);setTab("pedidos")}} style={{padding:"9px 16px",borderBottom:"1px solid var(--bd)",cursor:"pointer",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                <div><div style={{fontSize:12,fontWeight:800,color:"var(--pri)"}}>{p.num}</div><div style={{fontSize:10,color:"var(--tx3)",marginTop:1}}>{c?.nome}</div></div>
+                <div style={{textAlign:"right"}}><div style={{fontSize:12,fontWeight:700,color:"var(--tx)"}}>{R$(p.vt)}</div><Badge color={p.status==="concluido"?"green":p.status==="em_producao"?"amber":"blue"}>{p.status==="em_espera"?"Espera":p.status==="em_producao"?"Produção":"Concluído"}</Badge></div>
               </div>
             )})}
             {pedidos.length===0&&<div style={{padding:24,textAlign:"center",color:"var(--tx3)",fontSize:12,fontWeight:600}}>Nenhum pedido</div>}
@@ -2132,7 +2379,21 @@ export default function ERP(){
             {marceneiros.filter(x=>x.ativo).map(x=><option key={x.id} value={x.id}>{x.nome} ({x.comissao}%)</option>)}
           </select>
         </Card>
-        <Card style={{padding:16}}><span style={{fontSize:10,fontWeight:800,textTransform:"uppercase",color:"var(--tx3)"}}>Prazo de Entrega (admin)</span><input type="date" value={p.dataEntrega} onChange={e=>updPed(p.id,{dataEntrega:e.target.value})} style={{width:"100%",padding:"7px",borderRadius:8,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:12,outline:"none",marginTop:6}}/>{p.dataInstalacao&&<div style={{marginTop:8,padding:"8px 10px",background:"var(--ppb)",borderRadius:8}}><div style={{fontSize:9,fontWeight:800,color:"var(--pp)",textTransform:"uppercase",marginBottom:3}}>📅 Instalação (marceneiro)</div><div style={{fontSize:12,fontWeight:700,color:"var(--pp)"}}>{p.dataInstalacao} • {p.diasPrevistos||"?"} dia(s)</div></div>}</Card>
+        <Card style={{padding:16}}><span style={{fontSize:10,fontWeight:800,textTransform:"uppercase",color:"var(--tx3)"}}>Prazo de Entrega</span><input type="date" value={p.dataEntrega} onChange={e=>updPed(p.id,{dataEntrega:e.target.value})} style={{width:"100%",padding:"7px",borderRadius:8,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:12,outline:"none",marginTop:6}}/>{p.dataInstalacao&&<div style={{marginTop:8,padding:"8px 10px",background:"var(--ppb)",borderRadius:8}}><div style={{fontSize:9,fontWeight:800,color:"var(--pp)",textTransform:"uppercase",marginBottom:3}}>📅 Instalação (marceneiro)</div><div style={{fontSize:12,fontWeight:700,color:"var(--pp)"}}>{p.dataInstalacao} • {p.diasPrevistos||"?"} dia(s)</div></div>}</Card>
+      </div>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:12,marginBottom:14}}>
+        <Card style={{padding:14}}><span style={{fontSize:9,fontWeight:800,textTransform:"uppercase",color:"var(--tx3)",display:"block",marginBottom:4}}>Cliente</span>
+          <select value={p.clienteId||""} onChange={e=>updPed(p.id,{clienteId:e.target.value})} style={{width:"100%",padding:"7px",borderRadius:8,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:12,outline:"none",fontWeight:600}}>
+            <option value="">— Selecionar —</option>
+            {clientes.map(cl=><option key={cl.id} value={cl.id}>{cl.nome}</option>)}
+          </select>
+        </Card>
+        <Card style={{padding:14}}><span style={{fontSize:9,fontWeight:800,textTransform:"uppercase",color:"var(--tx3)",display:"block",marginBottom:4}}>Data do Pedido</span>
+          <input type="date" value={(p.data||"").split("/").reverse().join("-").replace(/(\d{2})-(\d{2})-(\d{4})/,"$3-$2-$1")||p.data||""} onChange={e=>{const d=e.target.value;const br=d.split("-").reverse().join("/");updPed(p.id,{data:br});}} style={{width:"100%",padding:"7px",borderRadius:8,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:12,outline:"none"}}/>
+        </Card>
+        <Card style={{padding:14}}><span style={{fontSize:9,fontWeight:800,textTransform:"uppercase",color:"var(--tx3)",display:"block",marginBottom:4}}>Nº do Pedido</span>
+          <BlurInput value={p.num||""} onCommit={v=>updPed(p.id,{num:v})} style={{width:"100%",padding:"7px",borderRadius:8,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:12,outline:"none",fontWeight:700}}/>
+        </Card>
       </div>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
         <Card><CardHead title="Materiais" right={<Btn v="ghost" small onClick={()=>addMat(p.id)}><I.Plus/> Item</Btn>}/><div style={{padding:14}}>
@@ -2148,48 +2409,78 @@ export default function ERP(){
           </div>)}
           <div style={{display:"flex",justifyContent:"space-between",paddingTop:8,fontWeight:800,fontSize:13,borderTop:"1.5px solid var(--bd)",marginTop:4}}><span>Total Materiais</span><span style={{color:"var(--pri)"}}>{R$(p.cm)}</span></div>
         </div></Card>
-        <Card><CardHead title="Parcelas do Cliente" right={fin&&<Btn v="ghost" small onClick={()=>addParcela(fin.id)}><I.Plus/> Parcela</Btn>}/>
+        <Card><CardHead title="Parcelas do Cliente" right={
+          fin
+            ?<Btn v="ghost" small onClick={()=>addParcela(fin.id)}><I.Plus/> Parcela</Btn>
+            :<Btn small onClick={()=>{
+              const finId=uid();
+              const paId=uid();
+              setFinanceiro(prev=>[...prev,{id:finId,tipo:"receber",desc:`${p.num} - ${getCli(p.clienteId)?.nome||"Cliente"}`,valor:p.vt,valorPago:0,parcelas:[{id:paId,valor:p.vt,venc:"",pago:false,dataPago:"",formaPag:""}],pedidoId:p.id,clienteId:p.clienteId,status:"aberto"}]);
+              showToast("Lançamento criado!");
+            }}><I.Plus/> Criar Lançamento</Btn>
+        }/>
         <div style={{padding:14}}>{fin?fin.parcelas.map((pa,i)=>{
           const inpST={padding:"5px 7px",borderRadius:6,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:11,outline:"none",fontFamily:"var(--ft)"};
+          const inpGN={...inpST,border:"1.5px solid var(--gn)",background:"rgba(34,197,94,.06)"};
           return(<div key={pa.id} style={{marginBottom:8,padding:"10px 12px",background:"var(--bg)",borderRadius:10,border:"1.5px solid "+(pa.pago?"var(--gn)":"var(--bd)")}}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:pa.pago?0:8}}>
-              <span style={{fontWeight:800,fontSize:12,color:"var(--tx)"}}>Parcela {i+1}</span>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+              <span style={{fontWeight:800,fontSize:12,color:"var(--tx)"}}>Parcela {i+1}{pa.pago&&<span style={{marginLeft:6,fontSize:10,color:"var(--gn)",fontWeight:700}}>✓ PAGA</span>}</span>
               <div style={{display:"flex",alignItems:"center",gap:6}}>
                 {pa.pago
-                  ?<><Badge color="green">✓ {pa.dataPago}</Badge>{pa.formaPag&&<Badge color={FORMA_CLR[pa.formaPag]||"pri"}>{FORMAS_LAB[pa.formaPag]}</Badge>}<button onClick={()=>editParcela(fin.id,pa.id,{pago:false,dataPago:""})} style={{background:"none",border:"none",color:"var(--tx3)",cursor:"pointer",fontSize:10,padding:2}}>↩</button></>
+                  ?<><button onClick={()=>editParcela(fin.id,pa.id,{pago:false,dataPago:""})} style={{background:"none",border:"1px solid var(--bd)",borderRadius:6,color:"var(--tx3)",cursor:"pointer",fontSize:10,padding:"3px 7px",fontWeight:700}}>↩ Reabrir</button><button onClick={()=>delParcela(fin.id,pa.id)} style={{background:"none",border:"none",color:"var(--rd)",cursor:"pointer",padding:2}}><I.Trash/></button></>
                   :<><Btn v="success" small onClick={()=>{pagarParcela(fin.id,pa.id,pa.valor,pa.formaPag||"");showToast("Parcela baixada!");}}>✓ Baixar</Btn>
                     <button onClick={()=>delParcela(fin.id,pa.id)} style={{background:"none",border:"none",color:"var(--rd)",cursor:"pointer",padding:2}}><I.Trash/></button></>
                 }
               </div>
             </div>
-            {!pa.pago&&<div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6}}>
-              <div><label style={{fontSize:9,fontWeight:800,color:"var(--tx3)",display:"block",marginBottom:2,textTransform:"uppercase"}}>Valor R$</label>
-                <input type="number" defaultValue={pa.valor||""} onBlur={e=>editParcela(fin.id,pa.id,{valor:+e.target.value})} step="0.01" placeholder="0,00" style={{...inpST,width:"100%",fontWeight:700}}/>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6}}>
+              <div><label style={{fontSize:9,fontWeight:800,color:pa.pago?"var(--gn)":"var(--tx3)",display:"block",marginBottom:2,textTransform:"uppercase"}}>Valor R$</label>
+                <input type="number" defaultValue={pa.valor||""} key={pa.id+"_v"} onBlur={e=>editParcela(fin.id,pa.id,{valor:+e.target.value})} step="0.01" placeholder="0,00" style={{...(pa.pago?inpGN:inpST),width:"100%",fontWeight:700}}/>
               </div>
-              <div><label style={{fontSize:9,fontWeight:800,color:"var(--tx3)",display:"block",marginBottom:2,textTransform:"uppercase"}}>Vencimento</label>
-                <input type="date" value={pa.venc||""} onChange={e=>editParcela(fin.id,pa.id,{venc:e.target.value})} style={{...inpST,width:"100%"}}/>
+              <div><label style={{fontSize:9,fontWeight:800,color:pa.pago?"var(--gn)":"var(--tx3)",display:"block",marginBottom:2,textTransform:"uppercase"}}>{pa.pago?"Data Pago":"Vencimento"}</label>
+                <input type="date" value={(pa.pago?pa.dataPago:pa.venc)||""} onChange={e=>editParcela(fin.id,pa.id,pa.pago?{dataPago:e.target.value}:{venc:e.target.value})} style={{...(pa.pago?inpGN:inpST),width:"100%"}}/>
               </div>
-              <div><label style={{fontSize:9,fontWeight:800,color:"var(--tx3)",display:"block",marginBottom:2,textTransform:"uppercase"}}>Forma Pag.</label>
-                <select value={pa.formaPag||""} onChange={e=>editParcela(fin.id,pa.id,{formaPag:e.target.value})} style={{...inpST,width:"100%"}}>
+              <div><label style={{fontSize:9,fontWeight:800,color:pa.pago?"var(--gn)":"var(--tx3)",display:"block",marginBottom:2,textTransform:"uppercase"}}>Forma Pag.</label>
+                <select value={pa.formaPag||""} onChange={e=>editParcela(fin.id,pa.id,{formaPag:e.target.value})} style={{...(pa.pago?inpGN:inpST),width:"100%"}}>
                   <option value="">—</option>
                   {FORMAS.map(fm=><option key={fm.v} value={fm.v}>{fm.l}</option>)}
                 </select>
               </div>
-            </div>}
+            </div>
           </div>);
         }):<span style={{fontSize:12,color:"var(--tx3)"}}>Nenhuma parcela vinculada.</span>}
         {fin&&<div style={{marginTop:8,display:"flex",justifyContent:"space-between",fontWeight:800,fontSize:13,paddingTop:8,borderTop:"1.5px solid var(--bd)"}}><span>Pago: <span style={{color:"var(--gn)"}}>{R$(fin.valorPago)}</span></span><span>Restante: <span style={{color:"var(--rd)"}}>{R$(fin.valor-fin.valorPago)}</span></span></div>}
         </div></Card>
       </div>
-      <Card style={{marginTop:14}}><CardHead title="Ambientes / Escopo do Pedido" right={<span style={{fontSize:10,color:"var(--tx3)",fontWeight:600}}>Edite aqui — marceneiro vê em tempo real</span>}/>
+      <Card style={{marginTop:14}}><CardHead title="Ambientes / Escopo do Pedido" right={<div style={{display:"flex",gap:8,alignItems:"center"}}><span style={{fontSize:10,color:"var(--tx3)",fontWeight:600}}>Marceneiro vê em tempo real</span><Btn v="ghost" small onClick={()=>updPed(p.id,pp=>({...pp,ambs:[...(pp.ambs||[]),{nome:"",desc:"",val:0}]}))}><I.Plus/> Ambiente</Btn></div>}/>
         <div style={{padding:14}}>
           {p.ambs?.map((a,i)=>(
             <div key={i} style={{marginBottom:12,padding:"10px 12px",background:"var(--bg)",borderRadius:10,border:"1.5px solid var(--bd)"}}>
-              <BlurInput value={a.nome||""} onCommit={v=>updPed(p.id,pp=>({...pp,ambs:pp.ambs.map((x,j)=>j===i?{...x,nome:v}:x)}))} placeholder={`Ambiente ${i+1}`} style={{width:"100%",padding:"6px 8px",borderRadius:7,border:"1.5px solid var(--pri)",background:"var(--sf)",color:"var(--tx)",fontSize:12,fontWeight:700,outline:"none",marginBottom:6}}/>
-              <textarea value={a.desc||""} onChange={e=>{const v=e.target.value;updPed(p.id,pp=>({...pp,ambs:pp.ambs.map((x,j)=>j===i?{...x,desc:v}:x)}));}} placeholder="Descrição, medidas, acabamentos, observações..." rows={2} style={{width:"100%",padding:"6px 8px",borderRadius:7,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:11,outline:"none",resize:"vertical",fontFamily:"var(--ft)",lineHeight:1.5}}/>
+              <div style={{display:"flex",gap:6,marginBottom:6,alignItems:"center"}}>
+                <BlurInput value={a.nome||""} onCommit={v=>updPed(p.id,pp=>({...pp,ambs:pp.ambs.map((x,j)=>j===i?{...x,nome:v}:x)}))} placeholder={`Ambiente ${i+1}`} style={{flex:1,padding:"6px 8px",borderRadius:7,border:"1.5px solid var(--pri)",background:"var(--sf)",color:"var(--tx)",fontSize:12,fontWeight:700,outline:"none"}}/>
+                <button onClick={()=>updPed(p.id,pp=>({...pp,ambs:pp.ambs.filter((_,j)=>j!==i)}))} style={{background:"none",border:"none",color:"var(--rd)",padding:4,cursor:"pointer"}}><I.Trash/></button>
+              </div>
+              <BlurTextarea value={a.desc||""} onCommit={v=>updPed(p.id,pp=>({...pp,ambs:pp.ambs.map((x,j)=>j===i?{...x,desc:v}:x)}))} placeholder="Descrição, medidas, acabamentos, observações..." rows={2} style={{width:"100%",padding:"6px 8px",borderRadius:7,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:11,outline:"none",resize:"vertical",fontFamily:"var(--ft)",lineHeight:1.5}}/>
             </div>
           ))}
-          {(!p.ambs||p.ambs.length===0)&&<span style={{fontSize:12,color:"var(--tx3)"}}>Nenhum ambiente neste pedido</span>}
+          {(!p.ambs||p.ambs.length===0)&&<div style={{padding:"12px 0",color:"var(--tx3)",fontSize:12,fontWeight:600}}>Nenhum ambiente — clique em "+ Ambiente" para adicionar</div>}
+        </div>
+      </Card>
+      <Card style={{marginTop:14}}><CardHead title="Garantia / Termos de Pagamento"/>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,padding:14}}>
+          <div>
+            <label style={{fontSize:9,fontWeight:800,color:"var(--tx3)",display:"block",marginBottom:4,textTransform:"uppercase"}}>Garantia</label>
+            <BlurTextarea value={p.garantia||""} onCommit={v=>updPed(p.id,{garantia:v})} rows={3} placeholder="Ex: 5 anos de garantia..." style={{width:"100%",padding:"8px 10px",borderRadius:8,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:11,outline:"none",resize:"vertical",fontFamily:"var(--ft)",lineHeight:1.5}}/>
+          </div>
+          <div>
+            <label style={{fontSize:9,fontWeight:800,color:"var(--tx3)",display:"block",marginBottom:4,textTransform:"uppercase"}}>Termos de Pagamento</label>
+            <BlurTextarea value={p.pgTermos||""} onCommit={v=>updPed(p.id,{pgTermos:v})} rows={3} placeholder="Ex: 50% entrada, 50% na entrega..." style={{width:"100%",padding:"8px 10px",borderRadius:8,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:11,outline:"none",resize:"vertical",fontFamily:"var(--ft)",lineHeight:1.5}}/>
+          </div>
+        </div>
+      </Card>
+      <Card style={{marginTop:14}}><CardHead title="Observações Internas"/>
+        <div style={{padding:14}}>
+          <BlurTextarea value={p.obs||""} onCommit={v=>updPed(p.id,{obs:v})} rows={3} placeholder="Anotações internas, pendências, histórico do pedido..." style={{width:"100%",padding:"8px 10px",borderRadius:8,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:12,outline:"none",resize:"vertical",fontFamily:"var(--ft)",lineHeight:1.6}}/>
         </div>
       </Card>
       <Card style={{marginTop:14}}><CardHead title={`Arquivos (${p.arquivos.length})`} right={
@@ -2340,8 +2631,22 @@ export default function ERP(){
     const [recForm,setRecForm]=useState(null);
     const [fluxoTab,setFluxoTab]=useState("mes");
     const [showStats,setShowStats]=useState(false);
+    const [semSel,setSemSel]=useState(null);
     const [showFluxo,setShowFluxo]=useState(false);
+    const [showComissoes,setShowComissoes]=useState(true);
     const eCats=empresa.cats||CATS;
+    // Comissões de marceneiros
+    const comEntries=financeiro.filter(f=>f.marcId&&f.tipo==="pagar");
+    const pedsMarcados=pedidos.filter(p=>p.marcId);
+    const semLancamento=pedsMarcados.filter(p=>!comEntries.find(f=>f.pedidoId===p.id));
+    const gerarLancamento=(ped)=>{
+      const m=marceneiros.find(x=>x.id===ped.marcId);
+      if(!m)return;
+      const comVal=+(ped.vt*(m.comissao/100)).toFixed(2);
+      setFinanceiro(prev=>[...prev,{id:uid(),tipo:"pagar",desc:`Comissão ${ped.num||''} - ${m.nome}`,valor:comVal,valorPago:0,parcelas:[{id:uid(),valor:comVal,venc:"",pago:false,dataPago:"",formaPag:"pix"}],pedidoId:ped.id,marcId:ped.marcId,fornecedor:m.nome,status:"aberto"}]);
+      showToast("Lançamento criado!");
+    };
+    const comPendTotal=comEntries.reduce((s,f)=>(f.parcelas||[]).filter(p=>!p.pago).reduce((a,p)=>a+p.valor,s),0);
     const hj=hojeISO();
     const mesAtual=hj.slice(0,7);
     // Normaliza dataPago — suporta formato ISO (yyyy-mm-dd) e BR legado (dd/mm/yyyy)
@@ -2353,6 +2658,17 @@ export default function ERP(){
     const sun=new Date(mon);sun.setDate(mon.getDate()+6);
     const semIni=mon.toISOString().split("T")[0];
     const semFim=sun.toISOString().split("T")[0];
+    // Semanas do mês vigente (seg→dom) para seletor
+    const [mesY_,mesM_]=[parseInt(mesAtual.slice(0,4)),parseInt(mesAtual.slice(5,7))];
+    const primDiaMes=new Date(mesY_,mesM_-1,1);const ultDiaMes=new Date(mesY_,mesM_,0);
+    const dow1_=primDiaMes.getDay();
+    const monInicio=new Date(primDiaMes);monInicio.setDate(primDiaMes.getDate()-(dow1_===0?6:dow1_-1));
+    const semanasDoMes=[];let sc_=new Date(monInicio);
+    while(sc_<=ultDiaMes){const si=sc_.toISOString().split("T")[0];const sf_=new Date(sc_);sf_.setDate(sc_.getDate()+6);semanasDoMes.push({ini:si,fim:sf_.toISOString().split("T")[0]});sc_.setDate(sc_.getDate()+7);}
+    const semAtualIdx=semanasDoMes.findIndex(s=>semIni>=s.ini&&semIni<=s.fim);
+    const selIdx=semSel!==null?semSel:(semAtualIdx>=0?semAtualIdx:0);
+    const selSem=semanasDoMes[selIdx]||{ini:semIni,fim:semFim};
+    const selSemIni=selSem.ini;const selSemFim=selSem.fim;
     // ── Cálculos por parcela ──
     const recParcelas=recebimentos.flatMap(r=>r.parcelas.map(p=>({...p,finId:r.id,tipo:"receber",desc:r.obs?`${r.cliente} — ${r.obs}`:r.cliente,categoria:"Recebimento Manual",fonteManual:true})));
     // Deduplicação por id de parcela — evita doubles se financeiro tiver entradas duplicadas no banco
@@ -2362,6 +2678,9 @@ export default function ERP(){
     const FNS_1012=["mestre marceneiro","az ferragens"];
     const FNS_18=["léo madeiras","leo madeiras"];
     const matchForn=(forn,lista)=>lista.some(n=>(forn||"").toLowerCase().includes(n));
+    // Formas de pagamento que vão para o pool de fornecedores (não entram no fluxo de caixa)
+    const POOL_FORMAS=new Set(["cred_10x","cred_12x","cartao_cred","cred_18x"]);
+    const isPoolParc=(p)=>p.tipo==="receber"&&POOL_FORMAS.has(p.formaPag);
     const pool1012Parc=todasParcelas.filter(p=>["cred_10x","cred_12x","cartao_cred"].includes(p.formaPag)&&p.tipo==="receber");
     const pool18Parc=todasParcelas.filter(p=>p.formaPag==="cred_18x"&&p.tipo==="receber");
     const pool1012Rec=pool1012Parc.filter(p=>p.pago).reduce((s,p)=>s+p.valor,0);
@@ -2375,42 +2694,55 @@ export default function ERP(){
     const pool18Pago=pool18FinPag.reduce((s,f)=>s+f.valorPago,0);
     const pool1012Saldo=pool1012Rec-pool1012Pago;
     const pool18Saldo=pool18Rec-pool18Pago;
+    // Parcelas para o fluxo de caixa — exclui recebimentos em cartão (vão para pool de fornecedores)
+    const parcelasFluxo=todasParcelas.filter(p=>!isPoolParc(p));
     // HOJE
-    const parHojeRec=todasParcelas.filter(p=>p.pago&&normDate(p.dataPago)===hj&&p.tipo==="receber");
-    const parHojePag=todasParcelas.filter(p=>p.pago&&normDate(p.dataPago)===hj&&p.tipo==="pagar");
+    const parHojeRec=parcelasFluxo.filter(p=>p.pago&&normDate(p.dataPago)===hj&&p.tipo==="receber");
+    const parHojePag=parcelasFluxo.filter(p=>p.pago&&normDate(p.dataPago)===hj&&p.tipo==="pagar");
     const recHoje=parHojeRec.reduce((s,p)=>s+p.valor,0);
     const pagHoje=parHojePag.reduce((s,p)=>s+p.valor,0);
     // SEMANA — pendentes
-    const parSemRec=todasParcelas.filter(p=>!p.pago&&p.venc&&p.venc>=semIni&&p.venc<=semFim&&p.tipo==="receber");
-    const parSemPag=todasParcelas.filter(p=>!p.pago&&p.venc&&p.venc>=semIni&&p.venc<=semFim&&p.tipo==="pagar");
+    const parSemRec=parcelasFluxo.filter(p=>!p.pago&&p.venc&&p.venc>=semIni&&p.venc<=semFim&&p.tipo==="receber");
+    const parSemPag=parcelasFluxo.filter(p=>!p.pago&&p.venc&&p.venc>=semIni&&p.venc<=semFim&&p.tipo==="pagar");
     // SEMANA — já realizadas
-    const parSemPagoRec=todasParcelas.filter(p=>p.pago&&normDate(p.dataPago)>=semIni&&normDate(p.dataPago)<=semFim&&p.tipo==="receber");
-    const parSemPagoPag=todasParcelas.filter(p=>p.pago&&normDate(p.dataPago)>=semIni&&normDate(p.dataPago)<=semFim&&p.tipo==="pagar");
+    const parSemPagoRec=parcelasFluxo.filter(p=>p.pago&&normDate(p.dataPago)>=semIni&&normDate(p.dataPago)<=semFim&&p.tipo==="receber");
+    const parSemPagoPag=parcelasFluxo.filter(p=>p.pago&&normDate(p.dataPago)>=semIni&&normDate(p.dataPago)<=semFim&&p.tipo==="pagar");
     const semRecTotal=parSemRec.reduce((s,p)=>s+p.valor,0)+parSemPagoRec.reduce((s,p)=>s+p.valor,0);
     const semPagTotal=parSemPag.reduce((s,p)=>s+p.valor,0)+parSemPagoPag.reduce((s,p)=>s+p.valor,0);
+    // SEMANA SELECIONADA — para a aba semana (pode ser diferente da semana atual)
+    const parSelSemRec=parcelasFluxo.filter(p=>!p.pago&&p.venc&&p.venc>=selSemIni&&p.venc<=selSemFim&&p.tipo==="receber");
+    const parSelSemPag=parcelasFluxo.filter(p=>!p.pago&&p.venc&&p.venc>=selSemIni&&p.venc<=selSemFim&&p.tipo==="pagar");
+    const parSelSemPagoRec=parcelasFluxo.filter(p=>p.pago&&normDate(p.dataPago)>=selSemIni&&normDate(p.dataPago)<=selSemFim&&p.tipo==="receber");
+    const parSelSemPagoPag=parcelasFluxo.filter(p=>p.pago&&normDate(p.dataPago)>=selSemIni&&normDate(p.dataPago)<=selSemFim&&p.tipo==="pagar");
+    const selSemRecTotal=parSelSemRec.reduce((s,p)=>s+p.valor,0)+parSelSemPagoRec.reduce((s,p)=>s+p.valor,0);
+    const selSemPagTotal=parSelSemPag.reduce((s,p)=>s+p.valor,0)+parSelSemPagoPag.reduce((s,p)=>s+p.valor,0);
     // MÊS — pendentes
-    const parMesRec=todasParcelas.filter(p=>!p.pago&&p.venc?.startsWith(mesAtual)&&p.tipo==="receber");
-    const parMesPag=todasParcelas.filter(p=>!p.pago&&p.venc?.startsWith(mesAtual)&&p.tipo==="pagar");
+    const parMesRec=parcelasFluxo.filter(p=>!p.pago&&p.venc?.startsWith(mesAtual)&&p.tipo==="receber");
+    const parMesPag=parcelasFluxo.filter(p=>!p.pago&&p.venc?.startsWith(mesAtual)&&p.tipo==="pagar");
     // MÊS — já realizadas
-    const parPagoMesRec=todasParcelas.filter(p=>p.pago&&normDate(p.dataPago).startsWith(mesAtual)&&p.tipo==="receber");
-    const parPagoMesPag=todasParcelas.filter(p=>p.pago&&normDate(p.dataPago).startsWith(mesAtual)&&p.tipo==="pagar");
+    const parPagoMesRec=parcelasFluxo.filter(p=>p.pago&&normDate(p.dataPago).startsWith(mesAtual)&&p.tipo==="receber");
+    const parPagoMesPag=parcelasFluxo.filter(p=>p.pago&&normDate(p.dataPago).startsWith(mesAtual)&&p.tipo==="pagar");
     const recebidoMes=parPagoMesRec.reduce((s,p)=>s+p.valor,0);
     const saidoMes=parPagoMesPag.reduce((s,p)=>s+p.valor,0);
     const esteMesRec=recebidoMes+parMesRec.reduce((s,p)=>s+p.valor,0);
     const esteMesPag=saidoMes+parMesPag.reduce((s,p)=>s+p.valor,0);
     // VENCIDOS
-    const parVencRec=todasParcelas.filter(p=>!p.pago&&p.venc&&p.venc<hj&&p.tipo==="receber");
-    const parVencPag=todasParcelas.filter(p=>!p.pago&&p.venc&&p.venc<hj&&p.tipo==="pagar");
+    const parVencRec=parcelasFluxo.filter(p=>!p.pago&&p.venc&&p.venc<hj&&p.tipo==="receber");
+    const parVencPag=parcelasFluxo.filter(p=>!p.pago&&p.venc&&p.venc<hj&&p.tipo==="pagar");
     const vencidoRec=parVencRec.reduce((s,p)=>s+p.valor,0);
     const vencidoPag=parVencPag.reduce((s,p)=>s+p.valor,0);
-    // TOTAIS
+    // TOTAIS — excluir recebimentos de cartão (pool) do saldo do caixa
     const recAsF=recebimentos.map(r=>({id:r.id,tipo:"receber",desc:r.obs?`${r.cliente} — ${r.obs}`:r.cliente,valor:r.valorTotal,valorPago:r.parcelas.filter(p=>p.pago).reduce((s,p)=>s+p.valor,0),parcelas:r.parcelas,categoria:"Recebimento Manual",status:r.parcelas.length&&r.parcelas.every(p=>p.pago)?"pago":r.parcelas.some(p=>p.pago)?"parcial":"aberto",fonteManual:true}));
-    const totalAR=[...financeiro,...recAsF].filter(f=>f.tipo==="receber").reduce((s,f)=>s+(f.valor-f.valorPago),0);
+    // totalAR: valor a receber excluindo parcelas de pool ainda não pagas
+    const totalAR=[...financeiro,...recAsF].filter(f=>f.tipo==="receber").reduce((s,f)=>{
+      const apagar=f.parcelas.filter(p=>!p.pago&&!POOL_FORMAS.has(p.formaPag)).reduce((ss,p)=>ss+p.valor,0);
+      return s+apagar;
+    },0);
     const totalAP=financeiro.filter(f=>f.tipo==="pagar").reduce((s,f)=>s+(f.valor-f.valorPago),0);
     const saldo=saldoInicial+totalAR-totalAP;
-    // CAIXA REAL = abertura + tudo efetivamente recebido − tudo efetivamente pago
-    const totalRecebidoReal=todasParcelas.filter(p=>p.pago&&p.tipo==="receber").reduce((s,p)=>s+p.valor,0);
-    const totalPagoReal=todasParcelas.filter(p=>p.pago&&p.tipo==="pagar").reduce((s,p)=>s+p.valor,0);
+    // CAIXA REAL = abertura + recebido (exceto cartão/pool) − pago
+    const totalRecebidoReal=parcelasFluxo.filter(p=>p.pago&&p.tipo==="receber").reduce((s,p)=>s+p.valor,0);
+    const totalPagoReal=parcelasFluxo.filter(p=>p.pago&&p.tipo==="pagar").reduce((s,p)=>s+p.valor,0);
     const caixaHoje=saldoInicial+totalRecebidoReal-totalPagoReal;
     // PROJEÇÃO ANUAL — mês a mês do mês atual até dezembro do ano corrente
     const anoAtual=hj.slice(0,4);
@@ -2420,10 +2752,10 @@ export default function ERP(){
     const projecaoAnual=Array.from({length:13-mesAtualNum},(_,i)=>{
       const mn=mesAtualNum+i;
       const mesStr=`${anoAtual}-${String(mn).padStart(2,"0")}`;
-      const pRec=todasParcelas.filter(p=>!p.pago&&p.venc?.startsWith(mesStr)&&p.tipo==="receber");
-      const pPag=todasParcelas.filter(p=>!p.pago&&p.venc?.startsWith(mesStr)&&p.tipo==="pagar");
-      const pRecPago=todasParcelas.filter(p=>p.pago&&normDate(p.dataPago).startsWith(mesStr)&&p.tipo==="receber");
-      const pPagPago=todasParcelas.filter(p=>p.pago&&normDate(p.dataPago).startsWith(mesStr)&&p.tipo==="pagar");
+      const pRec=parcelasFluxo.filter(p=>!p.pago&&p.venc?.startsWith(mesStr)&&p.tipo==="receber");
+      const pPag=parcelasFluxo.filter(p=>!p.pago&&p.venc?.startsWith(mesStr)&&p.tipo==="pagar");
+      const pRecPago=parcelasFluxo.filter(p=>p.pago&&normDate(p.dataPago).startsWith(mesStr)&&p.tipo==="receber");
+      const pPagPago=parcelasFluxo.filter(p=>p.pago&&normDate(p.dataPago).startsWith(mesStr)&&p.tipo==="pagar");
       const totalRec=pRec.reduce((s,p)=>s+p.valor,0)+pRecPago.reduce((s,p)=>s+p.valor,0);
       const totalPag=pPag.reduce((s,p)=>s+p.valor,0)+pPagPago.reduce((s,p)=>s+p.valor,0);
       // Agrupa entradas por forma de pagamento
@@ -2432,8 +2764,8 @@ export default function ERP(){
       return{mes:mesStr,label:MESES_NOMES[mn],totalRec,totalPag,saldo:totalRec-totalPag,grpRec,grpPag,pRec,pPag,pRecPago,pPagPago,isAtual:mn===mesAtualNum};
     });
     // VENCIMENTOS DE HOJE (pendentes)
-    const parVencHojeRec=todasParcelas.filter(p=>!p.pago&&p.venc===hj&&p.tipo==="receber");
-    const parVencHojePag=todasParcelas.filter(p=>!p.pago&&p.venc===hj&&p.tipo==="pagar");
+    const parVencHojeRec=parcelasFluxo.filter(p=>!p.pago&&p.venc===hj&&p.tipo==="receber");
+    const parVencHojePag=parcelasFluxo.filter(p=>!p.pago&&p.venc===hj&&p.tipo==="pagar");
     const inpST={padding:"5px 8px",borderRadius:6,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:11,outline:"none"};
     // Baixar parcela — funciona para financeiro e recebimentos manuais
     const baixarParc=(p)=>{
@@ -2644,6 +2976,77 @@ export default function ERP(){
         })()}
       </Card>
 
+      {/* ══ COMISSÕES DE MARCENEIROS ══ */}
+      <Card style={{marginBottom:14,padding:0,border:"2px solid rgba(239,68,68,.3)"}}>
+        <div style={{padding:"12px 16px",borderBottom:"1px solid var(--bd)",display:"flex",justifyContent:"space-between",alignItems:"center",background:"rgba(239,68,68,.04)"}}>
+          <span style={{fontSize:13,fontWeight:800,color:"var(--tx)"}}>👷 Comissões de Marceneiros</span>
+          {comPendTotal>0&&<Badge color="red">A pagar: {R$(comPendTotal)}</Badge>}
+        </div>
+        <div style={{padding:"12px 16px"}}>
+          {semLancamento.length===0&&comEntries.length===0&&(
+            <div style={{fontSize:12,color:"var(--tx3)",textAlign:"center",padding:"10px 0"}}>Nenhum pedido com marceneiro designado ainda.</div>
+          )}
+          {semLancamento.map(ped=>{
+            const m=marceneiros.find(x=>x.id===ped.marcId);
+            const comVal=+(ped.vt*(m?.comissao||0)/100).toFixed(2);
+            return(<div key={ped.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 0",borderBottom:"1px solid var(--bd)",gap:8,flexWrap:"wrap"}}>
+              <div>
+                <div style={{fontSize:12,fontWeight:700,color:"var(--tx)"}}>Pedido {ped.num} — {ped.cliente}</div>
+                <div style={{fontSize:10,color:"var(--tx3)"}}>{m?.nome} · {m?.comissao}% · <strong style={{color:"var(--rd)"}}>{R$(comVal)}</strong></div>
+              </div>
+              <Btn small onClick={()=>gerarLancamento(ped)}><I.Plus/> Gerar Lançamento</Btn>
+            </div>);
+          })}
+          {comEntries.map(f=>{
+            const marc=marceneiros.find(m=>m.id===f.marcId);
+            const pago=(f.parcelas||[]).filter(p=>p.pago).reduce((s,p)=>s+p.valor,0);
+            const pendente=(f.parcelas||[]).filter(p=>!p.pago).reduce((s,p)=>s+p.valor,0);
+            return(<div key={f.id} style={{borderBottom:"1px solid var(--bd)",paddingBottom:12,marginBottom:12}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+                <div>
+                  <div style={{fontSize:12,fontWeight:800,color:"var(--tx)"}}>{f.desc}</div>
+                  <div style={{fontSize:10,color:"var(--tx3)",display:"flex",gap:10,marginTop:2}}>
+                    <span>{marc?.nome}</span><span>Total: <b>{R$(f.valor)}</b></span>
+                    <span style={{color:"var(--gn)"}}>Pago: <b>{R$(pago)}</b></span>
+                    <span style={{color:pendente>0?"var(--rd)":"var(--tx3)"}}>Pendente: <b>{R$(pendente)}</b></span>
+                  </div>
+                </div>
+                <Badge color={pendente===0?"green":"red"}>{pendente===0?"✓ Quitado":"Pendente"}</Badge>
+              </div>
+              {(f.parcelas||[]).length===0&&<div style={{fontSize:11,color:"var(--tx3)",fontStyle:"italic",marginBottom:6}}>Sem parcelas. Use "+ Parcela".</div>}
+              {(f.parcelas||[]).map((p,pi)=>(
+                <div key={p.id||pi} style={{display:"grid",gridTemplateColumns:"140px 100px 110px 1fr 28px",gap:6,alignItems:"flex-end",padding:"6px 0",borderBottom:"1px solid var(--bd)33"}}>
+                  <div><div style={{fontSize:8,color:"var(--tx3)",fontWeight:700,marginBottom:2}}>VENC.</div>
+                    <input type="date" value={p.venc||""} onChange={e=>{const v=e.target.value;setFinanceiro(ff=>ff.map(x=>x.id===f.id?{...x,parcelas:x.parcelas.map((q,qi)=>qi===pi?{...q,venc:v}:q)}:x));}} style={{padding:"5px 6px",borderRadius:6,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:11,width:"100%"}}/>
+                  </div>
+                  <div><div style={{fontSize:8,color:"var(--tx3)",fontWeight:700,marginBottom:2}}>VALOR</div>
+                    <input type="number" value={p.valor||0} step="0.01" onChange={e=>{const v=+e.target.value;setFinanceiro(ff=>ff.map(x=>x.id===f.id?{...x,parcelas:x.parcelas.map((q,qi)=>qi===pi?{...q,valor:v}:q)}:x));}} style={{padding:"5px 6px",borderRadius:6,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:11,width:"100%"}}/>
+                  </div>
+                  <div><div style={{fontSize:8,color:"var(--tx3)",fontWeight:700,marginBottom:2}}>FORMA</div>
+                    <select value={p.formaPag||"pix"} onChange={e=>{const v=e.target.value;setFinanceiro(ff=>ff.map(x=>x.id===f.id?{...x,parcelas:x.parcelas.map((q,qi)=>qi===pi?{...q,formaPag:v}:q)}:x));}} style={{padding:"5px 6px",borderRadius:6,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:11,width:"100%"}}>
+                      <option value="pix">PIX</option><option value="ted">TED</option><option value="dinheiro">Dinheiro</option><option value="cheque">Cheque</option>
+                    </select>
+                  </div>
+                  <div style={{display:"flex",justifyContent:"center"}}>
+                    {p.pago
+                      ?<div style={{textAlign:"center"}}>
+                          <div style={{fontSize:9,color:"var(--gn)",fontWeight:800}}>✓{isoToBR(p.dataPago)}</div>
+                          <button onClick={()=>{setFinanceiro(ff=>ff.map(x=>x.id===f.id?{...x,valorPago:Math.max(0,(x.valorPago||0)-p.valor),parcelas:x.parcelas.map((q,qi)=>qi===pi?{...q,pago:false,dataPago:""}:q)}:x));showToast("Reaberto");}} style={{padding:"2px 6px",borderRadius:4,background:"none",border:"1px solid var(--rd)",color:"var(--rd)",fontSize:9,cursor:"pointer"}}>↩</button>
+                        </div>
+                      :<button onClick={()=>{setFinanceiro(ff=>ff.map(x=>x.id===f.id?{...x,valorPago:(x.valorPago||0)+p.valor,parcelas:x.parcelas.map((q,qi)=>qi===pi?{...q,pago:true,dataPago:hojeISO()}:q)}:x));showToast("Pago!");}} style={{padding:"6px 10px",borderRadius:6,background:"var(--gnb)",border:"1.5px solid var(--gn)",color:"var(--gn)",fontSize:11,fontWeight:800,cursor:"pointer"}}>✓ Baixar</button>
+                    }
+                  </div>
+                  <button onClick={()=>setFinanceiro(ff=>ff.map(x=>x.id===f.id?{...x,parcelas:x.parcelas.filter((_,qi)=>qi!==pi)}:x))} style={{background:"none",border:"none",color:"var(--rd)",cursor:"pointer",fontSize:16,paddingBottom:4}}>×</button>
+                </div>
+              ))}
+              <div style={{marginTop:8}}>
+                <Btn v="ghost" small onClick={()=>setFinanceiro(ff=>ff.map(x=>x.id===f.id?{...x,parcelas:[...(x.parcelas||[]),{id:uid(),valor:pendente>0?+(pendente.toFixed(2)):f.valor,venc:"",pago:false,dataPago:"",formaPag:"pix"}]}:x))}><I.Plus/> Parcela</Btn>
+              </div>
+            </div>);
+          })}
+        </div>
+      </Card>
+
       {/* ══ PAINEL FLUXO DE CAIXA (colapsável) ══ */}
       <div style={{marginBottom:14}}>
         <button onClick={()=>setShowFluxo(p=>!p)} style={{width:"100%",display:"flex",justifyContent:"space-between",alignItems:"center",padding:"9px 14px",borderRadius:"var(--r)",border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx2)",fontSize:11,fontWeight:700,cursor:"pointer",marginBottom:showFluxo?8:0}}>
@@ -2687,23 +3090,40 @@ export default function ERP(){
 
           {/* ── ABA SEMANA ── */}
           {fluxoTab==="semana"&&<>
+            {/* Seletor de semana do mês */}
+            <div style={{marginBottom:16}}>
+              <div style={{fontSize:9,fontWeight:800,color:"var(--tx3)",textTransform:"uppercase",letterSpacing:"1px",marginBottom:8}}>Semana do mês de {new Date(mesY_,mesM_-1,1).toLocaleDateString("pt-BR",{month:"long",year:"numeric"})}</div>
+              <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                {semanasDoMes.map((s,i)=>{
+                  const isAtual=i===semAtualIdx;
+                  const isSel=i===selIdx;
+                  const label=`${isoToBR(s.ini).slice(0,5)} – ${isoToBR(s.fim).slice(0,5)}`;
+                  return(
+                    <button key={i} onClick={()=>setSemSel(i===semAtualIdx&&semSel===null?null:i)} style={{padding:"6px 12px",borderRadius:20,border:"1.5px solid "+(isSel?"var(--pri)":"var(--bd)"),background:isSel?"var(--prib)":"transparent",color:isSel?"var(--pri)":"var(--tx3)",fontSize:11,fontWeight:700,cursor:"pointer",position:"relative"}}>
+                      {isAtual&&<span style={{position:"absolute",top:-5,right:-3,background:"var(--am)",color:"#fff",fontSize:7,fontWeight:800,borderRadius:6,padding:"1px 4px"}}>ATUAL</span>}
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16}}>
               <div>
-                <div style={{fontSize:13,fontWeight:800,color:"var(--gn)",textTransform:"uppercase",marginBottom:8}}>Entradas —{R$(semRecTotal)}</div>
-                {parSemPagoRec.length>0&&<><div style={{fontSize:12,color:"var(--tx3)",fontWeight:700,textTransform:"uppercase",marginBottom:4}}>✅ Recebidas ({parSemPagoRec.length})</div>{parSemPagoRec.map((p,i)=><FluxoRow key={"sr"+i} p={p} cor="var(--gn)"/>)}</>}
-                {parSemRec.length>0&&<><div style={{fontSize:12,color:"var(--tx3)",fontWeight:700,textTransform:"uppercase",marginBottom:4,marginTop:8}}>🔜 A Receber ({parSemRec.length})</div>{parSemRec.sort((a,b)=>a.venc>b.venc?1:-1).map((p,i)=><FluxoRow key={"sr2"+i} p={p} cor="var(--gn)"/>)}</>}
-                {parSemPagoRec.length===0&&parSemRec.length===0&&<div style={{fontSize:11,color:"var(--tx3)"}}>Nenhuma entrada esta semana</div>}
+                <div style={{fontSize:13,fontWeight:800,color:"var(--gn)",textTransform:"uppercase",marginBottom:8}}>Entradas —{R$(selSemRecTotal)}</div>
+                {parSelSemPagoRec.length>0&&<><div style={{fontSize:12,color:"var(--tx3)",fontWeight:700,textTransform:"uppercase",marginBottom:4}}>✅ Recebidas ({parSelSemPagoRec.length})</div>{parSelSemPagoRec.map((p,i)=><FluxoRow key={"sr"+i} p={p} cor="var(--gn)"/>)}</>}
+                {parSelSemRec.length>0&&<><div style={{fontSize:12,color:"var(--tx3)",fontWeight:700,textTransform:"uppercase",marginBottom:4,marginTop:8}}>🔜 A Receber ({parSelSemRec.length})</div>{parSelSemRec.sort((a,b)=>a.venc>b.venc?1:-1).map((p,i)=><FluxoRow key={"sr2"+i} p={p} cor="var(--gn)"/>)}</>}
+                {parSelSemPagoRec.length===0&&parSelSemRec.length===0&&<div style={{fontSize:11,color:"var(--tx3)"}}>Nenhuma entrada nesta semana</div>}
               </div>
               <div>
-                <div style={{fontSize:13,fontWeight:800,color:"var(--rd)",textTransform:"uppercase",marginBottom:8}}>Saídas —{R$(semPagTotal)}</div>
-                {parSemPagoPag.length>0&&<><div style={{fontSize:12,color:"var(--tx3)",fontWeight:700,textTransform:"uppercase",marginBottom:4}}>✅ Pagas ({parSemPagoPag.length})</div>{parSemPagoPag.map((p,i)=><FluxoRow key={"sp"+i} p={p} cor="var(--rd)"/>)}</>}
-                {parSemPag.length>0&&<><div style={{fontSize:12,color:"var(--tx3)",fontWeight:700,textTransform:"uppercase",marginBottom:4,marginTop:8}}>🔜 A Pagar ({parSemPag.length})</div>{parSemPag.sort((a,b)=>a.venc>b.venc?1:-1).map((p,i)=><FluxoRow key={"sp2"+i} p={p} cor="var(--rd)"/>)}</>}
-                {parSemPagoPag.length===0&&parSemPag.length===0&&<div style={{fontSize:11,color:"var(--tx3)"}}>Nenhuma saída esta semana</div>}
+                <div style={{fontSize:13,fontWeight:800,color:"var(--rd)",textTransform:"uppercase",marginBottom:8}}>Saídas —{R$(selSemPagTotal)}</div>
+                {parSelSemPagoPag.length>0&&<><div style={{fontSize:12,color:"var(--tx3)",fontWeight:700,textTransform:"uppercase",marginBottom:4}}>✅ Pagas ({parSelSemPagoPag.length})</div>{parSelSemPagoPag.map((p,i)=><FluxoRow key={"sp"+i} p={p} cor="var(--rd)"/>)}</>}
+                {parSelSemPag.length>0&&<><div style={{fontSize:12,color:"var(--tx3)",fontWeight:700,textTransform:"uppercase",marginBottom:4,marginTop:8}}>🔜 A Pagar ({parSelSemPag.length})</div>{parSelSemPag.sort((a,b)=>a.venc>b.venc?1:-1).map((p,i)=><FluxoRow key={"sp2"+i} p={p} cor="var(--rd)"/>)}</>}
+                {parSelSemPagoPag.length===0&&parSelSemPag.length===0&&<div style={{fontSize:11,color:"var(--tx3)"}}>Nenhuma saída nesta semana</div>}
               </div>
             </div>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:12,paddingTop:12,borderTop:"1.5px solid var(--bd)"}}>
-              <span style={{fontSize:14,fontWeight:800,color:semRecTotal-semPagTotal>=0?"var(--gn)":"var(--rd)"}}>Resultado da Semana: {R$(semRecTotal-semPagTotal)}</span>
-              <span style={{fontSize:12,color:"var(--tx3)",fontWeight:600}}>{isoToBR(semIni)} → {isoToBR(semFim)}</span>
+              <span style={{fontSize:14,fontWeight:800,color:selSemRecTotal-selSemPagTotal>=0?"var(--gn)":"var(--rd)"}}>Resultado da Semana: {R$(selSemRecTotal-selSemPagTotal)}</span>
+              <span style={{fontSize:12,color:"var(--tx3)",fontWeight:600}}>{isoToBR(selSemIni)} → {isoToBR(selSemFim)}</span>
             </div>
           </>}
 
@@ -2816,6 +3236,68 @@ export default function ERP(){
         </div>
         </Card>}
       </div>
+
+      {/* ── OLD COMISSÕES REMOVED ── */}
+      {false&&<div>
+          {/* Pedidos sem lançamento — botão para gerar */}
+          {semLancamento.map(ped=>{
+            const m=marceneiros.find(x=>x.id===ped.marcId);
+            const comVal=+(ped.vt*(m?.comissao||0)/100).toFixed(2);
+            return(<div key={ped.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 14px",borderRadius:"var(--r)",border:"1.5px dashed var(--bd)",background:"var(--sf)",marginBottom:8,gap:8,flexWrap:"wrap"}}>
+              <div>
+                <div style={{fontSize:12,fontWeight:700,color:"var(--tx)"}}>Pedido {ped.num} — {ped.cliente}</div>
+                <div style={{fontSize:10,color:"var(--tx3)"}}>{m?.nome} · {m?.comissao}% · Comissão: {R$(comVal)}</div>
+              </div>
+              <Btn small onClick={()=>gerarLancamento(ped)}><I.Plus/> Gerar Lançamento</Btn>
+            </div>);
+          })}
+          {/* Entradas já criadas — editáveis */}
+          {comEntries.map(f=>{
+            const marc=marceneiros.find(m=>m.id===f.marcId);
+            const pago=(f.parcelas||[]).filter(p=>p.pago).reduce((s,p)=>s+p.valor,0);
+            const pendente=(f.parcelas||[]).filter(p=>!p.pago).reduce((s,p)=>s+p.valor,0);
+            return(<Card key={f.id} style={{marginBottom:10,padding:"12px 16px"}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:10}}>
+                <div>
+                  <div style={{fontSize:13,fontWeight:800,color:"var(--tx)"}}>{f.desc}</div>
+                  <div style={{fontSize:10,color:"var(--tx3)",marginTop:2}}>{marc?.nome} · Total: {R$(f.valor)} · Pago: <span style={{color:"var(--gn)",fontWeight:700}}>{R$(pago)}</span> · Pendente: <span style={{color:pendente>0?"var(--rd)":"var(--tx3)",fontWeight:700}}>{R$(pendente)}</span></div>
+                </div>
+                <Badge color={pendente===0?"green":"red"}>{pendente===0?"✓ Quitado":"Pendente"}</Badge>
+              </div>
+              {(f.parcelas||[]).length===0&&<div style={{fontSize:11,color:"var(--tx3)",marginBottom:8}}>Nenhuma parcela. Clique em "+ Parcela" para adicionar.</div>}
+              {(f.parcelas||[]).map((p,pi)=>(
+                <div key={p.id||pi} style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr auto auto",gap:6,alignItems:"flex-end",padding:"8px 0",borderBottom:"1px solid var(--bd)",fontSize:11}}>
+                  <div>
+                    <div style={{fontSize:9,color:"var(--tx3)",fontWeight:700,marginBottom:2}}>Vencimento</div>
+                    <input type="date" value={p.venc||""} onChange={e=>{const v=e.target.value;setFinanceiro(ff=>ff.map(x=>x.id===f.id?{...x,parcelas:x.parcelas.map((q,qi)=>qi===pi?{...q,venc:v}:q)}:x));}} style={{padding:"5px 8px",borderRadius:6,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:11,width:"100%"}}/>
+                  </div>
+                  <div>
+                    <div style={{fontSize:9,color:"var(--tx3)",fontWeight:700,marginBottom:2}}>Valor (R$)</div>
+                    <input type="number" value={p.valor||0} onChange={e=>{const v=+e.target.value;setFinanceiro(ff=>ff.map(x=>x.id===f.id?{...x,parcelas:x.parcelas.map((q,qi)=>qi===pi?{...q,valor:v}:q)}:x));}} style={{padding:"5px 8px",borderRadius:6,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:11,width:"100%"}}/>
+                  </div>
+                  <div>
+                    <div style={{fontSize:9,color:"var(--tx3)",fontWeight:700,marginBottom:2}}>Forma</div>
+                    <select value={p.formaPag||"pix"} onChange={e=>{const v=e.target.value;setFinanceiro(ff=>ff.map(x=>x.id===f.id?{...x,parcelas:x.parcelas.map((q,qi)=>qi===pi?{...q,formaPag:v}:q)}:x));}} style={{padding:"5px 8px",borderRadius:6,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:11,width:"100%"}}>
+                      <option value="pix">PIX</option><option value="ted">TED</option><option value="dinheiro">Dinheiro</option><option value="cheque">Cheque</option>
+                    </select>
+                  </div>
+                  {p.pago
+                    ?<div style={{display:"flex",gap:4,alignItems:"center",flexDirection:"column",paddingBottom:2}}>
+                        <span style={{fontSize:9,color:"var(--gn)",fontWeight:800,whiteSpace:"nowrap"}}>✓ {isoToBR(p.dataPago)}</span>
+                        <button onClick={()=>{setFinanceiro(ff=>ff.map(x=>x.id===f.id?{...x,valorPago:Math.max(0,(x.valorPago||0)-p.valor),parcelas:x.parcelas.map((q,qi)=>qi===pi?{...q,pago:false,dataPago:""}:q)}:x));showToast("Baixa desfeita");}} style={{background:"none",border:"1px solid var(--rd)",color:"var(--rd)",borderRadius:6,padding:"2px 6px",fontSize:9,cursor:"pointer",whiteSpace:"nowrap"}}>↩ Reabrir</button>
+                      </div>
+                    :<button onClick={()=>{const hoje=hojeISO();setFinanceiro(ff=>ff.map(x=>x.id===f.id?{...x,valorPago:(x.valorPago||0)+p.valor,parcelas:x.parcelas.map((q,qi)=>qi===pi?{...q,pago:true,dataPago:hoje}:q)}:x));showToast("Pagamento registrado!");}} style={{padding:"6px 12px",borderRadius:6,background:"var(--gnb)",border:"1.5px solid var(--gn)",color:"var(--gn)",fontSize:11,fontWeight:800,cursor:"pointer",whiteSpace:"nowrap"}}>✓ Baixar</button>
+                  }
+                  <button onClick={()=>{setFinanceiro(ff=>ff.map(x=>x.id===f.id?{...x,parcelas:x.parcelas.filter((_,qi)=>qi!==pi)}:x));}} style={{background:"none",border:"none",color:"var(--rd)",cursor:"pointer",padding:4}}><I.Trash/></button>
+                </div>
+              ))}
+              <div style={{marginTop:8,display:"flex",gap:8}}>
+                <Btn v="ghost" small onClick={()=>{const novaPar={id:uid(),valor:pendente>0?+(pendente.toFixed(2)):f.valor,venc:"",pago:false,dataPago:"",formaPag:"pix"};setFinanceiro(ff=>ff.map(x=>x.id===f.id?{...x,parcelas:[...(x.parcelas||[]),novaPar]}:x));}}><I.Plus/> Parcela</Btn>
+              </div>
+            </Card>);
+          })}
+      </div>}
+
       {/* ── ABERTURA DE CAIXA ── */}
       {editSaldoInicial&&<div style={{background:"var(--prib)",borderRadius:"var(--r)",padding:"10px 16px",marginBottom:12,display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
         <span style={{fontSize:12,fontWeight:700,color:"var(--tx)"}}>Abertura de Caixa:</span>
@@ -3136,27 +3618,41 @@ export default function ERP(){
             <div style={{height:"100%",width:`${pct}%`,background:"linear-gradient(90deg,#10b981,#3b82f6)",borderRadius:3,transition:"width .5s"}}/>
           </div>
           {exp&&<div style={{padding:"14px 20px"}}>
-            <div style={{display:"grid",gridTemplateColumns:"38px 110px 110px 90px 150px 80px",gap:6,padding:"5px 8px",borderBottom:"1.5px solid var(--bd)",marginBottom:4}}>
+            <div style={{display:"grid",gridTemplateColumns:"28px 1fr 1fr 80px 1fr 110px",gap:6,padding:"5px 8px",borderBottom:"1.5px solid var(--bd)",marginBottom:4}}>
               {["#","Vencimento","Valor R$","Status","Forma Pag.","Ação"].map(h=><span key={h} style={{fontSize:9,fontWeight:800,textTransform:"uppercase",color:"var(--tx3)",letterSpacing:".5px"}}>{h}</span>)}
             </div>
             {f.parcelas.map((p,i)=>{
               const atrasada=p.venc&&p.venc<hojeISO()&&!p.pago;
-              return(<div key={p.id} style={{display:"grid",gridTemplateColumns:"38px 110px 110px 90px 150px 80px",gap:6,padding:"6px 8px",borderBottom:"1px solid var(--bd)",alignItems:"center",background:p.pago?"rgba(16,185,129,.05)":atrasada?"rgba(239,68,68,.04)":"transparent"}}>
-                <span style={{fontWeight:800,fontSize:12,color:"var(--tx3)",textAlign:"center"}}>#{i+1}</span>
-                <span style={{fontSize:11,color:atrasada?"var(--rd)":"var(--tx)",fontWeight:atrasada?800:600}}>{p.venc||"—"}</span>
-                <span style={{fontSize:12,fontWeight:800,color:p.pago?"var(--gn)":"var(--tx)",textAlign:"right"}}>{R$(p.valor)}</span>
+              const inp={padding:"5px 7px",borderRadius:6,fontSize:11,outline:"none",fontFamily:"var(--ft)",width:"100%",
+                border:p.pago?"1.5px solid var(--gn)":"1.5px solid var(--bd)",
+                background:p.pago?"rgba(16,185,129,.06)":"var(--sf)",
+                color:"var(--tx)"};
+              return(<div key={p.id} style={{display:"grid",gridTemplateColumns:"28px 1fr 1fr 80px 1fr 110px",gap:6,padding:"6px 8px",borderBottom:"1px solid var(--bd)",alignItems:"center",background:p.pago?"rgba(16,185,129,.03)":atrasada?"rgba(239,68,68,.03)":"transparent"}}>
+                <span style={{fontWeight:800,fontSize:11,color:"var(--tx3)",textAlign:"center"}}>#{i+1}</span>
+                {/* Vencimento / Data Pago */}
+                <input type="date" value={(p.pago?p.dataPago:p.venc)||""} onChange={e=>editParcela(f.id,p.id,p.pago?{dataPago:e.target.value}:{venc:e.target.value})} style={inp}/>
+                {/* Valor */}
+                <input type="number" defaultValue={p.valor||0} key={p.id+"v"} onBlur={e=>editParcela(f.id,p.id,{valor:Math.max(0,+e.target.value)})} step="0.01" style={{...inp,fontWeight:700}}/>
+                {/* Status */}
                 {p.pago?<Badge color="green">✓ Pago</Badge>:atrasada?<Badge color="red">Atrasado</Badge>:<Badge color="blue">Pendente</Badge>}
-                <div>{p.formaPag&&<Badge color={FORMA_CLR[p.formaPag]||"pri"}>{FORMAS_LAB[p.formaPag]||p.formaPag}</Badge>}{p.pago&&<span style={{fontSize:10,color:"var(--tx3)",marginLeft:4}}>{p.dataPago}</span>}</div>
-                <div style={{display:"flex",gap:3}}>
+                {/* Forma */}
+                <select value={p.formaPag||""} onChange={e=>editParcela(f.id,p.id,{formaPag:e.target.value})} style={inp}>
+                  <option value="">—</option>
+                  {FORMAS.map(fm=><option key={fm.v} value={fm.v}>{fm.l}</option>)}
+                </select>
+                {/* Ação */}
+                <div style={{display:"flex",gap:3,alignItems:"center"}}>
                   {!p.pago&&<Btn v="success" small onClick={()=>{pagarParcela(f.id,p.id,p.valor,p.formaPag||"");showToast("Baixado!");}}>✓ Baixar</Btn>}
-                  {p.pago&&<button onClick={()=>editParcela(f.id,p.id,{pago:false,dataPago:""})} style={{background:"none",border:"none",color:"var(--tx3)",cursor:"pointer",fontSize:10,padding:2}}>↩</button>}
+                  {p.pago&&<button onClick={()=>editParcela(f.id,p.id,{pago:false,dataPago:""})} title="Reabrir parcela" style={{background:"none",border:"1px solid var(--bd)",borderRadius:6,color:"var(--tx3)",cursor:"pointer",fontSize:10,padding:"3px 6px",fontWeight:700}}>↩</button>}
+                  <button onClick={()=>delParcela(f.id,p.id)} style={{background:"none",border:"none",color:"var(--rd)",cursor:"pointer",padding:2}}><I.Trash/></button>
                 </div>
               </div>);
             })}
-            <div style={{display:"flex",gap:20,marginTop:10,padding:"8px 8px",background:"var(--bg)",borderRadius:"var(--r)",fontSize:11,fontWeight:700,flexWrap:"wrap"}}>
+            <div style={{display:"flex",gap:12,marginTop:10,padding:"8px 8px",background:"var(--bg)",borderRadius:"var(--r)",fontSize:11,fontWeight:700,flexWrap:"wrap",alignItems:"center"}}>
               <span style={{color:"var(--tx3)"}}>PAGAS: <span style={{color:"var(--gn)",fontWeight:800}}>{f.parcelas.filter(p=>p.pago).length}/{f.parcelas.length}</span></span>
               <span style={{color:"var(--tx3)"}}>RECEBIDO: <span style={{color:"var(--gn)",fontWeight:800}}>{R$(pago)}</span></span>
               <span style={{color:"var(--tx3)"}}>PENDENTE: <span style={{color:"var(--rd)",fontWeight:800}}>{R$(pendente)}</span></span>
+              <Btn v="ghost" small onClick={()=>addParcela(f.id)}><I.Plus/> Parcela</Btn>
               <Btn v="ghost" small onClick={()=>{setTab("pedidos");setPedAtivo(ped?.id);}}>Ver Pedido →</Btn>
             </div>
           </div>}
@@ -3317,7 +3813,7 @@ export default function ERP(){
       </aside>
 
       {/* MAIN */}
-      <main className="erp-main" style={{flex:1,padding:"20px 24px",minHeight:"100vh",overflowY:"auto"}}>{tab==="configuracao"?<PgConfig empresa={empresa} saveEmpresa={saveEmpresa} getBackup={getBackup} importBackup={importBackup}/>:<Pg/>}</main>
+      <main className="erp-main" style={{flex:1,padding:"20px 24px",minHeight:"100vh",overflowY:"auto"}}>{tab==="configuracao"?<PgConfig empresa={empresa} saveEmpresa={saveEmpresa} getBackup={getBackup} importBackup={importBackup} limparDuplicatas={limparDuplicatas}/>:<Pg/>}</main>
 
       {/* MODALS */}
       {modal?.t==="editCli"&&<Modal onClose={()=>setModal(null)}><ModalEditCli d={modal.d} setModal={setModal} saveCli={saveCli}/></Modal>}

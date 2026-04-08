@@ -2026,6 +2026,13 @@ export default function ERP(){
 
   // Visibilidade: flush ao sair, reload ao voltar só se ficou 3+ min fora
   const hiddenAtRef=useRef(0);
+  const mainRef=useRef(null);
+  const scrollSave=useRef({tab:'',pos:0});
+  useLayoutEffect(()=>{
+    const el=mainRef.current;if(!el)return;
+    if(scrollSave.current.tab!==tab){scrollSave.current={tab,pos:0};el.scrollTop=0;}
+    else{el.scrollTop=scrollSave.current.pos;}
+  });
   useEffect(()=>{
     if(!dbLoaded)return;
     const onVisibility=()=>{
@@ -4295,7 +4302,7 @@ export default function ERP(){
       </aside>
 
       {/* MAIN */}
-      <main className="erp-main" style={{flex:1,padding:"20px 24px",minHeight:"100vh",overflowY:"auto"}}>{tab==="configuracao"?<PgConfig empresa={empresa} saveEmpresa={saveEmpresa} getBackup={getBackup} importBackup={importBackup} limparDuplicatas={limparDuplicatas}/>:<Pg/>}</main>
+      <main ref={mainRef} onScroll={e=>{scrollSave.current.pos=e.target.scrollTop;}} className="erp-main" style={{flex:1,padding:"20px 24px",minHeight:"100vh",overflowY:"auto"}}>{tab==="configuracao"?<PgConfig empresa={empresa} saveEmpresa={saveEmpresa} getBackup={getBackup} importBackup={importBackup} limparDuplicatas={limparDuplicatas}/>:<Pg/>}</main>
 
       {/* MODALS */}
       {modal?.t==="editCli"&&<Modal onClose={()=>setModal(null)}><ModalEditCli d={modal.d} setModal={setModal} saveCli={saveCli}/></Modal>}

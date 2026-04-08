@@ -3517,7 +3517,7 @@ export default function ERP(){
                   </div>
                 ))}
                 <div style={{marginTop:8}}>
-                  <Btn v="ghost" small onClick={()=>setFinanceiro(ff=>ff.map(x=>x.id===f.id?{...x,parcelas:[...(x.parcelas||[]),{id:uid(),valor:pendente>0?+(pendente.toFixed(2)):f.valor,venc:"",pago:false,dataPago:"",formaPag:"pix"}]}:x))}><I.Plus/> Parcela</Btn>
+                  <Btn v="ghost" small onClick={()=>setFinanceiro(ff=>ff.map(x=>{if(x.id!==f.id)return x;const somaAtual=(x.parcelas||[]).reduce((s,p)=>s+p.valor,0);const restante=+Math.max(0,x.valor-somaAtual).toFixed(2);return{...x,parcelas:[...(x.parcelas||[]),{id:uid(),valor:restante,venc:"",pago:false,dataPago:"",formaPag:"pix"}]};}))}><I.Plus/> Parcela</Btn>
                 </div>
               </div>);
             })}
@@ -3770,7 +3770,7 @@ export default function ERP(){
                 </div>
               ))}
               <div style={{marginTop:8,display:"flex",gap:8}}>
-                <Btn v="ghost" small onClick={()=>{const novaPar={id:uid(),valor:pendente>0?+(pendente.toFixed(2)):f.valor,venc:"",pago:false,dataPago:"",formaPag:"pix"};setFinanceiro(ff=>ff.map(x=>x.id===f.id?{...x,parcelas:[...(x.parcelas||[]),novaPar]}:x));}}><I.Plus/> Parcela</Btn>
+                <Btn v="ghost" small onClick={()=>setFinanceiro(ff=>ff.map(x=>{if(x.id!==f.id)return x;const somaAtual=(x.parcelas||[]).reduce((s,p)=>s+p.valor,0);const restante=+Math.max(0,x.valor-somaAtual).toFixed(2);return{...x,parcelas:[...(x.parcelas||[]),{id:uid(),valor:restante,venc:"",pago:false,dataPago:"",formaPag:"pix"}]};}))}><I.Plus/> Parcela</Btn>
               </div>
             </Card>);
           })}

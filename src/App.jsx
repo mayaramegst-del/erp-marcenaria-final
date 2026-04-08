@@ -1154,7 +1154,9 @@ function MarceneiroApp({user,pedidos,setPedidos,clientes,financeiro,showToast,on
       const num="CRT"+(String(ordensCort.length+1).padStart(3,"0"));
       const nova={id:uid(),num,marcId:user.id,pedidoId:form.pedidoId||null,cortadorId:form.cortadorId,status:"aguardando",createdAt:hojeISO(),obs:form.obs,chapa:form.chapa,pecas:form.pecas,sheets_count:sheets.length};
       setOrdensCort(prev=>[...prev,nova]);
-      showToast("Ordem enviada! \u2713");
+      // Move pedido vinculado para a etapa "Plano de Corte" no Kanban
+      if(form.pedidoId)setPedidos(prev=>prev.map(p=>p.id===form.pedidoId?{...p,stage:"corte",status:p.status==="em_espera"?"em_producao":p.status}:p));
+      showToast("Ordem enviada! Pedido movido para Plano de Corte ✓");
       setView("list");setForm(null);
     };
 
@@ -1576,7 +1578,7 @@ function MarceneiroApp({user,pedidos,setPedidos,clientes,financeiro,showToast,on
   );
 }
 
-function CortadorApp({user,ordensCort,setOrdensCort,showToast,onLogout}){
+function CortadorApp({user,ordensCort,setOrdensCort,setPedidos,showToast,onLogout}){
   const [nav,setNav]=useState("ordens");
   const [selId,setSelId]=useState(null);
   const minhasOrdens=ordensCort.filter(o=>o.cortadorId===user.id);
@@ -1584,8 +1586,19 @@ function CortadorApp({user,ordensCort,setOrdensCort,showToast,onLogout}){
   const statusLabel={aguardando:"\u23f3 Aguardando",em_corte:"\u2699 Em Corte",concluido:"\u2713 Conclu\xeddo",cancelado:"\u2715 Cancelado"};
 
   const updStatus=(id,status)=>{
-    setOrdensCort(prev=>prev.map(o=>o.id===id?{...o,status}:o));
-    showToast(status==="em_corte"?"Corte iniciado!":"Marcado como conclu\xeddo! \u2713");
+    const ordem=ordensCort.find(o=>o.id===id);
+    const now=hojeISO();
+    setOrdensCort(prev=>prev.map(o=>o.id===id?{...o,status,
+      ...(status==="em_corte"?{emCorteAt:now}:{}),
+      ...(status==="concluido"?{concluidoAt:now}:{}),
+    }:o));
+    if(ordem?.pedidoId&&setPedidos){
+      if(status==="em_corte")
+        setPedidos(prev=>prev.map(p=>p.id===ordem.pedidoId?{...p,stage:"corte",corteInicio:now,status:p.status==="em_espera"?"em_producao":p.status}:p));
+      if(status==="concluido")
+        setPedidos(prev=>prev.map(p=>p.id===ordem.pedidoId?{...p,stage:"montagem",corteFim:now}:p));
+    }
+    showToast(status==="em_corte"?"⚙ Corte iniciado! Kanban → Plano de Corte":"✓ Corte concluído! Pedido avançou para Montagem");
   };
 
   const selOrdem=minhasOrdens.find(o=>o.id===selId);
@@ -2322,6 +2335,7 @@ export default function ERP(){
       user={user}
       ordensCort={ordensCort}
       setOrdensCort={setOrdensCort}
+      setPedidos={setPedidos}
       showToast={showToast}
       onLogout={()=>{setUser(null);localStorage.removeItem('erpUser');setLoginView({l:"",s:""});}}
     />
@@ -2979,6 +2993,7 @@ export default function ERP(){
           {p.dataEntrega&&<div style={{fontSize:10,color:atrasado?"var(--rd)":"var(--tx3)",marginTop:3,display:"flex",alignItems:"center",gap:3,fontWeight:atrasado?700:400}}><I.Clock/>{fmtDate(p.dataEntrega)}{atrasado&&" ⚠"}</div>}
           {p.dataInstalacao&&<div style={{fontSize:10,color:"var(--pp)",marginTop:2,fontWeight:700}}>🔧 {fmtDate(p.dataInstalacao)}{p.diasPrevistos?` (${p.diasPrevistos}d)`:""}</div>}
           {diasAte!==null&&<div style={{fontSize:9,marginTop:2,fontWeight:800,color:diasAte<0?"var(--rd)":diasAte===0?"var(--gn)":diasAte<=3?"var(--am)":"var(--tx3)"}}>{diasAte<0?`${Math.abs(diasAte)}d atrás`:diasAte===0?"HOJE!":diasAte===1?"Amanhã":`em ${diasAte} dias`}</div>}
+          {(()=>{const oc=ordensCort.find(o=>o.pedidoId===p.id&&o.status!=="cancelado");if(!oc)return null;return(<div style={{marginTop:4,padding:"3px 6px",borderRadius:5,fontSize:9,fontWeight:800,display:"inline-flex",gap:4,alignItems:"center",background:oc.status==="concluido"?"rgba(16,185,129,.12)":oc.status==="em_corte"?"rgba(99,102,241,.12)":"rgba(245,158,11,.12)",color:oc.status==="concluido"?"var(--gn)":oc.status==="em_corte"?"var(--pri)":"#d97706"}}>✂ {oc.status==="aguardando"?"Corte Aguardando":oc.status==="em_corte"?`Em Corte desde ${oc.emCorteAt||oc.createdAt}`:`Corte ✓ ${oc.concluidoAt||""}`}</div>);})()}
         </div>
       );
     };

@@ -806,8 +806,10 @@ function ModalPDF({o,empresa,getCli,setModal,totalOrcFinal,totalOrc,totalOrcComN
     try{
       // html2canvas e jsPDF importados estaticamente no topo — sem risco de chunk hash stale
       const el=zoneRef.current;
-      const prevMax=el.style.maxHeight,prevOv=el.style.overflowY;
+      const prevMax=el.style.maxHeight,prevOv=el.style.overflowY,prevW=el.style.width,prevMinW=el.style.minWidth;
       el.style.maxHeight='none';el.style.overflowY='visible';
+      // Força largura desktop mesmo em celular — evita PDF deformado em viewport estreito
+      el.style.width='800px';el.style.minWidth='800px';
       // Captura posição de TODOS os blocos que não devem ser quebrados entre páginas
       const elRect=el.getBoundingClientRect();
       const noBreakSel='.svc-table tbody tr,.cond-card,.cond-grid,.sign-area,.sign-wrap,.info-grid,.total-row,.hdr,.orc-banner,.cli-row,.sec-title,.footer-wrap,.footer';
@@ -815,8 +817,8 @@ function ModalPDF({o,empresa,getCli,setModal,totalOrcFinal,totalOrc,totalOrcComN
         const r=row.getBoundingClientRect();
         return{topPx:Math.round((r.top-elRect.top)*2),botPx:Math.round((r.bottom-elRect.top)*2)};
       }).sort((a,b)=>a.topPx-b.topPx);
-      const canvas=await html2canvas(el,{scale:2,useCORS:true,backgroundColor:'#fff',logging:false,scrollY:-window.scrollY});
-      el.style.maxHeight=prevMax;el.style.overflowY=prevOv;
+      const canvas=await html2canvas(el,{scale:2,useCORS:true,backgroundColor:'#fff',logging:false,scrollY:-window.scrollY,windowWidth:1200});
+      el.style.maxHeight=prevMax;el.style.overflowY=prevOv;el.style.width=prevW;el.style.minWidth=prevMinW;
       const pdf=new jsPDF({orientation:'p',unit:'mm',format:'a4'});
       const pw=pdf.internal.pageSize.getWidth(),ph=pdf.internal.pageSize.getHeight();
       const mx=8,my=8; // margens em mm

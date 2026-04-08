@@ -1019,9 +1019,75 @@ function InstallPrompt(){
 }
 
 /* ═══════════════════════════════════════════
+   GUILLOTINE CUTTING ALGORITHM
+   ═══════════════════════════════════════════ */
+function packSheets(pecasIn,cW,cH){
+  const TRIM=4,GAP=2,usW=cW-TRIM*2,usH=cH-TRIM*2;
+  const sorted=[...pecasIn].sort((a,b)=>b.w*b.h-a.w*a.h);
+  const sheets=[];let curPieces=[];let freeRects=[{x:TRIM,y:TRIM,w:usW,h:usH}];
+  const startSheet=()=>{if(curPieces.length>0){sheets.push({pieces:curPieces});curPieces=[];}freeRects=[{x:TRIM,y:TRIM,w:usW,h:usH}];};
+  const tryPlace=(piece)=>{
+    let best=null,bestS=Infinity,rot=false;
+    for(const r of freeRects){
+      if(piece.w+GAP<=r.w&&piece.h+GAP<=r.h){const s=r.w*r.h;if(s<bestS){bestS=s;best=r;rot=false;}}
+      if(piece.fio==='N'&&piece.h+GAP<=r.w&&piece.w+GAP<=r.h){const s=r.w*r.h;if(s<bestS){bestS=s;best=r;rot=true;}}
+    }
+    if(!best)return false;
+    const pw=rot?piece.h:piece.w,ph=rot?piece.w:piece.h;
+    curPieces.push({...piece,x:best.x,y:best.y,w:pw,h:ph,rotated:rot});
+    const idx=freeRects.indexOf(best);freeRects.splice(idx,1);
+    if(best.w-pw-GAP>8)freeRects.push({x:best.x+pw+GAP,y:best.y,w:best.w-pw-GAP,h:ph});
+    if(best.h-ph-GAP>8)freeRects.push({x:best.x,y:best.y+ph+GAP,w:best.w,h:best.h-ph-GAP});
+    return true;
+  };
+  startSheet();
+  for(const p of sorted){
+    if(!tryPlace(p)){sheets.push({pieces:curPieces});curPieces=[];freeRects=[{x:TRIM,y:TRIM,w:usW,h:usH}];tryPlace(p);}
+  }
+  if(curPieces.length>0)sheets.push({pieces:curPieces});
+  const totArea=usW*usH;
+  sheets.forEach(s=>{const used=s.pieces.reduce((a,p)=>a+p.w*p.h,0);s.aprov=Math.round(used/totArea*100);});
+  return sheets;
+}
+
+function CanvasCorte({sheet,cW,cH}){
+  const ref=useRef();
+  useEffect(()=>{
+    const cv=ref.current;if(!cv)return;
+    const ctx=cv.getContext('2d');
+    const maxW=340;const sc=maxW/cW;
+    cv.width=Math.round(cW*sc);cv.height=Math.round(cH*sc);
+    ctx.fillStyle='#e8e8e8';ctx.fillRect(0,0,cv.width,cv.height);
+    ctx.strokeStyle='#999';ctx.lineWidth=1;ctx.strokeRect(0,0,cv.width,cv.height);
+    const COLS=['#6366f1','#8b5cf6','#ec4899','#14b8a6','#f59e0b','#ef4444','#3b82f6','#10b981','#f97316','#06b6d4','#84cc16','#a855f7'];
+    const FTC={'0.5':'#fbbf24','1':'#f59e0b','2':'#d97706','3':'#b45309'};
+    sheet.pieces.forEach((p,i)=>{
+      const cl=COLS[i%COLS.length];
+      const x=p.x*sc,y=p.y*sc,w=p.w*sc,h=p.h*sc;
+      ctx.fillStyle=cl+'55';ctx.fillRect(x,y,w,h);
+      ctx.strokeStyle=cl;ctx.lineWidth=1.5;ctx.strokeRect(x,y,w,h);
+      const fw=Math.max(3,Math.min(5,w*0.05));
+      const fit=p.fitamento||{};
+      const sides=[['topo',x,y,w,fw],['base',x,y+h-fw,w,fw],['esq',x,y,fw,h],['dir',x+w-fw,y,fw,h]];
+      sides.forEach(([k,sx,sy,sw,sh])=>{const t=fit[k]?.tipo;if(t&&t!=='N'){ctx.fillStyle=FTC[t]||'#fbbf24';ctx.fillRect(sx,sy,sw,sh);}});
+      if(w>24&&h>14){
+        ctx.fillStyle='#111';ctx.font=`bold ${Math.max(7,Math.min(10,w/7))}px Arial`;ctx.textAlign='center';ctx.textBaseline='middle';
+        ctx.fillText(p.nome.length>10?p.nome.slice(0,10)+'\u2026':p.nome,x+w/2,y+h/2-5);
+        ctx.font=`${Math.max(6,Math.min(8,w/9))}px Arial`;ctx.fillStyle='#444';
+        ctx.fillText(`${p.w}\xd7${p.h}`,x+w/2,y+h/2+6);
+      }
+    });
+    const barH=18;ctx.fillStyle='rgba(0,0,0,.55)';ctx.fillRect(0,cv.height-barH,cv.width,barH);
+    ctx.fillStyle='#fff';ctx.font='bold 9px Arial';ctx.textAlign='left';ctx.textBaseline='middle';
+    ctx.fillText(` \u2713 ${sheet.aprov}% aproveitamento  |  ${sheet.pieces.length} pe\xe7as`,2,cv.height-barH/2);
+  },[sheet,cW,cH]);
+  return <canvas ref={ref} style={{width:'100%',height:'auto',borderRadius:6,border:'1px solid var(--bd)',display:'block'}}/>;
+}
+
+/* ═══════════════════════════════════════════
    MARCENEIRO APP — TELA MOBILE
    ═══════════════════════════════════════════ */
-function MarceneiroApp({user,pedidos,setPedidos,clientes,financeiro,showToast,onRefresh,onLogout}){
+function MarceneiroApp({user,pedidos,setPedidos,clientes,financeiro,showToast,onRefresh,onLogout,ordensCort,setOrdensCort,cortadores}){
   const [nav,setNav]=useState("pedidos");
   const [filtro,setFiltro]=useState("andamento");
   const [expandId,setExpandId]=useState(null);
@@ -1047,6 +1113,215 @@ function MarceneiroApp({user,pedidos,setPedidos,clientes,financeiro,showToast,on
   const kpis=nav==="pedidos"
     ?[{l:"Pedidos",v:meusP.length,c:"rgba(255,255,255,.9)"},{l:"Em andamento",v:meusP.filter(p=>p.stage!=="concluido").length,c:"#fbbf24"},{l:"Atrasados",v:atrasados.length,c:atrasados.length>0?"#f87171":"rgba(255,255,255,.55)"}]
     :[{l:"Comissão Total",v:R$(totalCom),c:"rgba(255,255,255,.9)"},{l:"Já Pago",v:R$(totalPago),c:"#4ade80"},{l:"Pendente",v:R$(totalPend),c:totalPend>0?"#fbbf24":"rgba(255,255,255,.55)"}];
+
+  const Card2=({children,style})=><div style={{background:"var(--sf)",borderRadius:12,border:"1.5px solid var(--bd)",boxShadow:"var(--sh)",...style}}>{children}</div>;
+
+  const PgCortes=()=>{
+    const [view,setView]=useState("list");
+    const [form,setForm]=useState(null);
+    const [selOrdem,setSelOrdem]=useState(null);
+    const minhasOrdens=ordensCort.filter(o=>o.marcId===user.id);
+    const statusCor={aguardando:"var(--am)",em_corte:"var(--pri)",concluido:"var(--gn)",cancelado:"var(--rd)"};
+    const statusLabel={aguardando:"\u23f3 Aguardando",em_corte:"\u2699 Em Corte",concluido:"\u2713 Conclu\xeddo",cancelado:"\u2715 Cancelado"};
+    const FIT_TIPOS=[{v:"N",l:"\u2014"},{v:"0.5",l:"0,5mm"},{v:"1",l:"1mm"},{v:"2",l:"2mm"},{v:"3",l:"3mm"}];
+    const MATERIAIS=["MDF","MDP","Compensado","OSB","Madeira Maci\xe7a"];
+    const ESPESSURAS=["6","9","12","15","18","20","25","30"];
+    const CHAPAS_STD=[{l:"MDF 2750\xd71850",w:2750,h:1850},{l:"MDF 2440\xd71220",w:2440,h:1220},{l:"Personalizado",w:0,h:0}];
+
+    const novaOrdem=()=>{
+      setForm({
+        pedidoId:"",cortadorId:"",obs:"",
+        chapa:{material:"MDF",espessura:"15",largura:2750,altura:1850,cor:"Branco TX",qt_chapas:1,preset:"MDF 2750\xd71850"},
+        pecas:[{id:uid(),nome:"",larg:400,alt:300,qt:1,fio:"N",fitamento:{topo:{tipo:"N",cor:""},base:{tipo:"N",cor:""},esq:{tipo:"N",cor:""},dir:{tipo:"N",cor:""}}}]
+      });
+      setView("novo");
+    };
+
+    const addPeca=()=>setForm(f=>({...f,pecas:[...f.pecas,{id:uid(),nome:"",larg:400,alt:300,qt:1,fio:"N",fitamento:{topo:{tipo:"N",cor:""},base:{tipo:"N",cor:""},esq:{tipo:"N",cor:""},dir:{tipo:"N",cor:""}}}]}));
+    const updPeca=(idx,k,v)=>setForm(f=>({...f,pecas:f.pecas.map((p,i)=>i===idx?{...p,[k]:v}:p)}));
+    const updFit=(idx,lado,k,v)=>setForm(f=>({...f,pecas:f.pecas.map((p,i)=>i===idx?{...p,fitamento:{...p.fitamento,[lado]:{...p.fitamento[lado],[k]:v}}}:p)}));
+    const delPeca=(idx)=>setForm(f=>({...f,pecas:f.pecas.filter((_,i)=>i!==idx)}));
+
+    const computeLayout=(f)=>{
+      const flat=f.pecas.flatMap(p=>Array.from({length:p.qt},(_,i)=>({...p,id:p.id+'_'+i,nome:p.nome||(i>0?`Pe\xe7a ${i+1}`:p.nome)})));
+      return packSheets(flat.map(p=>({...p,w:p.larg,h:p.alt})),+f.chapa.largura,+f.chapa.altura);
+    };
+
+    const enviarOrdem=()=>{
+      if(!form.cortadorId)return showToast("Selecione um cortador!","red");
+      if(form.pecas.length===0||form.pecas.some(p=>!p.nome||p.larg<=0||p.alt<=0))return showToast("Preencha todas as pe\xe7as!","red");
+      const sheets=computeLayout(form);
+      const num="CRT"+(String(ordensCort.length+1).padStart(3,"0"));
+      const nova={id:uid(),num,marcId:user.id,pedidoId:form.pedidoId||null,cortadorId:form.cortadorId,status:"aguardando",createdAt:hojeISO(),obs:form.obs,chapa:form.chapa,pecas:form.pecas,sheets_count:sheets.length};
+      setOrdensCort(prev=>[...prev,nova]);
+      showToast("Ordem enviada! \u2713");
+      setView("list");setForm(null);
+    };
+
+    if(view==="detail"&&selOrdem){
+      const o=ordensCort.find(x=>x.id===selOrdem);
+      if(!o)return null;
+      const sheets=computeLayout(o);
+      const cort=cortadores.find(c=>c.id===o.cortadorId);
+      return(<div style={{animation:"fadeIn .3s"}}>
+        <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:14}}>
+          <button onClick={()=>{setView("list");setSelOrdem(null);}} style={{background:"none",border:"1px solid var(--bd)",borderRadius:8,padding:"6px 12px",cursor:"pointer",color:"var(--tx2)",fontSize:12}}>\u2190 Voltar</button>
+          <span style={{fontWeight:800,fontSize:14,color:"var(--tx)"}}>{o.num}</span>
+          <span style={{padding:"3px 10px",borderRadius:20,fontSize:10,fontWeight:800,background:"var(--sf)",color:statusCor[o.status]}}>{statusLabel[o.status]}</span>
+        </div>
+        <Card2 style={{marginBottom:10,padding:"12px 16px"}}>
+          <div style={{fontSize:11,fontWeight:800,color:"var(--tx3)",textTransform:"uppercase",marginBottom:6}}>Chapa</div>
+          <div style={{fontSize:12,color:"var(--tx)",fontWeight:700}}>{o.chapa.material} {o.chapa.espessura}mm \u2014 {o.chapa.largura}\xd7{o.chapa.altura}mm</div>
+          <div style={{fontSize:11,color:"var(--tx3)",marginTop:2}}>{o.chapa.cor} \xb7 {o.chapa.qt_chapas} chapa(s) dispon\xedvel \xb7 Cortador: <b>{cort?.nome||"\u2014"}</b></div>
+        </Card2>
+        {sheets.map((sh,si)=>(
+          <Card2 key={si} style={{marginBottom:10,padding:"12px 16px"}}>
+            <div style={{fontSize:11,fontWeight:800,color:"var(--tx)",marginBottom:8}}>Chapa {si+1} \u2014 {sh.aprov}% aproveitamento</div>
+            <CanvasCorte sheet={sh} cW={+o.chapa.largura} cH={+o.chapa.altura}/>
+          </Card2>
+        ))}
+        <Card2 style={{padding:"12px 16px"}}>
+          <div style={{fontSize:11,fontWeight:800,color:"var(--tx3)",textTransform:"uppercase",marginBottom:8}}>Pe\xe7as ({o.pecas.reduce((s,p)=>s+p.qt,0)} unidades)</div>
+          {o.pecas.map((p,i)=>(
+            <div key={p.id} style={{padding:"8px 0",borderBottom:"1px solid var(--bd)",fontSize:12}}>
+              <div style={{fontWeight:700,color:"var(--tx)",marginBottom:3}}>{i+1}. {p.nome} \u2014 {p.larg}\xd7{p.alt}mm \xb7 Qt:{p.qt} \xb7 Fio:{p.fio}</div>
+              <div style={{display:"flex",gap:8,flexWrap:"wrap",fontSize:10,color:"var(--tx3)"}}>
+                {['topo','base','esq','dir'].map(l=>{const t=p.fitamento?.[l]?.tipo;return t&&t!=='N'?<span key={l} style={{background:"rgba(245,158,11,.15)",color:"#d97706",padding:"1px 6px",borderRadius:4,fontWeight:700}}>{l.toUpperCase()}: {t}mm{p.fitamento[l].cor?` (${p.fitamento[l].cor})`:""}</span>:null;})}
+                {['topo','base','esq','dir'].every(l=>!p.fitamento?.[l]?.tipo||p.fitamento[l].tipo==='N')&&<span style={{color:"var(--tx3)"}}>Sem fitamento</span>}
+              </div>
+            </div>
+          ))}
+          {o.obs&&<div style={{marginTop:8,fontSize:11,color:"var(--tx3)"}}><b>Obs:</b> {o.obs}</div>}
+        </Card2>
+      </div>);
+    }
+
+    if(view==="novo"&&form){
+      const previewSheets=form.pecas.length>0&&form.pecas.some(p=>p.nome&&p.larg>0&&p.alt>0)?computeLayout(form):[];
+      return(<div style={{animation:"fadeIn .3s",paddingBottom:100}}>
+        <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:14}}>
+          <button onClick={()=>{setView("list");setForm(null);}} style={{background:"none",border:"1px solid var(--bd)",borderRadius:8,padding:"6px 12px",cursor:"pointer",color:"var(--tx2)",fontSize:12}}>\u2190 Cancelar</button>
+          <span style={{fontWeight:800,fontSize:14,color:"var(--tx)"}}>Nova Ordem de Corte</span>
+        </div>
+        <Card2 style={{marginBottom:10,padding:"12px 16px"}}>
+          <div style={{fontSize:11,fontWeight:800,color:"var(--tx3)",textTransform:"uppercase",marginBottom:8}}>Cortador Respons\xe1vel</div>
+          {cortadores.filter(c=>c.ativo).length===0
+            ?<div style={{fontSize:12,color:"var(--rd)"}}>Nenhum cortador cadastrado. Solicite ao administrador.</div>
+            :<select value={form.cortadorId} onChange={e=>setForm(f=>({...f,cortadorId:e.target.value}))} style={{width:"100%",padding:"9px 10px",borderRadius:8,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:12}}>
+              <option value="">\u2014 Selecionar cortador \u2014</option>
+              {cortadores.filter(c=>c.ativo).map(c=><option key={c.id} value={c.id}>{c.nome}</option>)}
+            </select>}
+          {pedidos.filter(p=>p.marcId===user.id).length>0&&<div style={{marginTop:8}}>
+            <div style={{fontSize:10,color:"var(--tx3)",fontWeight:700,marginBottom:4}}>Vincular Pedido (opcional)</div>
+            <select value={form.pedidoId||""} onChange={e=>setForm(f=>({...f,pedidoId:e.target.value}))} style={{width:"100%",padding:"8px 10px",borderRadius:8,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:12}}>
+              <option value="">\u2014 Sem v\xednculo \u2014</option>
+              {pedidos.filter(p=>p.marcId===user.id).map(p=><option key={p.id} value={p.id}>{p.num} \u2014 {p.cliente}</option>)}
+            </select>
+          </div>}
+        </Card2>
+        <Card2 style={{marginBottom:10,padding:"12px 16px"}}>
+          <div style={{fontSize:11,fontWeight:800,color:"var(--tx3)",textTransform:"uppercase",marginBottom:8}}>Especifica\xe7\xe3o da Chapa</div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}}>
+            <div>
+              <div style={{fontSize:10,color:"var(--tx3)",fontWeight:700,marginBottom:3}}>MATERIAL</div>
+              <select value={form.chapa.material} onChange={e=>setForm(f=>({...f,chapa:{...f.chapa,material:e.target.value}}))} style={{width:"100%",padding:"8px",borderRadius:8,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:12}}>
+                {MATERIAIS.map(m=><option key={m} value={m}>{m}</option>)}
+              </select>
+            </div>
+            <div>
+              <div style={{fontSize:10,color:"var(--tx3)",fontWeight:700,marginBottom:3}}>ESPESSURA (mm)</div>
+              <select value={form.chapa.espessura} onChange={e=>setForm(f=>({...f,chapa:{...f.chapa,espessura:e.target.value}}))} style={{width:"100%",padding:"8px",borderRadius:8,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:12}}>
+                {ESPESSURAS.map(e=><option key={e} value={e}>{e}mm</option>)}
+              </select>
+            </div>
+          </div>
+          <div style={{marginBottom:8}}>
+            <div style={{fontSize:10,color:"var(--tx3)",fontWeight:700,marginBottom:3}}>DIMENS\xc3O PADR\xc3O</div>
+            <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+              {CHAPAS_STD.map(c=>(
+                <button key={c.l} onClick={()=>{if(c.w>0)setForm(f=>({...f,chapa:{...f.chapa,largura:c.w,altura:c.h,preset:c.l}}));}} style={{padding:"6px 10px",borderRadius:8,border:`1.5px solid ${form.chapa.preset===c.l?"var(--pri)":"var(--bd)"}`,background:form.chapa.preset===c.l?"var(--prib)":"var(--sf)",color:form.chapa.preset===c.l?"var(--pri)":"var(--tx2)",fontSize:11,fontWeight:700,cursor:"pointer"}}>{c.l}</button>
+              ))}
+            </div>
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:8}}>
+            <div><div style={{fontSize:10,color:"var(--tx3)",fontWeight:700,marginBottom:3}}>LARG (mm)</div><input type="number" value={form.chapa.largura} onChange={e=>setForm(f=>({...f,chapa:{...f.chapa,largura:+e.target.value,preset:"Personalizado"}}))} style={{width:"100%",padding:"8px",borderRadius:8,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:12}}/></div>
+            <div><div style={{fontSize:10,color:"var(--tx3)",fontWeight:700,marginBottom:3}}>ALT (mm)</div><input type="number" value={form.chapa.altura} onChange={e=>setForm(f=>({...f,chapa:{...f.chapa,altura:+e.target.value,preset:"Personalizado"}}))} style={{width:"100%",padding:"8px",borderRadius:8,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:12}}/></div>
+            <div><div style={{fontSize:10,color:"var(--tx3)",fontWeight:700,marginBottom:3}}>Qt CHAPAS</div><input type="number" value={form.chapa.qt_chapas} min="1" onChange={e=>setForm(f=>({...f,chapa:{...f.chapa,qt_chapas:+e.target.value}}))} style={{width:"100%",padding:"8px",borderRadius:8,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:12}}/></div>
+            <div><div style={{fontSize:10,color:"var(--tx3)",fontWeight:700,marginBottom:3}}>COR/MODELO</div><input value={form.chapa.cor} onChange={e=>setForm(f=>({...f,chapa:{...f.chapa,cor:e.target.value}}))} placeholder="Ex: Branco TX" style={{width:"100%",padding:"8px",borderRadius:8,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:12}}/></div>
+          </div>
+        </Card2>
+        <Card2 style={{marginBottom:10,padding:"12px 16px"}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+            <div style={{fontSize:11,fontWeight:800,color:"var(--tx3)",textTransform:"uppercase"}}>Pe\xe7as ({form.pecas.reduce((s,p)=>s+p.qt,0)} unidades)</div>
+            <button onClick={addPeca} style={{padding:"5px 12px",borderRadius:8,border:"1.5px solid var(--pri)",background:"var(--prib)",color:"var(--pri)",fontSize:11,fontWeight:800,cursor:"pointer"}}>+ Pe\xe7a</button>
+          </div>
+          {form.pecas.map((p,idx)=>(
+            <div key={p.id} style={{border:"1.5px solid var(--bd)",borderRadius:10,padding:"10px 12px",marginBottom:8,background:"var(--bg)"}}>
+              <div style={{display:"grid",gridTemplateColumns:"2fr 70px 70px 50px 60px 28px",gap:6,marginBottom:8,alignItems:"flex-end"}}>
+                <div><div style={{fontSize:9,color:"var(--tx3)",fontWeight:700,marginBottom:2}}>NOME DA PE\xc7A</div><input value={p.nome} onChange={e=>updPeca(idx,"nome",e.target.value)} placeholder="Ex: Lateral Esq." style={{width:"100%",padding:"7px 8px",borderRadius:7,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:11}}/></div>
+                <div><div style={{fontSize:9,color:"var(--tx3)",fontWeight:700,marginBottom:2}}>LARG</div><input type="number" value={p.larg} onChange={e=>updPeca(idx,"larg",+e.target.value)} style={{width:"100%",padding:"7px 6px",borderRadius:7,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:11}}/></div>
+                <div><div style={{fontSize:9,color:"var(--tx3)",fontWeight:700,marginBottom:2}}>ALT</div><input type="number" value={p.alt} onChange={e=>updPeca(idx,"alt",+e.target.value)} style={{width:"100%",padding:"7px 6px",borderRadius:7,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:11}}/></div>
+                <div><div style={{fontSize:9,color:"var(--tx3)",fontWeight:700,marginBottom:2}}>QT</div><input type="number" value={p.qt} min="1" onChange={e=>updPeca(idx,"qt",+e.target.value)} style={{width:"100%",padding:"7px 6px",borderRadius:7,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:11}}/></div>
+                <div><div style={{fontSize:9,color:"var(--tx3)",fontWeight:700,marginBottom:2}}>FIO</div><select value={p.fio} onChange={e=>updPeca(idx,"fio",e.target.value)} style={{width:"100%",padding:"7px 4px",borderRadius:7,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:11}}><option value="N">\u2014</option><option value="H">\u2194 H</option><option value="V">\u2195 V</option></select></div>
+                <button onClick={()=>delPeca(idx)} style={{background:"none",border:"none",color:"var(--rd)",cursor:"pointer",fontSize:18,paddingBottom:4}}>\xd7</button>
+              </div>
+              <div style={{background:"rgba(245,158,11,.06)",borderRadius:7,padding:"7px 10px",border:"1px solid rgba(245,158,11,.2)"}}>
+                <div style={{fontSize:9,fontWeight:800,color:"#d97706",textTransform:"uppercase",marginBottom:6}}>FITAMENTO (fita de borda)</div>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:6}}>
+                  {[["topo","TOPO \u2191"],["base","BASE \u2193"],["esq","ESQ \u2190"],["dir","DIR \u2192"]].map(([lado,label])=>(
+                    <div key={lado}>
+                      <div style={{fontSize:8,color:"var(--tx3)",fontWeight:700,marginBottom:2}}>{label}</div>
+                      <select value={p.fitamento[lado].tipo} onChange={e=>updFit(idx,lado,"tipo",e.target.value)} style={{width:"100%",padding:"5px 4px",borderRadius:6,border:`1.5px solid ${p.fitamento[lado].tipo!=='N'?"#f59e0b":"var(--bd)"}`,background:p.fitamento[lado].tipo!=='N'?"rgba(245,158,11,.1)":"var(--sf)",color:"var(--tx)",fontSize:10,fontWeight:700}}>
+                        {FIT_TIPOS.map(t=><option key={t.v} value={t.v}>{t.l}</option>)}
+                      </select>
+                      {p.fitamento[lado].tipo!=='N'&&<input value={p.fitamento[lado].cor||""} onChange={e=>updFit(idx,lado,"cor",e.target.value)} placeholder="cor/ref" style={{width:"100%",marginTop:3,padding:"4px 5px",borderRadius:5,border:"1px solid var(--bd)",background:"var(--sf)",color:"var(--tx3)",fontSize:9}}/>}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          ))}
+        </Card2>
+        {previewSheets.length>0&&<Card2 style={{marginBottom:10,padding:"12px 16px"}}>
+          <div style={{fontSize:11,fontWeight:800,color:"var(--tx3)",textTransform:"uppercase",marginBottom:8}}>Preview \u2014 {previewSheets.length} chapa(s)</div>
+          {previewSheets.map((sh,si)=>(
+            <div key={si} style={{marginBottom:12}}>
+              <div style={{fontSize:11,fontWeight:700,color:"var(--tx)",marginBottom:6}}>Chapa {si+1} \u2014 {sh.aprov}% aproveitamento</div>
+              <CanvasCorte sheet={sh} cW={+form.chapa.largura} cH={+form.chapa.altura}/>
+            </div>
+          ))}
+        </Card2>}
+        <Card2 style={{marginBottom:10,padding:"12px 16px"}}>
+          <div style={{fontSize:10,color:"var(--tx3)",fontWeight:700,marginBottom:4}}>OBSERVA\xc7\xd5ES</div>
+          <textarea value={form.obs} onChange={e=>setForm(f=>({...f,obs:e.target.value}))} placeholder="Ex: Refor\xe7ar pe\xe7as maiores, prefer\xeancia de corte..." rows={3} style={{width:"100%",padding:"8px 10px",borderRadius:8,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:12,resize:"vertical"}}/>
+        </Card2>
+        <button onClick={enviarOrdem} style={{width:"100%",padding:"14px",borderRadius:12,background:"linear-gradient(135deg,#6366f1,#8b5cf6)",color:"#fff",fontSize:14,fontWeight:800,border:"none",cursor:"pointer",boxShadow:"0 4px 16px rgba(99,102,241,.4)"}}>\u2709 Enviar Ordem de Corte</button>
+      </div>);
+    }
+
+    return(<div style={{animation:"fadeIn .3s"}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+        <div><div style={{fontSize:16,fontWeight:800,color:"var(--tx)"}}>✂ Ordens de Corte</div><div style={{fontSize:11,color:"var(--tx3)",marginTop:2}}>{minhasOrdens.length} ordem(ns)</div></div>
+        <button onClick={novaOrdem} style={{padding:"9px 16px",borderRadius:10,background:"linear-gradient(135deg,#6366f1,#8b5cf6)",color:"#fff",fontSize:12,fontWeight:800,border:"none",cursor:"pointer"}}>+ Nova Ordem</button>
+      </div>
+      {minhasOrdens.length===0&&<Card2 style={{padding:40,textAlign:"center"}}><div style={{fontSize:36,marginBottom:8}}>✂</div><div style={{fontSize:13,fontWeight:700,color:"var(--tx3)"}}>Nenhuma ordem ainda</div><div style={{fontSize:11,color:"var(--tx3)",marginTop:4}}>Crie sua primeira ordem de corte</div></Card2>}
+      {minhasOrdens.slice().reverse().map(o=>{
+        const cort=cortadores.find(c=>c.id===o.cortadorId);
+        return(<div key={o.id} onClick={()=>{setSelOrdem(o.id);setView("detail");}} style={{background:"var(--sf)",borderRadius:12,border:"1.5px solid var(--bd)",padding:"12px 14px",marginBottom:10,cursor:"pointer",transition:"border-color .15s"}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
+            <span style={{fontWeight:800,fontSize:13,color:"var(--tx)"}}>{o.num}</span>
+            <span style={{padding:"3px 10px",borderRadius:20,fontSize:10,fontWeight:800,color:statusCor[o.status],background:"var(--bg)"}}>{statusLabel[o.status]}</span>
+          </div>
+          <div style={{fontSize:11,color:"var(--tx3)",display:"flex",gap:12,flexWrap:"wrap"}}>
+            <span>\ud83d\udccb {o.chapa.material} {o.chapa.espessura}mm</span>
+            <span>\ud83d\udcd0 {o.pecas.reduce((s,p)=>s+p.qt,0)} pe\xe7as</span>
+            <span>\ud83e\ude9a {cort?.nome||"\u2014"}</span>
+            <span>\ud83d\udcc5 {o.createdAt}</span>
+          </div>
+        </div>);
+      })}
+    </div>);
+  };
 
   return(
     <div style={{fontFamily:"var(--ft)",background:"var(--bg)",minHeight:"100vh",maxWidth:520,margin:"0 auto",paddingBottom:"env(safe-area-inset-bottom,0px)"}}>
@@ -1280,11 +1555,15 @@ function MarceneiroApp({user,pedidos,setPedidos,clientes,financeiro,showToast,on
         })}
       </div>}
 
+      {/* ── CORTES ── */}
+      {nav==="cortes"&&<div style={{padding:"0 16px 110px"}}><PgCortes/></div>}
+
       {/* ── BOTTOM NAV ── */}
       <div style={{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:520,background:"var(--sf)",borderTop:"1.5px solid var(--bd)",display:"flex",zIndex:100,paddingBottom:"env(safe-area-inset-bottom,0px)"}}>
         {[
           {k:"pedidos",l:"Pedidos",icon:"🔨"},
           {k:"comissoes",l:"Comissões",icon:"💰"},
+          {k:"cortes",l:"Cortes",icon:"✂"},
         ].map(t=>(
           <button key={t.k} onClick={()=>setNav(t.k)} style={{flex:1,padding:"12px 8px 10px",border:"none",background:"none",display:"flex",flexDirection:"column",alignItems:"center",gap:3,cursor:"pointer",borderTop:`2.5px solid ${nav===t.k?"var(--pri)":"transparent"}`,transition:"border-color .15s"}}>
             <span style={{fontSize:20,lineHeight:1}}>{t.icon}</span>
@@ -1293,6 +1572,119 @@ function MarceneiroApp({user,pedidos,setPedidos,clientes,financeiro,showToast,on
         ))}
       </div>
       <InstallPrompt/>
+    </div>
+  );
+}
+
+function CortadorApp({user,ordensCort,setOrdensCort,showToast,onLogout}){
+  const [nav,setNav]=useState("ordens");
+  const [selId,setSelId]=useState(null);
+  const minhasOrdens=ordensCort.filter(o=>o.cortadorId===user.id);
+  const statusCor={aguardando:"var(--am)",em_corte:"var(--pri)",concluido:"var(--gn)",cancelado:"var(--rd)"};
+  const statusLabel={aguardando:"\u23f3 Aguardando",em_corte:"\u2699 Em Corte",concluido:"\u2713 Conclu\xeddo",cancelado:"\u2715 Cancelado"};
+
+  const updStatus=(id,status)=>{
+    setOrdensCort(prev=>prev.map(o=>o.id===id?{...o,status}:o));
+    showToast(status==="em_corte"?"Corte iniciado!":"Marcado como conclu\xeddo! \u2713");
+  };
+
+  const selOrdem=minhasOrdens.find(o=>o.id===selId);
+
+  const computeLayout=(o)=>{
+    const flat=o.pecas.flatMap(p=>Array.from({length:p.qt},(_,i)=>({...p,id:p.id+'_'+i,w:p.larg,h:p.alt})));
+    return packSheets(flat,+o.chapa.largura,+o.chapa.altura);
+  };
+
+  const DetalhePeca=({p,i})=>(
+    <div style={{padding:"10px 0",borderBottom:"1px solid var(--bd)"}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
+        <span style={{fontWeight:800,fontSize:12,color:"var(--tx)"}}>{i+1}. {p.nome}</span>
+        <span style={{fontSize:11,color:"var(--tx3)",fontWeight:700}}>{p.larg}\xd7{p.alt}mm \xb7 \xd7{p.qt}</span>
+      </div>
+      <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:4}}>
+        <span style={{fontSize:10,padding:"2px 7px",borderRadius:4,background:"var(--prib)",color:"var(--pri)",fontWeight:700}}>Fio: {p.fio==='N'?'Livre':p.fio}</span>
+        {(['topo','base','esq','dir']).map(l=>{
+          const t=p.fitamento?.[l]?.tipo;const cor=p.fitamento?.[l]?.cor;
+          return t&&t!=='N'?<span key={l} style={{fontSize:10,padding:"2px 7px",borderRadius:4,background:"rgba(245,158,11,.15)",color:"#d97706",fontWeight:700}}>{l.toUpperCase()} {t}mm{cor?` ${cor}`:""}</span>:null;
+        })}
+        {(['topo','base','esq','dir']).every(l=>!p.fitamento?.[l]?.tipo||p.fitamento[l].tipo==='N')&&<span style={{fontSize:10,color:"var(--tx3)"}}>Sem fitamento</span>}
+      </div>
+    </div>
+  );
+
+  return(
+    <div style={{fontFamily:"var(--ft)",background:"var(--bg)",minHeight:"100vh",maxWidth:520,margin:"0 auto",paddingBottom:80}}>
+      <style>{CSS}</style>
+      <div style={{background:"linear-gradient(135deg,#0ea5e9,#0284c7)",padding:"16px 18px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+        <div>
+          <div style={{fontSize:16,fontWeight:800,color:"#fff"}}>\ud83e\ude9a Painel do Cortador</div>
+          <div style={{fontSize:11,color:"rgba(255,255,255,.8)",marginTop:2}}>{user.nome}</div>
+        </div>
+        <button onClick={onLogout} style={{background:"rgba(255,255,255,.15)",border:"none",borderRadius:10,padding:"8px 14px",color:"#fff",fontSize:12,fontWeight:700,cursor:"pointer"}}>Sair</button>
+      </div>
+      <div style={{padding:"14px 16px"}}>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:14}}>
+          {[
+            {l:"Aguardando",v:minhasOrdens.filter(o=>o.status==="aguardando").length,c:"var(--am)"},
+            {l:"Em Corte",v:minhasOrdens.filter(o=>o.status==="em_corte").length,c:"var(--pri)"},
+            {l:"Conclu\xeddos",v:minhasOrdens.filter(o=>o.status==="concluido").length,c:"var(--gn)"},
+          ].map(k=>(
+            <div key={k.l} style={{background:"var(--sf)",borderRadius:10,padding:"10px 8px",border:"1.5px solid var(--bd)",textAlign:"center"}}>
+              <div style={{fontSize:20,fontWeight:800,color:k.c}}>{k.v}</div>
+              <div style={{fontSize:9,fontWeight:700,color:"var(--tx3)",textTransform:"uppercase"}}>{k.l}</div>
+            </div>
+          ))}
+        </div>
+        {selId&&selOrdem?(<>
+          <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:12}}>
+            <button onClick={()=>setSelId(null)} style={{background:"none",border:"1px solid var(--bd)",borderRadius:8,padding:"6px 12px",cursor:"pointer",color:"var(--tx2)",fontSize:12}}>\u2190 Voltar</button>
+            <span style={{fontWeight:800,fontSize:14,color:"var(--tx)"}}>{selOrdem.num}</span>
+            <span style={{padding:"3px 10px",borderRadius:20,fontSize:10,fontWeight:800,color:statusCor[selOrdem.status]}}>{statusLabel[selOrdem.status]}</span>
+          </div>
+          <div style={{display:"flex",gap:8,marginBottom:12}}>
+            {selOrdem.status==="aguardando"&&<button onClick={()=>updStatus(selOrdem.id,"em_corte")} style={{flex:1,padding:"11px",borderRadius:10,background:"var(--pri)",color:"#fff",fontSize:12,fontWeight:800,border:"none",cursor:"pointer"}}>\u2699 Iniciar Corte</button>}
+            {selOrdem.status==="em_corte"&&<button onClick={()=>updStatus(selOrdem.id,"concluido")} style={{flex:1,padding:"11px",borderRadius:10,background:"var(--gn)",color:"#fff",fontSize:12,fontWeight:800,border:"none",cursor:"pointer"}}>\u2713 Marcar Conclu\xeddo</button>}
+            {selOrdem.status==="concluido"&&<div style={{flex:1,padding:"11px",borderRadius:10,background:"var(--gnb)",color:"var(--gn)",fontSize:12,fontWeight:800,textAlign:"center"}}>\u2713 Corte Conclu\xeddo</div>}
+          </div>
+          <div style={{background:"var(--sf)",borderRadius:12,border:"1.5px solid var(--bd)",padding:"12px 14px",marginBottom:10}}>
+            <div style={{fontSize:11,fontWeight:800,color:"var(--tx3)",textTransform:"uppercase",marginBottom:6}}>Chapa</div>
+            <div style={{fontSize:13,fontWeight:800,color:"var(--tx)"}}>{selOrdem.chapa.material} {selOrdem.chapa.espessura}mm</div>
+            <div style={{fontSize:11,color:"var(--tx3)",marginTop:2}}>{selOrdem.chapa.largura}\xd7{selOrdem.chapa.altura}mm \xb7 {selOrdem.chapa.cor} \xb7 {selOrdem.chapa.qt_chapas} chapa(s)</div>
+          </div>
+          {(()=>{const sheets=computeLayout(selOrdem);return sheets.map((sh,si)=>(
+            <div key={si} style={{background:"var(--sf)",borderRadius:12,border:"1.5px solid var(--bd)",padding:"12px 14px",marginBottom:10}}>
+              <div style={{fontSize:11,fontWeight:800,color:"var(--tx)",marginBottom:8}}>Plano de Corte \u2014 Chapa {si+1} ({sh.aprov}% aproveitamento)</div>
+              <CanvasCorte sheet={sh} cW={+selOrdem.chapa.largura} cH={+selOrdem.chapa.altura}/>
+            </div>
+          ))})()}
+          <div style={{background:"var(--sf)",borderRadius:12,border:"1.5px solid var(--bd)",padding:"12px 14px",marginBottom:10}}>
+            <div style={{fontSize:11,fontWeight:800,color:"var(--tx3)",textTransform:"uppercase",marginBottom:8}}>Lista de Pe\xe7as com Fitamento</div>
+            {selOrdem.pecas.map((p,i)=><DetalhePeca key={p.id} p={p} i={i}/>)}
+            {selOrdem.obs&&<div style={{marginTop:8,padding:"8px 10px",borderRadius:8,background:"var(--bg)",fontSize:11,color:"var(--tx2)"}}><b>Obs:</b> {selOrdem.obs}</div>}
+          </div>
+        </>):(
+          <>
+            <div style={{fontSize:13,fontWeight:800,color:"var(--tx)",marginBottom:10}}>Minhas Ordens de Corte</div>
+            {minhasOrdens.length===0&&<div style={{textAlign:"center",padding:40,color:"var(--tx3)"}}>
+              <div style={{fontSize:36,marginBottom:8}}>\ud83e\ude9a</div>
+              <div style={{fontWeight:700,fontSize:13}}>Nenhuma ordem recebida</div>
+            </div>}
+            {minhasOrdens.slice().reverse().map(o=>(
+              <div key={o.id} onClick={()=>setSelId(o.id)} style={{background:"var(--sf)",borderRadius:12,border:`1.5px solid ${o.status==="aguardando"?"rgba(245,158,11,.4)":o.status==="em_corte"?"rgba(99,102,241,.4)":"var(--bd)"}`,padding:"12px 14px",marginBottom:10,cursor:"pointer"}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
+                  <span style={{fontWeight:800,fontSize:13,color:"var(--tx)"}}>{o.num}</span>
+                  <span style={{padding:"3px 10px",borderRadius:20,fontSize:10,fontWeight:800,color:statusCor[o.status]}}>{statusLabel[o.status]}</span>
+                </div>
+                <div style={{fontSize:11,color:"var(--tx3)",display:"flex",gap:10,flexWrap:"wrap"}}>
+                  <span>\ud83d\udccb {o.chapa.material} {o.chapa.espessura}mm</span>
+                  <span>\ud83d\udcd0 {o.pecas.reduce((s,p)=>s+p.qt,0)} pe\xe7as</span>
+                  <span>\ud83d\udcc5 {o.createdAt}</span>
+                </div>
+              </div>
+            ))}
+          </>
+        )}
+      </div>
     </div>
   );
 }
@@ -1377,6 +1769,8 @@ export default function ERP(){
   const [recebimentos,setRecebimentos]=useState(()=>LS('recebimentos')||[]);
   const [recorrentes,setRecorrentes]=useState(()=>LS('recorrentes')||[]);
   const [vendedores,setVendedores]=useState(()=>LS('vendedores')||[]);
+  const [cortadores,setCortadores]=useState(()=>LS('cortadores')||[]);
+  const [ordensCort,setOrdensCort]=useState(()=>LS('ordensCort')||[]);
   const [saldoInicial,setSaldoInicial]=useState(()=>+(LS('saldoInicial')||0));
   const [editSaldoInicial,setEditSaldoInicial]=useState(false);
   const [dreAno,setDreAno]=useState(new Date().getFullYear());
@@ -1396,14 +1790,14 @@ export default function ERP(){
   const saveEmpresa=async e=>{setEmpresa(e);localStorage.setItem('erpEmpresa',JSON.stringify(e));setSyncStatus("syncing");const ok=await dbSet('empresa',e);setSyncStatus(ok?"ok":"error");showToast(ok?"Configurações salvas na nuvem!":"Salvo localmente (verificar conexão)","success");};
 
   // ── SUPABASE SYNC ──
-  const DB_KEYS=['clientes','orcamentos','pedidos','marceneiros','estoque','financeiro','leads','biblioteca','recebimentos','recorrentes','vendedores'];
+  const DB_KEYS=['clientes','orcamentos','pedidos','marceneiros','estoque','financeiro','leads','biblioteca','recebimentos','recorrentes','vendedores','cortadores','ordensCort'];
   const syncTimers=useRef({});
   const pendingSync=useRef(new Set()); // chaves com gravações pendentes (debounce ativo)
 
   const getSnap=useCallback(()=>({
     clientes,orcamentos,pedidos,marceneiros,estoque,financeiro,
-    leads,biblioteca,recebimentos,recorrentes,vendedores,
-  }),[clientes,orcamentos,pedidos,marceneiros,estoque,financeiro,leads,biblioteca,recebimentos,recorrentes,vendedores]);
+    leads,biblioteca,recebimentos,recorrentes,vendedores,cortadores,ordensCort,
+  }),[clientes,orcamentos,pedidos,marceneiros,estoque,financeiro,leads,biblioteca,recebimentos,recorrentes,vendedores,cortadores,ordensCort]);
 
   const _getFinMes=(f)=>{
     const venc=f.parcelas&&f.parcelas.find(p=>p.venc)?.venc;
@@ -1482,10 +1876,11 @@ export default function ERP(){
 
   // Import: restaura estado + localStorage + Supabase
   const importBackup=useCallback(async(data)=>{
-    const keys=['clientes','orcamentos','pedidos','marceneiros','estoque','financeiro','leads','biblioteca','recebimentos','recorrentes','vendedores'];
+    const keys=['clientes','orcamentos','pedidos','marceneiros','estoque','financeiro','leads','biblioteca','recebimentos','recorrentes','vendedores','cortadores','ordensCort'];
     const setters2={clientes:setClientes,orcamentos:setOrcamentos,pedidos:setPedidos,marceneiros:setMarceneiros,
       estoque:setEstoque,financeiro:setFinanceiro,leads:setLeads,biblioteca:setBiblioteca,
-      recebimentos:setRecebimentos,recorrentes:setRecorrentes,vendedores:setVendedores};
+      recebimentos:setRecebimentos,recorrentes:setRecorrentes,vendedores:setVendedores,
+      cortadores:setCortadores,ordensCort:setOrdensCort};
     const entries=[];
     keys.forEach(k=>{
       if(data[k]!==undefined){
@@ -1540,7 +1935,8 @@ export default function ERP(){
     const setters={clientes:setClientes,orcamentos:setOrcamentos,pedidos:setPedidos,
       marceneiros:setMarceneiros,estoque:setEstoque,financeiro:setFinanceiro,
       leads:setLeads,biblioteca:setBiblioteca,recebimentos:setRecebimentos,
-      recorrentes:setRecorrentes,vendedores:setVendedores};
+      recorrentes:setRecorrentes,vendedores:setVendedores,
+      cortadores:setCortadores,ordensCort:setOrdensCort};
     const toUpload=[];
     for(const k of DB_KEYS){
       // Nunca sobrescrever mudanças locais não sincronizadas (evita reverter delete/edição)
@@ -1653,6 +2049,8 @@ export default function ERP(){
   useEffect(()=>{if(dbLoaded)syncCloud('recebimentos',recebimentos);},[recebimentos,dbLoaded]);
   useEffect(()=>{if(dbLoaded)syncCloud('recorrentes',recorrentes);},[recorrentes,dbLoaded]);
   useEffect(()=>{if(dbLoaded)syncCloud('vendedores',vendedores);},[vendedores,dbLoaded]);
+  useEffect(()=>{if(dbLoaded)syncCloud('cortadores',cortadores);},[cortadores,dbLoaded]);
+  useEffect(()=>{if(dbLoaded)syncCloud('ordensCort',ordensCort);},[ordensCort,dbLoaded]);
 
   // Flush antes de fechar a aba — keepalive=true garante que o request complete mesmo após unload
   useEffect(()=>{
@@ -1892,7 +2290,9 @@ export default function ERP(){
       const u={role:"admin",nome:"Admin",id:"admin"};setUser(u);localStorage.setItem('erpUser',JSON.stringify(u));setLoginView(null);setLoginErr("");setTab("dashboard");return;
     }
     const m=marceneiros.find(x=>x.login?.trim()===lt&&x.senha?.trim()===st&&x.ativo);
-    if(m){setUser({role:"marc",nome:m.nome,id:m.id});setTab("minha_area");setLoginView(null);setLoginErr("");localStorage.setItem('erpUser',JSON.stringify({role:"marc",nome:m.nome,id:m.id}));}
+    if(m){setUser({role:"marc",nome:m.nome,id:m.id});setTab("minha_area");setLoginView(null);setLoginErr("");localStorage.setItem('erpUser',JSON.stringify({role:"marc",nome:m.nome,id:m.id}));return;}
+    const cort=cortadores.find(x=>x.login?.trim()===lt&&x.senha?.trim()===st&&x.ativo);
+    if(cort){setUser({role:"cort",nome:cort.nome,id:cort.id});setLoginView(null);setLoginErr("");localStorage.setItem('erpUser',JSON.stringify({role:"cort",nome:cort.nome,id:cort.id}));return;}
     else setLoginErr("Credenciais inválidas. Tente: admin / admin123");
   };
 
@@ -1916,6 +2316,17 @@ export default function ERP(){
     return{cli:clientes.length,orc:orcamentos.length,ped:pedidos.length,pedEsp:pedidos.filter(p=>p.status==="em_espera").length,pedProd:pedidos.filter(p=>p.status==="em_producao").length,rec,cMat,cCom,lucro:rec-cMat-cCom,aReceber,aPagar,leads:leads.length,leadsQuentes:leads.filter(l=>l.prioridade==="alta").length,estVal:estoque.reduce((s,e)=>s+e.qtd*e.custo,0),saldoCartao,estMinAlert};
   },[clientes,orcamentos,pedidos,financeiro,leads,estoque,recebimentos]);
 
+  // ── CORTADOR APP ──
+  if(user?.role==="cort"&&!loginView)return(
+    <CortadorApp
+      user={user}
+      ordensCort={ordensCort}
+      setOrdensCort={setOrdensCort}
+      showToast={showToast}
+      onLogout={()=>{setUser(null);localStorage.removeItem('erpUser');setLoginView({l:"",s:""});}}
+    />
+  );
+
   // ── MARCENEIRO APP (mobile) ──
   if(user?.role==="marc"&&!loginView)return(
     <MarceneiroApp
@@ -1926,6 +2337,9 @@ export default function ERP(){
       financeiro={financeiro}
       showToast={showToast}
       onRefresh={()=>loadFromCloud(false)}
+      ordensCort={ordensCort}
+      setOrdensCort={setOrdensCort}
+      cortadores={cortadores}
       onLogout={()=>{setUser(null);localStorage.removeItem('erpUser');setLoginView({l:"",s:""});}}
     />
   );
@@ -2614,19 +3028,56 @@ export default function ERP(){
   };
 
   // MARCENEIROS
-  const PgMarc=()=>{const [eM,setEM]=useState(null);return(<div style={{animation:"fadeIn .3s"}}><SH title="Marceneiros" sub={`${marceneiros.length} cadastrados`} right={<Btn onClick={()=>setEM({nome:"",tel:"",esp:"",comissao:10,login:"",senha:"",ativo:true})}><I.Plus/> Novo</Btn>}/>
-    {eM&&<Modal onClose={()=>setEM(null)}><h2 style={{fontSize:16,fontWeight:800,color:"var(--tx)",marginBottom:16}}>{eM.id?"Editar":"Novo"} Marceneiro</h2>
-      <Field label="Nome" value={eM.nome} onChange={v=>setEM({...eM,nome:v})}/>
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}><Field label="Telefone" value={eM.tel} onChange={v=>setEM({...eM,tel:v})}/><Field label="Especialidade" value={eM.esp} onChange={v=>setEM({...eM,esp:v})}/></div>
-      <Field label="Comissão (%)" type="number" value={eM.comissao} onChange={v=>setEM({...eM,comissao:+v})}/>
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}><Field label="Login" value={eM.login} onChange={v=>setEM({...eM,login:v})}/><Field label="Senha" value={eM.senha} onChange={v=>setEM({...eM,senha:v})}/></div>
-      <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:8}}><Btn v="ghost" onClick={()=>setEM(null)}>Cancelar</Btn><Btn onClick={()=>{if(!eM.nome||!eM.login)return showToast("Nome e login!","red");if(eM.id){setMarceneiros(p=>p.map(m=>m.id===eM.id?{...m,...eM}:m))}else{setMarceneiros(p=>[...p,{...eM,id:uid()}])}setEM(null);showToast("Salvo!")}}><I.Check/> Salvar</Btn></div>
-    </Modal>}
-    <Card><TH cols={[{l:"Nome",w:"1.5fr"},{l:"Esp.",w:"1fr"},{l:"Tel",w:"1fr"},{l:"Com.%",w:"70px"},{l:"Login",w:"80px"},{l:"Status",w:"70px"},{l:"Obras",w:"55px"},{l:"",w:"60px"}]}/>
-    {marceneiros.map(m=>{const obs=pedidos.filter(p=>p.marcId===m.id).length;return(<div key={m.id} style={{display:"grid",gridTemplateColumns:"1.5fr 1fr 1fr 70px 80px 70px 55px 60px",gap:6,padding:"10px 18px",borderBottom:"1.5px solid var(--bd)",alignItems:"center",fontSize:12}}>
-      <span style={{fontWeight:700,color:"var(--tx)"}}>{m.nome}</span><span style={{color:"var(--tx2)"}}>{m.esp}</span><span style={{color:"var(--tx2)"}}>{m.tel}</span><Badge color="pri">{m.comissao}%</Badge><span style={{color:"var(--tx3)",fontSize:11}}>{m.login}</span><Badge color={m.ativo?"green":"red"}>{m.ativo?"Ativo":"Off"}</Badge><span style={{textAlign:"center",fontWeight:700,color:"var(--tx)"}}>{obs}</span>
-      <div style={{display:"flex",gap:3}}><button onClick={()=>setEM(m)} style={{background:"none",border:"none",color:"var(--tx3)",padding:3}}><I.Edit/></button><button onClick={()=>{setMarceneiros(p=>p.filter(x=>x.id!==m.id));showToast("Removido","red")}} style={{background:"none",border:"none",color:"var(--rd)",padding:3}}><I.Trash/></button></div>
-    </div>)})}</Card></div>)};
+  const PgMarc=()=>{
+    const [eM,setEM]=useState(null);
+    const [eC,setEC]=useState(null);
+    const [marcTab,setMarcTab]=useState("marceneiros");
+    return(<div style={{animation:"fadeIn .3s"}}>
+      <SH title="Marceneiros" sub={`${marceneiros.length} marceneiros · ${cortadores.length} cortadores`} right={marcTab==="marceneiros"?<Btn onClick={()=>setEM({nome:"",tel:"",esp:"",comissao:10,login:"",senha:"",ativo:true})}><I.Plus/> Novo</Btn>:<Btn onClick={()=>setEC({nome:"",tel:"",esp:"",login:"",senha:"",ativo:true})}><I.Plus/> Novo</Btn>}/>
+      <div style={{display:"flex",gap:6,marginBottom:14}}>
+        {[{k:"marceneiros",l:"Marceneiros"},{k:"cortadores",l:"Cortadores \ud83e\ude9a"}].map(t=><button key={t.k} onClick={()=>setMarcTab(t.k)} style={{padding:"8px 18px",borderRadius:20,border:"1.5px solid "+(marcTab===t.k?"var(--pri)":"var(--bd)"),background:marcTab===t.k?"var(--prib)":"transparent",color:marcTab===t.k?"var(--pri)":"var(--tx3)",fontSize:12,fontWeight:700,cursor:"pointer"}}>{t.l}</button>)}
+      </div>
+      {marcTab==="marceneiros"&&<>
+        {eM&&<Modal onClose={()=>setEM(null)}><h2 style={{fontSize:16,fontWeight:800,color:"var(--tx)",marginBottom:16}}>{eM.id?"Editar":"Novo"} Marceneiro</h2>
+          <Field label="Nome" value={eM.nome} onChange={v=>setEM({...eM,nome:v})}/>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}><Field label="Telefone" value={eM.tel} onChange={v=>setEM({...eM,tel:v})}/><Field label="Especialidade" value={eM.esp} onChange={v=>setEM({...eM,esp:v})}/></div>
+          <Field label="Comiss\xe3o (%)" type="number" value={eM.comissao} onChange={v=>setEM({...eM,comissao:+v})}/>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}><Field label="Login" value={eM.login} onChange={v=>setEM({...eM,login:v})}/><Field label="Senha" value={eM.senha} onChange={v=>setEM({...eM,senha:v})}/></div>
+          <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:8}}><Btn v="ghost" onClick={()=>setEM(null)}>Cancelar</Btn><Btn onClick={()=>{if(!eM.nome||!eM.login)return showToast("Nome e login!","red");if(eM.id){setMarceneiros(p=>p.map(m=>m.id===eM.id?{...m,...eM}:m))}else{setMarceneiros(p=>[...p,{...eM,id:uid()}])}setEM(null);showToast("Salvo!")}}><I.Check/> Salvar</Btn></div>
+        </Modal>}
+        <Card><TH cols={[{l:"Nome",w:"1.5fr"},{l:"Esp.",w:"1fr"},{l:"Tel",w:"1fr"},{l:"Com.%",w:"70px"},{l:"Login",w:"80px"},{l:"Status",w:"70px"},{l:"Obras",w:"55px"},{l:"",w:"60px"}]}/>
+        {marceneiros.map(m=>{const obs=pedidos.filter(p=>p.marcId===m.id).length;return(<div key={m.id} style={{display:"grid",gridTemplateColumns:"1.5fr 1fr 1fr 70px 80px 70px 55px 60px",gap:6,padding:"10px 18px",borderBottom:"1.5px solid var(--bd)",alignItems:"center",fontSize:12}}>
+          <span style={{fontWeight:700,color:"var(--tx)"}}>{m.nome}</span><span style={{color:"var(--tx2)"}}>{m.esp}</span><span style={{color:"var(--tx2)"}}>{m.tel}</span><Badge color="pri">{m.comissao}%</Badge><span style={{color:"var(--tx3)",fontSize:11}}>{m.login}</span><Badge color={m.ativo?"green":"red"}>{m.ativo?"Ativo":"Off"}</Badge><span style={{textAlign:"center",fontWeight:700,color:"var(--tx)"}}>{obs}</span>
+          <div style={{display:"flex",gap:3}}><button onClick={()=>setEM(m)} style={{background:"none",border:"none",color:"var(--tx3)",padding:3}}><I.Edit/></button><button onClick={()=>{setMarceneiros(p=>p.filter(x=>x.id!==m.id));showToast("Removido","red")}} style={{background:"none",border:"none",color:"var(--rd)",padding:3}}><I.Trash/></button></div>
+        </div>)})}</Card>
+      </>}
+      {marcTab==="cortadores"&&<>
+        {eC&&<Modal onClose={()=>setEC(null)}><h2 style={{fontSize:16,fontWeight:800,color:"var(--tx)",marginBottom:16}}>{eC.id?"Editar":"Novo"} Cortador</h2>
+          <Field label="Nome" value={eC.nome} onChange={v=>setEC(p=>({...p,nome:v}))}/>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}><Field label="Telefone" value={eC.tel||""} onChange={v=>setEC(p=>({...p,tel:v}))} /><Field label="Especialidade" value={eC.esp||""} onChange={v=>setEC(p=>({...p,esp:v}))}/></div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}><Field label="Login" value={eC.login} onChange={v=>setEC(p=>({...p,login:v}))} /><Field label="Senha" value={eC.senha} onChange={v=>setEC(p=>({...p,senha:v}))}/></div>
+          <div style={{display:"flex",alignItems:"center",gap:8,marginTop:4,marginBottom:8}}>
+            <label style={{fontSize:12,color:"var(--tx2)",fontWeight:600}}>Ativo</label>
+            <button onClick={()=>setEC(p=>({...p,ativo:!p.ativo}))} style={{width:28,height:28,borderRadius:8,border:"2px solid "+(eC.ativo?"var(--gn)":"var(--bd)"),background:eC.ativo?"var(--gn)":"transparent",cursor:"pointer"}}/>
+          </div>
+          <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:8}}><Btn v="ghost" onClick={()=>setEC(null)}>Cancelar</Btn><Btn onClick={()=>{if(!eC.nome||!eC.login)return showToast("Nome e login!","red");if(eC.id){setCortadores(p=>p.map(c=>c.id===eC.id?{...c,...eC}:c))}else{setCortadores(p=>[...p,{...eC,id:uid()}])}setEC(null);showToast("Cortador salvo!")}}><I.Check/> Salvar</Btn></div>
+        </Modal>}
+        <Card>
+          <TH cols={[{l:"Nome",w:"1.5fr"},{l:"Especialidade",w:"1fr"},{l:"Tel",w:"1fr"},{l:"Login",w:"80px"},{l:"Status",w:"70px"},{l:"Ordens",w:"70px"},{l:"",w:"60px"}]}/>
+          {cortadores.map(c=>{const nOrdens=ordensCort.filter(o=>o.cortadorId===c.id).length;return(<div key={c.id} style={{display:"grid",gridTemplateColumns:"1.5fr 1fr 1fr 80px 70px 70px 60px",gap:6,padding:"10px 18px",borderBottom:"1.5px solid var(--bd)",alignItems:"center",fontSize:12}}>
+            <span style={{fontWeight:700,color:"var(--tx)"}}>{c.nome}</span>
+            <span style={{color:"var(--tx2)"}}>{c.esp||"\u2014"}</span>
+            <span style={{color:"var(--tx2)"}}>{c.tel||"\u2014"}</span>
+            <span style={{color:"var(--tx3)",fontSize:11}}>{c.login}</span>
+            <Badge color={c.ativo?"green":"red"}>{c.ativo?"Ativo":"Off"}</Badge>
+            <span style={{textAlign:"center",fontWeight:700,color:"var(--tx)"}}>{nOrdens}</span>
+            <div style={{display:"flex",gap:3}}><button onClick={()=>setEC(c)} style={{background:"none",border:"none",color:"var(--tx3)",padding:3}}><I.Edit/></button><button onClick={()=>{setCortadores(p=>p.filter(x=>x.id!==c.id));showToast("Removido","red")}} style={{background:"none",border:"none",color:"var(--rd)",padding:3}}><I.Trash/></button></div>
+          </div>);})}
+          {cortadores.length===0&&<div style={{padding:30,textAlign:"center",color:"var(--tx3)",fontSize:12,fontWeight:600}}>Nenhum cortador cadastrado</div>}
+        </Card>
+      </>}
+    </div>);
+  };
 
   // FINANCEIRO
   const PgFin=()=>{

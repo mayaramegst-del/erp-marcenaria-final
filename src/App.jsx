@@ -102,6 +102,7 @@ button{cursor:pointer;font-family:var(--ft)}input,textarea,select{font-family:va
   .erp-sidebar nav>div[style*="var(--pri)"]{border-bottom-color:var(--pri)!important;border-left-color:transparent!important}
   .erp-sidebar nav>div span{display:none}
   .erp-sidebar .sidebar-user{display:none!important}
+  .mobile-logout{display:flex!important}
   .erp-main{padding:12px!important;min-height:calc(100vh - 60px)!important}
   .mob-kpi{flex-direction:column!important}
   .mob-grid2{grid-template-columns:1fr!important}
@@ -3784,6 +3785,13 @@ export default function ERP(){
             </div>
           ))}
         </nav>
+        {/* Logout visível só no mobile — sidebar-user fica oculta no mobile */}
+        <div className="mobile-logout" style={{display:"none",alignItems:"center",padding:"0 8px",flexShrink:0,borderLeft:"1.5px solid var(--bd)"}}>
+          <button onClick={()=>{localStorage.removeItem('erpUser');setUser(null);setLoginView(null);}} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:2,padding:"10px 10px",border:"none",background:"none",cursor:"pointer",color:"var(--rd)"}}>
+            <I.X style={{width:18,height:18}}/>
+            <span style={{fontSize:9,fontWeight:800}}>Sair</span>
+          </button>
+        </div>
         <div className="sidebar-user" style={{padding:"12px 16px",borderTop:"1.5px solid var(--bd)"}}>
           <div style={{fontSize:10,color:"var(--tx3)",fontWeight:700,marginBottom:4}}>{user.role==="admin"?"👤 Administrador":"🔧 "+user.nome}</div>
           <div style={{fontSize:9,fontWeight:700,marginBottom:6,display:"flex",alignItems:"center",gap:4,

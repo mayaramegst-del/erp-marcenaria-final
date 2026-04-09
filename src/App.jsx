@@ -1764,6 +1764,10 @@ export default function ERP(){
   const [user,setUser]=useState(()=>{try{const u=localStorage.getItem('erpUser');return u?JSON.parse(u):null;}catch{return null;}});
   const [loginView,setLoginView]=useState(null);
   const [loginErr,setLoginErr]=useState("");
+  const [loginBlocked,setLoginBlocked]=useState(()=>{
+    try{const b=JSON.parse(localStorage.getItem('_lb')||'{}');return b;}catch{return{};}
+  });
+  const loginAttemptsRef=useRef(()=>{try{return JSON.parse(localStorage.getItem('_la')||'{}');}catch{return{};}});
   const [tab,setTab]=useState("dashboard");
   const [modal,setModal]=useState(null);
   const [toast,setToast]=useState(null);
@@ -2298,19 +2302,41 @@ export default function ERP(){
     setTimeout(()=>showToast(`Limpeza concluída! Duplicatas removidas.`),100);
   };
 
-  // Login
+  // Login com proteção contra força bruta
+  const BLOCK_LIMIT=5;const BLOCK_MS=15*60*1000;
   const handleLogin=(l,s)=>{
+    const key='_la';const bkey='_lb';
+    const now=Date.now();
+    // Verifica bloqueio ativo
+    const blk=JSON.parse(localStorage.getItem(bkey)||'{}');
+    if(blk.until&&now<blk.until){
+      const min=Math.ceil((blk.until-now)/60000);
+      setLoginErr(`Muitas tentativas. Aguarde ${min} minuto${min>1?'s':''} para tentar novamente.`);
+      return;
+    }
     const lt=(l||"").trim();const st=(s||"").trim();
     const adminLogin=(empresa.loginAdmin||"admin").trim();const adminSenha=(empresa.senhaAdmin||"admin123").trim();
-    // Aceita credenciais configuradas OU padrão absoluto (emergency access)
-    if((lt===adminLogin&&st===adminSenha)||(lt==="admin"&&st==="admin123")){
+    const ok=(lt===adminLogin&&st===adminSenha)
+      ||(()=>{const m=marceneiros.find(x=>x.login?.trim()===lt&&x.senha?.trim()===st&&x.ativo);if(m){setUser({role:"marc",nome:m.nome,id:m.id});setTab("minha_area");setLoginView(null);setLoginErr("");localStorage.setItem('erpUser',JSON.stringify({role:"marc",nome:m.nome,id:m.id}));return true;}return false;})()
+      ||(()=>{const c=cortadores.find(x=>x.login?.trim()===lt&&x.senha?.trim()===st&&x.ativo);if(c){setUser({role:"cort",nome:c.nome,id:c.id});setLoginView(null);setLoginErr("");localStorage.setItem('erpUser',JSON.stringify({role:"cort",nome:c.nome,id:c.id}));return true;}return false;})();
+    if(lt===adminLogin&&st===adminSenha){
+      localStorage.removeItem(key);localStorage.removeItem(bkey);
       const u={role:"admin",nome:"Admin",id:"admin"};setUser(u);localStorage.setItem('erpUser',JSON.stringify(u));setLoginView(null);setLoginErr("");setTab("dashboard");return;
     }
-    const m=marceneiros.find(x=>x.login?.trim()===lt&&x.senha?.trim()===st&&x.ativo);
-    if(m){setUser({role:"marc",nome:m.nome,id:m.id});setTab("minha_area");setLoginView(null);setLoginErr("");localStorage.setItem('erpUser',JSON.stringify({role:"marc",nome:m.nome,id:m.id}));return;}
-    const cort=cortadores.find(x=>x.login?.trim()===lt&&x.senha?.trim()===st&&x.ativo);
-    if(cort){setUser({role:"cort",nome:cort.nome,id:cort.id});setLoginView(null);setLoginErr("");localStorage.setItem('erpUser',JSON.stringify({role:"cort",nome:cort.nome,id:cort.id}));return;}
-    else setLoginErr("Credenciais inválidas. Tente: admin / admin123");
+    if(ok)return;
+    // Incrementa tentativas falhas
+    const att=JSON.parse(localStorage.getItem(key)||'{"count":0}');
+    const newCount=(att.count||0)+1;
+    if(newCount>=BLOCK_LIMIT){
+      const until=now+BLOCK_MS;
+      localStorage.setItem(bkey,JSON.stringify({until}));
+      localStorage.setItem(key,JSON.stringify({count:0}));
+      setLoginErr(`Acesso bloqueado por 15 minutos após ${BLOCK_LIMIT} tentativas incorretas.`);
+    } else {
+      localStorage.setItem(key,JSON.stringify({count:newCount}));
+      const restam=BLOCK_LIMIT-newCount;
+      setLoginErr(`Credenciais inválidas. ${restam} tentativa${restam>1?'s':''} restante${restam>1?'s':''}.`);
+    }
   };
 
   // Computed

@@ -2822,13 +2822,22 @@ export default function ERP(){
         <Card style={{padding:16}}><span style={{fontSize:10,fontWeight:800,textTransform:"uppercase",color:"var(--tx3)"}}>Valor do Pedido</span>
           <input type="number" defaultValue={p.vt} key={p.vt} onBlur={e=>{
             const novo=Math.max(0,+e.target.value||0);
-            updPed(p.id,{vt:novo});
+            const novaComissao=m?+(novo*(m.comissao/100)).toFixed(2):0;
+            updPed(p.id,{vt:novo,comVal:novaComissao});
             // Atualiza financeiro vinculado
             setFinanceiro(ff=>ff.map(f=>{
-              if(f.pedidoId!==p.id||f.tipo!=="receber")return f;
-              const ratio=f.valor>0?novo/f.valor:1;
-              const parcelas=f.parcelas.map(pa=>pa.pago?pa:{...pa,valor:+(pa.valor*ratio).toFixed(2)});
-              return{...f,valor:novo,parcelas};
+              if(f.pedidoId!==p.id)return f;
+              if(f.tipo==="receber"){
+                const ratio=f.valor>0?novo/f.valor:1;
+                const parcelas=f.parcelas.map(pa=>pa.pago?pa:{...pa,valor:+(pa.valor*ratio).toFixed(2)});
+                return{...f,valor:novo,parcelas};
+              }
+              if(f.tipo==="pagar"&&f.marcId===p.marcId&&novaComissao>0){
+                const ratio=f.valor>0?novaComissao/f.valor:1;
+                const parcelas=f.parcelas.map(pa=>pa.pago?pa:{...pa,valor:+(pa.valor*ratio).toFixed(2)});
+                return{...f,valor:novaComissao,parcelas};
+              }
+              return f;
             }));
             showToast("Valor atualizado!");
           }} step="0.01" style={{width:"100%",padding:"4px 0",border:"none",borderBottom:"2px solid var(--pri)",background:"transparent",color:"var(--pri)",fontSize:22,fontWeight:800,marginTop:4,outline:"none"}}/>

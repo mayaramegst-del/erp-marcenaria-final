@@ -2816,7 +2816,7 @@ export default function ERP(){
         {(()=>{const orc=orcamentos.find(x=>x.id===p.orcId);return orc&&<Btn v="secondary" small onClick={()=>setModal({t:"pdf",d:orc,tab:"os"})}><I.Printer/> OS PDF</Btn>})()}
         {p.status!=="cancelado"
           ?<Btn v="ghost" small style={{color:"var(--rd)",border:"1px solid rgba(239,68,68,.3)"}} onClick={()=>{if(window.confirm(`Cancelar o pedido ${p.num}? Essa ação não pode ser desfeita.`)){updPed(p.id,{status:"cancelado",stage:"cancelado",marcId:null});showToast("Pedido cancelado","red");}}}><I.X/> Cancelar Pedido</Btn>
-          :<Btn v="ghost" small onClick={()=>{if(window.confirm("Reativar este pedido?"))updPed(p.id,{status:"em_espera",stage:"corte"});}}><I.Check/> Reativar</Btn>}
+          :<div style={{display:"flex",gap:6}}><Btn v="ghost" small onClick={()=>{if(window.confirm("Reativar este pedido?"))updPed(p.id,{status:"em_espera",stage:"corte"});}}><I.Check/> Reativar</Btn><Btn v="ghost" small style={{color:"var(--rd)",border:"1px solid rgba(239,68,68,.3)"}} onClick={()=>{if(window.confirm(`Excluir permanentemente o pedido ${p.num}? Esta ação não pode ser desfeita.`)){setPedidos(prev=>prev.filter(x=>x.id!==p.id));setFinanceiro(prev=>prev.filter(f=>f.pedidoId!==p.id));setPedAtivo(null);showToast("Pedido excluído","red");}}}><I.Trash/> Excluir</Btn></div>}
       </div>}/>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:12,marginBottom:16}}>
         <Card style={{padding:16}}><span style={{fontSize:10,fontWeight:800,textTransform:"uppercase",color:"var(--tx3)"}}>Valor do Pedido</span>

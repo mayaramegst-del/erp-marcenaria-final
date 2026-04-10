@@ -3204,8 +3204,9 @@ export default function ERP(){
     const pool18Pago=pool18FinPag.reduce((s,f)=>s+f.valorPago,0);
     const pool1012Saldo=pool1012Rec-pool1012Pago;
     const pool18Saldo=pool18Rec-pool18Pago;
-    // Parcelas para o fluxo de caixa — exclui recebimentos em cartão (vão para pool de fornecedores)
-    const parcelasFluxo=todasParcelas.filter(p=>!isPoolParc(p));
+    // Parcelas para o fluxo de caixa — exclui recebimentos em cartão (vão para pool) E pagamentos ao pool (Mestre Marceneiro, AZ Ferragens, Léo Madeiras)
+    const poolPayFinIds=new Set([...pool1012FinPag,...pool18FinPag].map(f=>f.id));
+    const parcelasFluxo=todasParcelas.filter(p=>!isPoolParc(p)&&!poolPayFinIds.has(p.finId));
     // HOJE
     const parHojeRec=parcelasFluxo.filter(p=>p.pago&&normDate(p.dataPago)===hj&&p.tipo==="receber");
     const parHojePag=parcelasFluxo.filter(p=>p.pago&&normDate(p.dataPago)===hj&&p.tipo==="pagar");

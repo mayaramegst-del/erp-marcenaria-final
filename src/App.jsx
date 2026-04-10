@@ -3141,6 +3141,9 @@ export default function ERP(){
     const [showStats,setShowStats]=useState(false);
     const [semSel,setSemSel]=useState(null);
     const [showFluxo,setShowFluxo]=useState(false);
+    const [fluxoMes,setFluxoMes]=useState(hojeISO().slice(0,7));
+    const navFluxoMes=delta=>{const[y,m]=fluxoMes.split("-").map(Number);const d=new Date(y,m-1+delta,1);setSemSel(null);setFluxoMes(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`);};
+    const nomeMesFluxo=new Date(fluxoMes+"-15").toLocaleDateString("pt-BR",{month:"long",year:"numeric"});
     const eCats=empresa.cats||CATS;
     // Comissões de marceneiros
     const comEntries=financeiro.filter(f=>f.marcId&&f.tipo==="pagar");
@@ -3155,7 +3158,7 @@ export default function ERP(){
     };
     const comPendTotal=comEntries.reduce((s,f)=>(f.parcelas||[]).filter(p=>!p.pago).reduce((a,p)=>a+p.valor,s),0);
     const hj=hojeISO();
-    const mesAtual=hj.slice(0,7);
+    const mesAtual=fluxoMes;
     // Normaliza dataPago — suporta formato ISO (yyyy-mm-dd) e BR legado (dd/mm/yyyy)
     const normDate=d=>{if(!d)return"";if(/^\d{4}-\d{2}-\d{2}/.test(d))return d;const p=d.split("/");return p.length===3?`${p[2]}-${p[1]}-${p[0]}`:d;};
     // Semana atual (seg→dom)
@@ -3605,7 +3608,11 @@ export default function ERP(){
           {fluxoTab==="semana"&&<>
             {/* Seletor de semana do mês */}
             <div style={{marginBottom:16}}>
-              <div style={{fontSize:9,fontWeight:800,color:"var(--tx3)",textTransform:"uppercase",letterSpacing:"1px",marginBottom:8}}>Semana do mês de {new Date(mesY_,mesM_-1,1).toLocaleDateString("pt-BR",{month:"long",year:"numeric"})}</div>
+              <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
+                <button onClick={()=>navFluxoMes(-1)} style={{background:"var(--sf)",border:"1.5px solid var(--bd)",borderRadius:8,padding:"3px 10px",fontSize:13,fontWeight:800,cursor:"pointer",color:"var(--tx)"}}>◀</button>
+                <span style={{fontSize:9,fontWeight:800,color:"var(--tx3)",textTransform:"uppercase",letterSpacing:"1px",flex:1,textAlign:"center"}}>Semana do mês de {nomeMesFluxo}</span>
+                <button onClick={()=>navFluxoMes(1)} style={{background:"var(--sf)",border:"1.5px solid var(--bd)",borderRadius:8,padding:"3px 10px",fontSize:13,fontWeight:800,cursor:"pointer",color:"var(--tx)"}}>▶</button>
+              </div>
               <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
                 {semanasDoMes.map((s,i)=>{
                   const isAtual=i===semAtualIdx;
@@ -3642,6 +3649,11 @@ export default function ERP(){
 
           {/* ── ABA MÊS ── */}
           {fluxoTab==="mes"&&<>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:10,marginBottom:16}}>
+              <button onClick={()=>navFluxoMes(-1)} style={{background:"var(--sf)",border:"1.5px solid var(--bd)",borderRadius:8,padding:"5px 12px",fontSize:14,fontWeight:800,cursor:"pointer",color:"var(--tx)"}}>◀</button>
+              <span style={{fontSize:13,fontWeight:800,color:"var(--tx)",textTransform:"capitalize",minWidth:140,textAlign:"center"}}>{nomeMesFluxo}</span>
+              <button onClick={()=>navFluxoMes(1)} style={{background:"var(--sf)",border:"1.5px solid var(--bd)",borderRadius:8,padding:"5px 12px",fontSize:14,fontWeight:800,cursor:"pointer",color:"var(--tx)"}}>▶</button>
+            </div>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16}}>
               <div>
                 <div style={{fontSize:13,fontWeight:800,color:"var(--gn)",textTransform:"uppercase",marginBottom:8}}>Entradas —{R$(esteMesRec)}</div>

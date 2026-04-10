@@ -3415,9 +3415,10 @@ export default function ERP(){
               <div>
                 <div style={{fontSize:10,fontWeight:800,color:"var(--bl)",textTransform:"uppercase",marginBottom:8}}>📅 Parcelas do mês — {new Date().toLocaleString("pt-BR",{month:"long",year:"numeric"})}</div>
                 {proxParc.length===0?<div style={{fontSize:11,color:"var(--tx3)"}}>Nenhuma parcela neste mês</div>
-                :proxParc.map((p,i)=><div key={i} style={{display:"flex",justifyContent:"space-between",padding:"6px 0",borderBottom:"1px solid var(--bd)",fontSize:12}}>
-                  <div><div style={{fontWeight:700,color:"var(--tx)"}}>{p.desc}</div><div style={{fontSize:10,color:"var(--tx3)"}}>{isoToBR(p.venc)} · {FORMAS_LAB[p.formaPag]||p.formaPag}</div></div>
-                  <span style={{fontWeight:800,color:"var(--bl)"}}>{R$(p.valor)}</span>
+                :proxParc.map((p,i)=><div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 0",borderBottom:"1px solid var(--bd)",fontSize:12,gap:8}}>
+                  <div style={{flex:1}}><div style={{fontWeight:700,color:"var(--tx)"}}>{p.desc}</div><div style={{fontSize:10,color:"var(--tx3)"}}>{isoToBR(p.venc)} · {FORMAS_LAB[p.formaPag]||p.formaPag}</div></div>
+                  <span style={{fontWeight:800,color:"var(--bl)",whiteSpace:"nowrap"}}>{R$(p.valor)}</span>
+                  <button onClick={()=>{baixarParc(p);showToast("Parcela baixada!");}} style={{padding:"4px 10px",borderRadius:6,background:"var(--gnb)",border:"1.5px solid var(--gn)",color:"var(--gn)",fontSize:11,fontWeight:800,cursor:"pointer",whiteSpace:"nowrap"}}>✓ Baixar</button>
                 </div>)}
               </div>
               <div>
@@ -3465,9 +3466,10 @@ export default function ERP(){
               <div>
                 <div style={{fontSize:10,fontWeight:800,color:"var(--pp)",textTransform:"uppercase",marginBottom:8}}>📅 Parcelas do mês — {new Date().toLocaleString("pt-BR",{month:"long",year:"numeric"})}</div>
                 {proxParc18.length===0?<div style={{fontSize:11,color:"var(--tx3)"}}>Nenhuma parcela neste mês</div>
-                :proxParc18.map((p,i)=><div key={i} style={{display:"flex",justifyContent:"space-between",padding:"6px 0",borderBottom:"1px solid var(--bd)",fontSize:12}}>
-                  <div><div style={{fontWeight:700,color:"var(--tx)"}}>{p.desc}</div><div style={{fontSize:10,color:"var(--tx3)"}}>{isoToBR(p.venc)} · {FORMAS_LAB[p.formaPag]||p.formaPag}</div></div>
-                  <span style={{fontWeight:800,color:"var(--pp)"}}>{R$(p.valor)}</span>
+                :proxParc18.map((p,i)=><div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 0",borderBottom:"1px solid var(--bd)",fontSize:12,gap:8}}>
+                  <div style={{flex:1}}><div style={{fontWeight:700,color:"var(--tx)"}}>{p.desc}</div><div style={{fontSize:10,color:"var(--tx3)"}}>{isoToBR(p.venc)} · {FORMAS_LAB[p.formaPag]||p.formaPag}</div></div>
+                  <span style={{fontWeight:800,color:"var(--pp)",whiteSpace:"nowrap"}}>{R$(p.valor)}</span>
+                  <button onClick={()=>{baixarParc(p);showToast("Parcela baixada!");}} style={{padding:"4px 10px",borderRadius:6,background:"var(--gnb)",border:"1.5px solid var(--gn)",color:"var(--gn)",fontSize:11,fontWeight:800,cursor:"pointer",whiteSpace:"nowrap"}}>✓ Baixar</button>
                 </div>)}
               </div>
               <div>

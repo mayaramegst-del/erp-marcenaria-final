@@ -1096,7 +1096,7 @@ function MarceneiroApp({user,pedidos,setPedidos,clientes,financeiro,showToast,on
   const [instDias,setInstDias]=useState("");
   const [refreshing,setRefreshing]=useState(false);
   const doRefresh=async()=>{setRefreshing(true);await onRefresh?.();setRefreshing(false);showToast("Atualizado!");};
-  const meusP=pedidos.filter(p=>p.marcId===user.id&&p.status!=="cancelado");
+  const meusP=pedidos.filter(p=>(p.marcId===user.id||p.ambs?.some(a=>a.marcId===user.id))&&p.status!=="cancelado");
   const getCli=id=>clientes.find(c=>c.id===id);
   const getComFin=p=>financeiro?.find(f=>f.pedidoId===p.id&&f.marcId===user.id&&f.tipo==="pagar");
   const atrasados=meusP.filter(p=>p.dataEntrega&&p.stage!=="concluido"&&new Date(p.dataEntrega.split("/").reverse().join("-"))<new Date());
@@ -1450,13 +1450,13 @@ function MarceneiroApp({user,pedidos,setPedidos,clientes,financeiro,showToast,on
                       </div>
                     ))}
                   </div>}
-                  {p.ambs?.length>0&&<div style={{background:"var(--prib)",borderRadius:12,padding:"10px 14px",marginBottom:10}}>
-                    <div style={{fontSize:10,fontWeight:800,color:"var(--pri)",marginBottom:6,textTransform:"uppercase",letterSpacing:".5px"}}>Ambientes</div>
-                    {p.ambs.map((a,i)=><div key={i} style={{padding:"8px 0",borderBottom:"1px solid var(--bd2)"}}>
+                  {(()=>{const meusAmbs=(p.ambs||[]).filter(a=>!a.marcId||a.marcId===user.id);return meusAmbs.length>0&&<div style={{background:"var(--prib)",borderRadius:12,padding:"10px 14px",marginBottom:10}}>
+                    <div style={{fontSize:10,fontWeight:800,color:"var(--pri)",marginBottom:6,textTransform:"uppercase",letterSpacing:".5px"}}>Meus Ambientes ({meusAmbs.length})</div>
+                    {meusAmbs.map((a,i)=><div key={i} style={{padding:"8px 0",borderBottom:"1px solid var(--bd2)"}}>
                       <div style={{fontSize:13,fontWeight:700,color:"var(--tx)"}}>{a.nome}</div>
                       {a.desc&&<div style={{fontSize:11,color:"var(--tx3)",marginTop:3,whiteSpace:"pre-line",lineHeight:1.6}}>{a.desc}</div>}
                     </div>)}
-                  </div>}
+                  </div>;})()}
                   {p.arquivos?.length>0&&<div style={{background:"var(--blb)",borderRadius:12,padding:"10px 14px"}}>
                     <div style={{fontSize:10,fontWeight:800,color:"var(--bl)",marginBottom:8}}>📎 Anexos do Projeto</div>
                     {p.arquivos.map(a=>(
@@ -2238,6 +2238,24 @@ export default function ERP(){
     if(ped) notifyMarceneiro(ped,mid);
   };
 
+  // Recalcula comissões por ambiente: cada marceneiro recebe % sobre os ambientes que executa
+  const recalcComissoesMult=(pedId,ambs)=>{
+    const ped=pedidos.find(x=>x.id===pedId);if(!ped)return;
+    const byMarc={};
+    (ambs||[]).forEach(a=>{if(!a.marcId)return;byMarc[a.marcId]=(byMarc[a.marcId]||0)+(a.val||0);});
+    setFinanceiro(prev=>{
+      let next=[...prev];
+      Object.entries(byMarc).forEach(([marcId,total])=>{
+        const marc=marceneiros.find(m=>m.id===marcId);if(!marc)return;
+        const comVal=+(total*(marc.comissao/100)).toFixed(2);
+        const ex=next.find(f=>f.pedidoId===pedId&&f.marcId===marcId&&f.tipo==="pagar");
+        if(ex){next=next.map(f=>f.id===ex.id?{...f,valor:comVal,desc:`Comissão ${ped.num||''} - ${marc.nome}`,parcelas:f.parcelas.map(pa=>pa.pago?pa:{...pa,valor:comVal})}:f);}
+        else{next=[...next,{id:uid(),tipo:"pagar",desc:`Comissão ${ped.num||''} - ${marc.nome}`,valor:comVal,valorPago:0,parcelas:[{id:uid(),valor:comVal,venc:"",pago:false,dataPago:"",formaPag:"pix"}],pedidoId:pedId,marcId,fornecedor:marc.nome,status:"aberto"}];}
+      });
+      return next;
+    });
+  };
+
   const pagarParcela=(finId,parId,valor,formaPag="")=>{
     setFinanceiro(prev=>prev.map(f=>{
       if(f.id!==finId)return f;
@@ -2924,15 +2942,20 @@ export default function ERP(){
       </div>
       <Card style={{marginTop:14}}><CardHead title="Ambientes / Escopo do Pedido" right={<div style={{display:"flex",gap:8,alignItems:"center"}}><span style={{fontSize:10,color:"var(--tx3)",fontWeight:600}}>Marceneiro vê em tempo real</span><Btn v="ghost" small onClick={()=>updPed(p.id,pp=>({...pp,ambs:[...(pp.ambs||[]),{nome:"",desc:"",val:0}]}))}><I.Plus/> Ambiente</Btn></div>}/>
         <div style={{padding:14}}>
-          {p.ambs?.map((a,i)=>(
-            <div key={i} style={{marginBottom:12,padding:"10px 12px",background:"var(--bg)",borderRadius:10,border:"1.5px solid var(--bd)"}}>
+          {p.ambs?.map((a,i)=>{const ambMarc=getMarc(a.marcId);return(
+            <div key={i} style={{marginBottom:12,padding:"10px 12px",background:"var(--bg)",borderRadius:10,border:`1.5px solid ${a.marcId?"var(--pri)":"var(--bd)"}`}}>
               <div style={{display:"flex",gap:6,marginBottom:6,alignItems:"center"}}>
                 <BlurInput value={a.nome||""} onCommit={v=>updPed(p.id,pp=>({...pp,ambs:pp.ambs.map((x,j)=>j===i?{...x,nome:v}:x)}))} placeholder={`Ambiente ${i+1}`} style={{flex:1,padding:"6px 8px",borderRadius:7,border:"1.5px solid var(--pri)",background:"var(--sf)",color:"var(--tx)",fontSize:12,fontWeight:700,outline:"none"}}/>
+                <select value={a.marcId||""} onChange={e=>{const newAmbs=p.ambs.map((x,j)=>j===i?{...x,marcId:e.target.value}:x);updPed(p.id,{ambs:newAmbs});recalcComissoesMult(p.id,newAmbs);showToast(e.target.value?`Ambiente → ${getMarc(e.target.value)?.nome}`:"Marceneiro removido do ambiente");}} style={{padding:"5px 8px",borderRadius:7,border:"1.5px solid var(--bd)",background:"var(--sf)",color:a.marcId?"var(--pri)":"var(--tx3)",fontSize:11,fontWeight:700,outline:"none",maxWidth:160}}>
+                  <option value="">— Marceneiro —</option>
+                  {marceneiros.filter(x=>x.ativo).map(x=><option key={x.id} value={x.id}>{x.nome} ({x.comissao}%)</option>)}
+                </select>
                 <button onClick={()=>updPed(p.id,pp=>({...pp,ambs:pp.ambs.filter((_,j)=>j!==i)}))} style={{background:"none",border:"none",color:"var(--rd)",padding:4,cursor:"pointer"}}><I.Trash/></button>
               </div>
+              {ambMarc&&<div style={{fontSize:10,color:"var(--pri)",fontWeight:700,marginBottom:5}}>👷 {ambMarc.nome} · {ambMarc.comissao}% · Comissão: {a.val>0?`R$ ${((a.val*(ambMarc.comissao/100)).toFixed(2)).replace(".",",")}`:"-"}</div>}
               <BlurTextarea value={a.desc||""} onCommit={v=>updPed(p.id,pp=>({...pp,ambs:pp.ambs.map((x,j)=>j===i?{...x,desc:v}:x)}))} placeholder="Descrição, medidas, acabamentos, observações..." rows={2} style={{width:"100%",padding:"6px 8px",borderRadius:7,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:11,outline:"none",resize:"vertical",fontFamily:"var(--ft)",lineHeight:1.5}}/>
             </div>
-          ))}
+          );})}
           {(!p.ambs||p.ambs.length===0)&&<div style={{padding:"12px 0",color:"var(--tx3)",fontSize:12,fontWeight:600}}>Nenhum ambiente — clique em "+ Ambiente" para adicionar</div>}
         </div>
       </Card>

@@ -643,6 +643,7 @@ const PDF_LAYOUTS={
 
 function ModalPDF({o,empresa,getCli,setModal,totalOrcFinal,totalOrc,totalOrcComNF,defaultTab}){
   const [tab,setTab]=useState(defaultTab||"proposta");
+  const [semTotal,setSemTotal]=useState(false);
   const c=getCli(o.clienteId);
   const vtBase=totalOrcFinal(o);
   const vtCliente=totalOrcComNF?totalOrcComNF(o):vtBase;
@@ -874,14 +875,14 @@ function ModalPDF({o,empresa,getCli,setModal,totalOrcFinal,totalOrc,totalOrcComN
         </tbody>
       </table>
     </div>
-    <div className="total-row">
+    {!semTotal&&<div className="total-row">
       <div className="total-lbl">Total</div>
       <div className="total-right">
         {(desc>0||descR>0)&&<div className="total-old">{fmtR(vtB)}</div>}
         <div className="total-val">{fmtR(vtCliente)}</div>
         {(desc>0||descR>0)&&<div className="total-sub">{[descR>0&&`Desconto de ${fmtR(descR)}`,desc>0&&`${desc}% aplicado`].filter(Boolean).join(" + ")}</div>}
       </div>
-    </div>
+    </div>}
     <div className="cond-wrap">
       <div className="cond-grid">
         {o.especificacoes&&<div className="cond-card"><div className="cond-title">Especificações</div><div className="cond-body">{o.especificacoes}</div></div>}
@@ -945,7 +946,10 @@ function ModalPDF({o,empresa,getCli,setModal,totalOrcFinal,totalOrc,totalOrcComN
       <div style={{display:"flex",gap:6}}>
         {["proposta","os"].map(t=><button key={t} onClick={()=>setTab(t)} style={{padding:"6px 16px",borderRadius:20,border:"1.5px solid "+(tab===t?"var(--pri)":"var(--bd)"),background:tab===t?"var(--prib)":"transparent",color:tab===t?"var(--pri)":"var(--tx3)",fontSize:11,fontWeight:700,cursor:"pointer"}}>{t==="proposta"?"📄 Proposta Comercial":"📋 Ordem de Serviço"}</button>)}
       </div>
-      <div style={{display:"flex",gap:6,alignItems:"center"}}>
+      <div style={{display:"flex",gap:6,alignItems:"center",flexWrap:"wrap"}}>
+        <button onClick={()=>setSemTotal(v=>!v)} style={{padding:"5px 12px",borderRadius:20,border:`1.5px solid ${semTotal?"var(--am)":"var(--bd)"}`,background:semTotal?"rgba(245,158,11,.12)":"transparent",color:semTotal?"#d97706":"var(--tx3)",fontSize:11,fontWeight:700,cursor:"pointer"}}>
+          {semTotal?"✓ Sem Total":"Sem Total"}
+        </button>
         <span style={{fontSize:10,color:"var(--tx3)",fontWeight:700}}>Tema:</span>
         {Object.entries(PDF_TEMAS).map(([k,t])=><span key={k} title={t.nome} onClick={()=>{}} style={{width:16,height:16,borderRadius:"50%",background:t.dark,display:"inline-block",cursor:"default",border:empresa.pdfTema===k?"2px solid var(--tx)":"2px solid transparent",opacity:empresa.pdfTema===k?1:.5}}/>)}
         <Btn small onClick={downloadPDF} disabled={downloading}>{downloading?"⏳ Gerando...":"⬇ Baixar PDF"}</Btn>

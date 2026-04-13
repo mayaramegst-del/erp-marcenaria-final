@@ -2877,8 +2877,17 @@ export default function ERP(){
         </Card>
         <Card style={{padding:16}}><span style={{fontSize:10,fontWeight:800,textTransform:"uppercase",color:"var(--tx3)"}}>Marceneiro</span>
           {m&&<div style={{fontSize:13,fontWeight:700,color:"var(--tx)",marginTop:4,marginBottom:6}}>{m.nome} <Badge color="pri">{p.comPerc}%</Badge></div>}
-          <select value={p.marcId||""} onChange={e=>{if(e.target.value)designarMarc(p.id,e.target.value);}} style={{width:"100%",padding:"7px",borderRadius:8,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:12,outline:"none",marginTop:m?2:6}}>
-            <option value="">{m?"Trocar marceneiro...":"Selecionar..."}</option>
+          <select value={p.marcId||""} onChange={e=>{
+            if(e.target.value){designarMarc(p.id,e.target.value);}
+            else{
+              // Remove marceneiro: limpa comissão não paga e zera marcId
+              const oldMarcId=p.marcId;
+              updPed(p.id,pp=>({...pp,marcId:"",comPerc:0,comVal:0}));
+              if(oldMarcId)setFinanceiro(prev=>prev.filter(f=>!(f.pedidoId===p.id&&f.tipo==="pagar"&&f.marcId===oldMarcId&&!(f.valorPago>0))));
+              showToast("Marceneiro removido");
+            }
+          }} style={{width:"100%",padding:"7px",borderRadius:8,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:12,outline:"none",marginTop:m?2:6}}>
+            <option value="">{m?"— Remover marceneiro —":"Selecionar..."}</option>
             {marceneiros.filter(x=>x.ativo).map(x=><option key={x.id} value={x.id}>{x.nome} ({x.comissao}%)</option>)}
           </select>
         </Card>

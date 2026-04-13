@@ -1761,6 +1761,147 @@ function ModalBaixaRec({modal,setModal,setRecebimentos,showToast}){
   </>);
 }
 
+// ── Valor por extenso (pt-BR) ───────────────────────────────────────────────
+function _numExt(n){
+  const u=['','um','dois','três','quatro','cinco','seis','sete','oito','nove','dez','onze','doze','treze','quatorze','quinze','dezesseis','dezessete','dezoito','dezenove'];
+  const d=['','','vinte','trinta','quarenta','cinquenta','sessenta','setenta','oitenta','noventa'];
+  const c=['','cento','duzentos','trezentos','quatrocentos','quinhentos','seiscentos','setecentos','oitocentos','novecentos'];
+  if(n===0)return'zero';if(n<0)return'menos '+_numExt(-n);
+  let r='';
+  if(n>=1000000){const m=Math.floor(n/1000000);r+=_numExt(m)+(m===1?' milhão':' milhões');n%=1000000;if(n>0)r+=' e ';}
+  if(n>=1000){const t=Math.floor(n/1000);r+=(t===1?'mil':_numExt(t)+' mil');n%=1000;if(n>0)r+=' e ';}
+  if(n>=100){const h=Math.floor(n/100);r+=(n===100?'cem':c[h]);n%=100;if(n>0)r+=' e ';}
+  if(n>=20){r+=d[Math.floor(n/10)];n%=10;if(n>0)r+=' e '+u[n];}
+  else if(n>0)r+=u[n];
+  return r;
+}
+function valorExtenso(v){
+  const reais=Math.floor(v);const cts=Math.round((v-reais)*100);
+  let t=_numExt(reais)+(reais===1?' real':' reais');
+  if(cts>0)t+=' e '+_numExt(cts)+(cts===1?' centavo':' centavos');
+  return t.charAt(0).toUpperCase()+t.slice(1);
+}
+
+function ModalRecibo({empresa,getCli,setModal,pedido,parcela,numProx}){
+  const [num,setNum]=useState(String(numProx||1).padStart(3,'0'));
+  const [data,setData]=useState(hojeISO());
+  const [nomeCli,setNomeCli]=useState(()=>{const c=getCli(pedido?.clienteId);return c?.nome||'';});
+  const [cpfCnpj,setCpfCnpj]=useState(()=>{const c=getCli(pedido?.clienteId);return c?.cpf||c?.cnpj||'';});
+  const [valor,setValor]=useState(parcela?.valor??pedido?.vt??0);
+  const [desc,setDesc]=useState(parcela
+    ?`${parcela.descExtra||'Parcela'} referente ao pedido ${pedido?.num||''}`
+    :`Serviços de marcenaria — pedido ${pedido?.num||''}`);
+  const [formaPag,setFormaPag]=useState(parcela?.formaPag||'pix');
+  const formaLabel={pix:'PIX',ted:'TED/DOC',dinheiro:'Dinheiro',cheque:'Cheque',cartao:'Cartão',boleto:'Boleto',outros:'Outros'};
+  const dataFmt=data?new Date(data+'T12:00:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'long',year:'numeric'}):'';
+  const cidadeEmp=(empresa.endereco||'').split(/[-,]/).pop()?.trim().replace(/\s*\/.*$/,'').trim()||empresa.nome||'';
+
+  const imprimir=()=>{
+    const w=window.open('','_blank','width=820,height=700');
+    const logoHtml=empresa.logo?`<img src="${empresa.logo}" style="height:50px;object-fit:contain;margin-bottom:4px"/>`:
+      `<div style="font-size:22px;font-weight:900;color:#1e293b;letter-spacing:-1px">${empresa.nome||'Empresa'}</div>`;
+    const html=`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Recibo ${num}</title><style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Arial',sans-serif;background:#fff;color:#1e293b;padding:0}
+.page{max-width:740px;margin:0 auto;padding:36px 40px;border:2px solid #e2e8f0;min-height:400px;position:relative}
+.hdr{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:24px;padding-bottom:16px;border-bottom:2px solid #6366f1}
+.hdr-left{}
+.hdr-info{font-size:10px;color:#64748b;margin-top:2px}
+.hdr-right{text-align:right}
+.badge{display:inline-block;background:#6366f1;color:#fff;font-size:22px;font-weight:900;letter-spacing:2px;padding:6px 18px;border-radius:8px}
+.num{font-size:12px;color:#6366f1;font-weight:700;margin-top:4px;text-align:right}
+.body{margin:20px 0 28px}
+.recebemos{font-size:13px;color:#475569;margin-bottom:14px;line-height:1.6}
+.valor-box{background:#f0f4ff;border:1.5px solid #c7d2fe;border-radius:10px;padding:14px 20px;margin:18px 0;text-align:center}
+.valor-rs{font-size:28px;font-weight:900;color:#4338ca;letter-spacing:-1px}
+.valor-ext{font-size:11px;color:#6366f1;margin-top:4px;font-style:italic}
+.ref{margin-top:16px}
+.ref-label{font-size:9px;font-weight:800;text-transform:uppercase;color:#94a3b8;letter-spacing:.8px;margin-bottom:4px}
+.ref-val{font-size:12px;color:#1e293b;font-weight:600;padding:8px 12px;background:#f8fafc;border-radius:7px;border:1px solid #e2e8f0}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}
+.footer{margin-top:32px;padding-top:20px;border-top:1.5px dashed #cbd5e1;display:flex;justify-content:space-between;align-items:flex-end}
+.sign{text-align:center}
+.sign-line{border-bottom:1.5px solid #334155;width:220px;margin-bottom:6px}
+.sign-name{font-size:11px;font-weight:700;color:#1e293b}
+.sign-role{font-size:9px;color:#94a3b8}
+.date-place{font-size:11px;color:#64748b}
+.watermark{position:absolute;bottom:12px;right:16px;font-size:9px;color:#e2e8f0;font-weight:700;letter-spacing:1px;text-transform:uppercase}
+@media print{body{padding:0}.page{border:none;max-width:100%;padding:20px 24px}}
+</style></head><body>
+<div class="page">
+  <div class="hdr">
+    <div class="hdr-left">
+      ${logoHtml}
+      ${empresa.cnpj?`<div class="hdr-info">CNPJ: ${empresa.cnpj}</div>`:''}
+      ${empresa.endereco?`<div class="hdr-info">${empresa.endereco}</div>`:''}
+      ${empresa.telefone?`<div class="hdr-info">Tel: ${empresa.telefone}</div>`:''}
+    </div>
+    <div class="hdr-right">
+      <div class="badge">RECIBO</div>
+      <div class="num">Nº ${num}</div>
+    </div>
+  </div>
+  <div class="body">
+    <div class="recebemos">
+      Recebi(emos) de <strong>${nomeCli||'—'}</strong>${cpfCnpj?` · CPF/CNPJ: ${cpfCnpj}`:''}
+    </div>
+    <div class="valor-box">
+      <div class="valor-rs">R$ ${valor.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
+      <div class="valor-ext">(${valorExtenso(valor)})</div>
+    </div>
+    <div class="ref">
+      <div class="ref-label">Referente a</div>
+      <div class="ref-val">${desc}</div>
+    </div>
+    <div class="grid2">
+      <div>
+        <div class="ref-label">Forma de pagamento</div>
+        <div class="ref-val">${formaLabel[formaPag]||formaPag||'—'}</div>
+      </div>
+      <div>
+        <div class="ref-label">Data</div>
+        <div class="ref-val">${dataFmt}</div>
+      </div>
+    </div>
+  </div>
+  <div class="footer">
+    <div class="date-place">${cidadeEmp}, ${dataFmt}</div>
+    <div class="sign">
+      <div class="sign-line"></div>
+      <div class="sign-name">${empresa.nome||'Empresa'}</div>
+      <div class="sign-role">${empresa.cnpj?'CNPJ: '+empresa.cnpj:'Responsável'}</div>
+    </div>
+  </div>
+  <div class="watermark">RECIBO Nº ${num}</div>
+</div>
+<script>setTimeout(()=>window.print(),350)</script>
+</body></html>`;
+    w.document.write(html);w.document.close();
+  };
+
+  return(<>
+    <h2 style={{fontSize:16,fontWeight:800,color:"var(--tx)",marginBottom:16}}>Emitir Recibo</h2>
+    <div style={{display:"grid",gridTemplateColumns:"120px 1fr",gap:10,marginBottom:10}}>
+      <Field label="Nº do Recibo" value={num} onChange={setNum}/>
+      <Field label="Data" type="date" value={data} onChange={setData}/>
+    </div>
+    <Field label="Nome do Cliente / Pagador" value={nomeCli} onChange={setNomeCli}/>
+    <Field label="CPF / CNPJ do Cliente (opcional)" value={cpfCnpj} onChange={setCpfCnpj}/>
+    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+      <Field label="Valor R$" type="number" value={valor} onChange={v=>setValor(+v)}/>
+      <Field label="Forma de Pagamento" value={formaPag} onChange={setFormaPag} options={FORMAS}/>
+    </div>
+    <Field label="Referente a (descrição)" value={desc} onChange={setDesc}/>
+    {valor>0&&<div style={{background:"var(--prib)",borderRadius:"var(--r)",padding:"8px 12px",fontSize:11,color:"var(--pri)",fontStyle:"italic",marginTop:4}}>
+      {valorExtenso(valor)}
+    </div>}
+    <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:16}}>
+      <Btn v="ghost" onClick={()=>setModal(null)}>Cancelar</Btn>
+      <Btn onClick={imprimir}><I.Printer/> Gerar e Imprimir</Btn>
+    </div>
+  </>);
+}
+
 // Wrapper estável: identidade fixa → React nunca desmonta ao re-renderizar o pai
 function StablePageWrapper({renderFn}){return renderFn();}
 
@@ -2847,6 +2988,7 @@ export default function ERP(){
         {p.status!=="cancelado"&&<select value={p.stage} onChange={e=>updPed(p.id,{stage:e.target.value,status:e.target.value==="concluido"?"concluido":"em_producao"})} style={{padding:"7px 10px",borderRadius:10,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:11,fontWeight:700,outline:"none"}}>{KCOLS.map(k=><option key={k.id} value={k.id}>{k.label}</option>)}</select>}
         <Badge color={p.status==="concluido"?"green":p.status==="em_producao"?"amber":p.status==="cancelado"?"red":"blue"}>{p.status==="cancelado"?"Cancelado":p.status.replace("_"," ")}</Badge>
         {(()=>{const orc=orcamentos.find(x=>x.id===p.orcId);return orc&&<Btn v="secondary" small onClick={()=>setModal({t:"pdf",d:orc,tab:"os"})}><I.Printer/> OS PDF</Btn>})()}
+        <Btn v="ghost" small onClick={()=>{const numProx=1+(financeiro.filter(f=>f.reciboNum).length||0);setModal({t:"recibo",pedido:p,numProx});}}><I.Printer/> Recibo</Btn>
         {p.status!=="cancelado"
           ?<Btn v="ghost" small style={{color:"var(--rd)",border:"1px solid rgba(239,68,68,.3)"}} onClick={()=>{if(window.confirm(`Cancelar o pedido ${p.num}? Essa ação não pode ser desfeita.`)){updPed(p.id,{status:"cancelado",stage:"cancelado",marcId:null});showToast("Pedido cancelado","red");}}}><I.X/> Cancelar Pedido</Btn>
           :<div style={{display:"flex",gap:6}}><Btn v="ghost" small onClick={()=>{if(window.confirm("Reativar este pedido?"))updPed(p.id,{status:"em_espera",stage:"corte"});}}><I.Check/> Reativar</Btn><Btn v="ghost" small style={{color:"var(--rd)",border:"1px solid rgba(239,68,68,.3)"}} onClick={()=>{if(window.confirm(`Excluir permanentemente o pedido ${p.num}? Esta ação não pode ser desfeita.`)){setPedidos(prev=>prev.filter(x=>x.id!==p.id));setFinanceiro(prev=>prev.filter(f=>f.pedidoId!==p.id));setPedAtivo(null);showToast("Pedido excluído","red");}}}><I.Trash/> Excluir</Btn></div>}
@@ -2939,7 +3081,7 @@ export default function ERP(){
               <span style={{fontWeight:800,fontSize:12,color:"var(--tx)"}}>Parcela {i+1}{pa.pago&&<span style={{marginLeft:6,fontSize:10,color:"var(--gn)",fontWeight:700}}>✓ PAGA</span>}</span>
               <div style={{display:"flex",alignItems:"center",gap:6}}>
                 {pa.pago
-                  ?<><button onClick={()=>editParcela(fin.id,pa.id,{pago:false,dataPago:""})} style={{background:"none",border:"1px solid var(--bd)",borderRadius:6,color:"var(--tx3)",cursor:"pointer",fontSize:10,padding:"3px 7px",fontWeight:700}}>↩ Reabrir</button><button onClick={()=>delParcela(fin.id,pa.id)} style={{background:"none",border:"none",color:"var(--rd)",cursor:"pointer",padding:2}}><I.Trash/></button></>
+                  ?<><button onClick={()=>editParcela(fin.id,pa.id,{pago:false,dataPago:""})} style={{background:"none",border:"1px solid var(--bd)",borderRadius:6,color:"var(--tx3)",cursor:"pointer",fontSize:10,padding:"3px 7px",fontWeight:700}}>↩ Reabrir</button><button onClick={()=>setModal({t:"recibo",pedido:p,parcela:{...pa,descExtra:`Parcela ${i+1}/${fin.parcelas.length}`},numProx:i+1})} style={{background:"none",border:"1px solid var(--pri)",borderRadius:6,color:"var(--pri)",cursor:"pointer",fontSize:10,padding:"3px 7px",fontWeight:700}}>🧾 Recibo</button><button onClick={()=>delParcela(fin.id,pa.id)} style={{background:"none",border:"none",color:"var(--rd)",cursor:"pointer",padding:2}}><I.Trash/></button></>
                   :<><Btn v="success" small onClick={()=>{pagarParcela(fin.id,pa.id,pa.valor,pa.formaPag||"");showToast("Parcela baixada!");}}>✓ Baixar</Btn>
                     <button onClick={()=>delParcela(fin.id,pa.id)} style={{background:"none",border:"none",color:"var(--rd)",cursor:"pointer",padding:2}}><I.Trash/></button></>
                 }
@@ -4580,6 +4722,8 @@ export default function ERP(){
       {modal?.t==="detFin"&&<Modal onClose={()=>setModal(null)} wide><ModalDetFin f={modal.d} financeiro={financeiro} setModal={setModal} pagarParcela={pagarParcela} editParcela={editParcela} addParcela={addParcela} delParcela={delParcela} updFin={updFin} showToast={showToast} cats={empresa.cats||CATS}/></Modal>}
 
       {modal?.t==="newFin"&&<Modal onClose={()=>setModal(null)}><ModalNewFin setModal={setModal} setFinanceiro={setFinanceiro} setRecorrentes={setRecorrentes} showToast={showToast} cats={empresa.cats||CATS} fonteCartao={modal.d?.fonteCartao} fontePool={modal.d?.fontePool} fornecedorSugerido={modal.d?.fornecedorSugerido}/></Modal>}
+
+      {modal?.t==="recibo"&&<Modal onClose={()=>setModal(null)}><ModalRecibo empresa={empresa} getCli={getCli} setModal={setModal} pedido={modal.pedido} parcela={modal.parcela} numProx={modal.numProx}/></Modal>}
 
       {modal?.t==="novoRec"&&<Modal onClose={()=>setModal(null)}><ModalNovoRec clientes={clientes} setModal={setModal} setRecebimentos={setRecebimentos} showToast={showToast}/></Modal>}
       {modal?.t==="baixaRec"&&<Modal onClose={()=>setModal(null)}><ModalBaixaRec modal={modal} setModal={setModal} setRecebimentos={setRecebimentos} showToast={showToast}/></Modal>}

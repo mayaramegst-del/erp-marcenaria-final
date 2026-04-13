@@ -682,7 +682,7 @@ function ModalPDF({o,empresa,getCli,setModal,totalOrcFinal,totalOrc,totalOrcComN
     .cond-title{font-size:13pt;font-weight:800;text-transform:uppercase;letter-spacing:1.2px;color:${A};margin-bottom:9px}
     .cond-body{font-size:12.5pt;color:#333;white-space:pre-line;line-height:1.7;word-break:keep-all;overflow-wrap:break-word}
     /* assinatura */
-    .sign-wrap{break-inside:avoid;page-break-inside:avoid;margin-top:48px;padding-top:20px;border-top:1px solid #e2e8f0}
+    .sign-wrap{margin-top:40px;padding-top:20px;border-top:1px solid #e2e8f0}
     .sign-city{font-size:9.5pt;font-weight:600;color:#334155;text-align:center;margin-bottom:32px}
     .sign-area{display:flex;justify-content:space-around;align-items:flex-end;break-inside:avoid;page-break-inside:avoid;gap:60px}
     .sign-block{flex:1;text-align:center;break-inside:avoid;page-break-inside:avoid;max-width:240px}
@@ -736,7 +736,7 @@ function ModalPDF({o,empresa,getCli,setModal,totalOrcFinal,totalOrc,totalOrcComN
       .total-old{font-size:10pt;color:#aaa;text-decoration:line-through;margin-bottom:2px}
       .total-sub{font-size:9pt;color:#ccc;margin-top:2px}
       .cond-wrap{margin:0 36px}
-      .sign-wrap{margin:0 36px}
+      .sign-wrap{margin:40px 36px 0}
       .footer-wrap{margin:0 36px}
     `,
     moderno:`
@@ -771,7 +771,7 @@ function ModalPDF({o,empresa,getCli,setModal,totalOrcFinal,totalOrc,totalOrcComN
       .total-old{font-size:10pt;color:rgba(255,255,255,.6);text-decoration:line-through;margin-bottom:2px}
       .total-sub{font-size:9pt;color:rgba(255,255,255,.75);margin-top:2px}
       .cond-wrap{margin:0 36px}
-      .sign-wrap{margin:0 36px}
+      .sign-wrap{margin:40px 36px 0}
       .footer-wrap{margin:0 36px}
     `,
     minimalista:`
@@ -806,7 +806,7 @@ function ModalPDF({o,empresa,getCli,setModal,totalOrcFinal,totalOrc,totalOrcComN
       .total-old{font-size:10pt;color:#ccc;text-decoration:line-through;margin-bottom:2px}
       .total-sub{font-size:9pt;color:#aaa;margin-top:2px}
       .cond-wrap{margin:0 36px}
-      .sign-wrap{margin:0 36px}
+      .sign-wrap{margin:40px 36px 0}
       .footer-wrap{margin:0 36px}
     `,
   };
@@ -824,7 +824,7 @@ function ModalPDF({o,empresa,getCli,setModal,totalOrcFinal,totalOrc,totalOrcComN
       el.style.width='800px';el.style.minWidth='800px';
       // Captura posição de TODOS os blocos que não devem ser quebrados entre páginas
       const elRect=el.getBoundingClientRect();
-      const noBreakSel='.svc-table tbody tr,.cond-card,.cond-grid,.sign-area,.sign-wrap,.info-grid,.total-row,.hdr,.orc-banner,.cli-row,.sec-title,.footer-wrap,.footer';
+      const noBreakSel='.svc-table tbody tr,.cond-card,.cond-grid,.sign-block,.info-grid,.total-row,.hdr,.orc-banner,.cli-row,.sec-title,.footer-wrap,.footer';
       const rowBounds=Array.from(el.querySelectorAll(noBreakSel)).map(row=>{
         const r=row.getBoundingClientRect();
         return{topPx:Math.round((r.top-elRect.top)*2),botPx:Math.round((r.bottom-elRect.top)*2)};

@@ -824,7 +824,7 @@ function ModalPDF({o,empresa,getCli,setModal,totalOrcFinal,totalOrc,totalOrcComN
       el.style.width='800px';el.style.minWidth='800px';
       // Captura posição de TODOS os blocos que não devem ser quebrados entre páginas
       const elRect=el.getBoundingClientRect();
-      const noBreakSel='.svc-table tbody tr,.cond-card,.cond-grid,.sign-block,.info-grid,.total-row,.hdr,.orc-banner,.cli-row,.sec-title,.footer-wrap,.footer';
+      const noBreakSel='.svc-table tbody tr,.cond-card,.sign-block,.total-row,.hdr,.orc-banner,.cli-row,.footer-wrap';
       const rowBounds=Array.from(el.querySelectorAll(noBreakSel)).map(row=>{
         const r=row.getBoundingClientRect();
         return{topPx:Math.round((r.top-elRect.top)*2),botPx:Math.round((r.bottom-elRect.top)*2)};
@@ -845,12 +845,15 @@ function ModalPDF({o,empresa,getCli,setModal,totalOrcFinal,totalOrc,totalOrcComN
           let safeEnd=pageEnd;
           for(const rb of rowBounds){
             if(rb.topPx<safeEnd&&rb.botPx>safeEnd){
-              safeEnd=rb.topPx; // retrocede para antes do bloco
+              safeEnd=rb.topPx;
             }
           }
-          // Se retrocedeu demais (bloco maior que a página), avança forçado para não travar
-          if(safeEnd<=pageStart)safeEnd=pageEnd;
-          pageEnd=safeEnd;
+          // Se retrocedeu demais (bloco maior que a página), corta no final do bloco
+          if(safeEnd<=pageStart){
+            const big=rowBounds.find(rb=>rb.topPx<=pageStart+10&&rb.botPx>pageStart);
+            safeEnd=big?big.botPx:pageEnd;
+          }
+          pageEnd=Math.max(pageStart+10,safeEnd);
         }
         const cropH=Math.round(pageEnd-pageStart);
         if(cropH<=0){pageStart=Math.round(pageEnd)+1;continue;}

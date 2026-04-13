@@ -682,18 +682,21 @@ function ModalPDF({o,empresa,getCli,setModal,totalOrcFinal,totalOrc,totalOrcComN
     .cond-title{font-size:13pt;font-weight:800;text-transform:uppercase;letter-spacing:1.2px;color:${A};margin-bottom:9px}
     .cond-body{font-size:12.5pt;color:#333;white-space:pre-line;line-height:1.7;word-break:keep-all;overflow-wrap:break-word}
     /* assinatura */
-    .sign-wrap{break-inside:avoid;page-break-inside:avoid}
-    .sign-header{display:flex;align-items:center;gap:12px;margin:36px 0 10px}
-    .sign-header-line{flex:1;height:1px;background:linear-gradient(to right,transparent,${A},transparent)}
-    .sign-header-title{font-size:8.5pt;font-weight:800;color:${A};text-transform:uppercase;letter-spacing:2px;white-space:nowrap}
-    .sign-statement{font-size:8pt;color:#64748b;text-align:center;font-style:italic;margin-bottom:18px;line-height:1.6;padding:0 20px}
-    .sign-local-row{font-size:9pt;font-weight:600;color:#475569;text-align:right;margin-bottom:28px}
-    .sign-area{display:flex;justify-content:space-around;align-items:flex-start;break-inside:avoid;page-break-inside:avoid;gap:40px}
-    .sign-block{flex:1;text-align:center;break-inside:avoid;page-break-inside:avoid;max-width:220px}
-    .sign-svg-wrap{height:56px;display:flex;align-items:flex-end;justify-content:center;margin-bottom:0}
-    .sign-line{border-top:1.5px solid #334155;padding-top:8px;margin-top:0}
+    .sign-wrap{break-inside:avoid;page-break-inside:avoid;margin-top:40px}
+    .sign-header{display:flex;align-items:center;gap:12px;margin-bottom:12px}
+    .sign-header-line{flex:1;height:1px;background:${A}}
+    .sign-header-title{font-size:8pt;font-weight:800;color:${A};text-transform:uppercase;letter-spacing:2px;white-space:nowrap}
+    .sign-statement{font-size:8pt;color:#64748b;text-align:center;font-style:italic;margin-bottom:8px;line-height:1.6;padding:0 20px}
+    .sign-date-row{display:flex;align-items:center;justify-content:flex-end;gap:6px;margin:14px 0 32px}
+    .sign-date-label{font-size:8.5pt;color:#475569;font-weight:600}
+    .sign-date-blank{width:160px;border-bottom:1px solid #334155}
+    .sign-area{display:flex;justify-content:space-around;align-items:flex-end;break-inside:avoid;page-break-inside:avoid;gap:48px}
+    .sign-block{flex:1;text-align:center;break-inside:avoid;page-break-inside:avoid}
+    .sign-space{height:60px}
+    .sign-line{border-top:1.5px solid #334155;padding-top:8px}
     .sign-name{font-size:10pt;font-weight:700;color:#1e293b}
-    .sign-role{font-size:8pt;color:#94a3b8;margin-top:2px;font-weight:600;text-transform:uppercase;letter-spacing:.5px}
+    .sign-doc{font-size:8pt;color:#64748b;margin-top:2px}
+    .sign-role{font-size:7.5pt;color:#94a3b8;margin-top:3px;font-weight:700;text-transform:uppercase;letter-spacing:.8px}
     /* footer */
     .footer{text-align:center;font-size:9pt;color:#bbb;padding:14px 0 4px;border-top:1px solid #ebebeb;margin-top:24px;break-inside:avoid;page-break-inside:avoid}
     /* blocos gerais — nunca quebrar internamente */
@@ -904,35 +907,29 @@ function ModalPDF({o,empresa,getCli,setModal,totalOrcFinal,totalOrc,totalOrcComN
     {isOS&&<div className="sign-wrap">
       <div className="sign-header">
         <div className="sign-header-line"/>
-        <div className="sign-header-title">Declaração e Assinaturas</div>
+        <div className="sign-header-title">Aceite e Assinaturas</div>
         <div className="sign-header-line"/>
       </div>
       <div className="sign-statement">
-        As partes abaixo declaram que leram, compreenderam e aceitam integralmente os termos e condições desta Ordem de Serviço.
+        Declaro que li e aceito os termos desta Ordem de Serviço, autorizando o início dos trabalhos conforme especificado acima.
       </div>
-      <div className="sign-local-row">{cidade&&`${cidade}, `}{o.data}</div>
+      <div className="sign-date-row">
+        <span className="sign-date-label">{cidade||"Local"}, ______ / ______ / __________</span>
+      </div>
       <div className="sign-area">
         <div className="sign-block">
-          <div className="sign-svg-wrap">
-            <svg viewBox="0 0 180 54" xmlns="http://www.w3.org/2000/svg" style={{width:"100%",maxWidth:180,height:54}}>
-              <path d="M 8,40 C 14,22 26,14 38,24 C 46,30 44,44 32,40 C 22,36 26,22 40,18 C 54,14 62,26 70,38 C 74,44 78,42 84,36 C 90,30 94,26 102,28 C 110,30 112,38 118,36 C 124,34 128,28 136,26 C 142,24 150,28 155,34 C 158,37 160,40 165,38" stroke="#1e293b" strokeWidth="1.6" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
-              <path d="M 8,44 C 55,47 110,46 165,44" stroke="#1e293b" strokeWidth="0.6" fill="none" strokeLinecap="round" opacity="0.25"/>
-            </svg>
-          </div>
+          <div className="sign-space"/>
           <div className="sign-line"/>
           <div className="sign-name">{empresa.nome}</div>
-          <div className="sign-role">Responsável Técnico</div>
+          {empresa.cnpj&&<div className="sign-doc">CNPJ: {empresa.cnpj}</div>}
+          <div className="sign-role">Contratada — Responsável Técnico</div>
         </div>
         <div className="sign-block">
-          <div className="sign-svg-wrap">
-            <svg viewBox="0 0 180 54" xmlns="http://www.w3.org/2000/svg" style={{width:"100%",maxWidth:180,height:54}}>
-              <path d="M 10,38 C 18,18 34,12 46,26 C 50,31 48,42 36,38 C 26,34 32,20 46,18 C 58,16 68,28 72,40 C 74,46 80,44 86,36 C 92,28 96,24 106,26 C 114,28 116,38 112,42 C 118,38 126,32 136,28 C 144,25 152,30 158,36 C 161,39 163,40 168,38" stroke="#1e293b" strokeWidth="1.6" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
-              <path d="M 10,44 C 60,47 112,46 168,44" stroke="#1e293b" strokeWidth="0.6" fill="none" strokeLinecap="round" opacity="0.25"/>
-            </svg>
-          </div>
+          <div className="sign-space"/>
           <div className="sign-line"/>
-          <div className="sign-name">{c?.nome}</div>
-          <div className="sign-role">Cliente / Contratante</div>
+          <div className="sign-name">{c?.nome||"Cliente"}</div>
+          {c?.doc&&<div className="sign-doc">CPF/CNPJ: {c.doc}</div>}
+          <div className="sign-role">Contratante</div>
         </div>
       </div>
     </div>}

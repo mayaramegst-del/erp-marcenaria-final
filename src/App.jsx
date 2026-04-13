@@ -682,19 +682,16 @@ function ModalPDF({o,empresa,getCli,setModal,totalOrcFinal,totalOrc,totalOrcComN
     .cond-title{font-size:13pt;font-weight:800;text-transform:uppercase;letter-spacing:1.2px;color:${A};margin-bottom:9px}
     .cond-body{font-size:12.5pt;color:#333;white-space:pre-line;line-height:1.7;word-break:keep-all;overflow-wrap:break-word}
     /* assinatura */
-    .sign-wrap{break-inside:avoid;page-break-inside:avoid;margin-top:40px}
-    .sign-header{display:flex;align-items:center;gap:12px;margin-bottom:12px}
-    .sign-header-line{flex:1;height:1px;background:${A}}
-    .sign-header-title{font-size:8pt;font-weight:800;color:${A};text-transform:uppercase;letter-spacing:2px;white-space:nowrap}
-    .sign-statement{font-size:8pt;color:#64748b;text-align:center;font-style:italic;margin-bottom:8px;line-height:1.6;padding:0 20px}
-    .sign-date-row{display:flex;align-items:center;justify-content:flex-end;gap:6px;margin:14px 0 32px}
-    .sign-date-label{font-size:8.5pt;color:#475569;font-weight:600}
-    .sign-date-blank{width:160px;border-bottom:1px solid #334155}
-    .sign-area{display:flex;justify-content:space-around;align-items:flex-end;break-inside:avoid;page-break-inside:avoid;gap:48px}
-    .sign-block{flex:1;text-align:center;break-inside:avoid;page-break-inside:avoid}
-    .sign-space{height:60px}
-    .sign-line{border-top:1.5px solid #334155;padding-top:8px}
-    .sign-name{font-size:10pt;font-weight:700;color:#1e293b}
+    .sign-wrap{break-inside:avoid;page-break-inside:avoid;margin-top:48px;padding-top:20px;border-top:1px solid #e2e8f0}
+    .sign-city{font-size:9.5pt;font-weight:600;color:#334155;text-align:center;margin-bottom:32px}
+    .sign-area{display:flex;justify-content:space-around;align-items:flex-end;break-inside:avoid;page-break-inside:avoid;gap:60px}
+    .sign-block{flex:1;text-align:center;break-inside:avoid;page-break-inside:avoid;max-width:240px}
+    .sign-stamp{height:72px;display:flex;align-items:center;justify-content:center;margin-bottom:0}
+    .sign-stamp img{max-height:68px;max-width:140px;object-fit:contain;opacity:.85}
+    .sign-space{height:72px}
+    .sign-line{border-top:1.5px solid #1e293b;padding-top:7px;margin-top:0}
+    .sign-name{font-size:10.5pt;font-weight:800;color:#1e293b;letter-spacing:.2px}
+    .sign-name2{font-size:9pt;font-weight:400;color:#475569;margin-top:2px}
     .sign-doc{font-size:8pt;color:#64748b;margin-top:2px}
     .sign-role{font-size:7.5pt;color:#94a3b8;margin-top:3px;font-weight:700;text-transform:uppercase;letter-spacing:.8px}
     /* footer */
@@ -905,24 +902,16 @@ function ModalPDF({o,empresa,getCli,setModal,totalOrcFinal,totalOrc,totalOrcComN
     </div>
     {/* Assinatura APENAS na OS */}
     {isOS&&<div className="sign-wrap">
-      <div className="sign-header">
-        <div className="sign-header-line"/>
-        <div className="sign-header-title">Aceite e Assinaturas</div>
-        <div className="sign-header-line"/>
-      </div>
-      <div className="sign-statement">
-        Declaro que li e aceito os termos desta Ordem de Serviço, autorizando o início dos trabalhos conforme especificado acima.
-      </div>
-      <div className="sign-date-row">
-        <span className="sign-date-label">{cidade||"Local"}, ______ / ______ / __________</span>
-      </div>
+      <div className="sign-city">{cidade||""}</div>
       <div className="sign-area">
         <div className="sign-block">
-          <div className="sign-space"/>
+          {empresa.logo
+            ?<div className="sign-stamp"><img src={empresa.logo} alt=""/></div>
+            :<div className="sign-space"/>}
           <div className="sign-line"/>
           <div className="sign-name">{empresa.nome}</div>
+          <div className="sign-name2">{empresa.nome}</div>
           {empresa.cnpj&&<div className="sign-doc">CNPJ: {empresa.cnpj}</div>}
-          <div className="sign-role">Contratada — Responsável Técnico</div>
         </div>
         <div className="sign-block">
           <div className="sign-space"/>

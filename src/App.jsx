@@ -838,9 +838,10 @@ function ModalPDF({o,empresa,getCli,setModal,totalOrcFinal,totalOrc,totalOrcComN
         let pageEnd=Math.min(pageStart+pageHpx,canvas.height);
         if(pageEnd<canvas.height){
           let safeEnd=pageEnd;
-          // 1) Não cortar dentro de blocos
+          // 1) Não cortar dentro de blocos — mas só recua se o bloco está na metade inferior
+          //    da página (topPx > 40% da altura). Blocos grandes que começam cedo são cortados.
           for(const rb of rowBounds){
-            if(rb.topPx<safeEnd&&rb.botPx>safeEnd) safeEnd=rb.topPx;
+            if(rb.topPx<safeEnd&&rb.botPx>safeEnd&&rb.topPx>pageStart+pageHpx*0.4) safeEnd=rb.topPx;
           }
           // 2) Bloco maior que página: avança ao fim do bloco
           if(safeEnd<=pageStart){

@@ -686,8 +686,8 @@ function ModalPDF({o,empresa,getCli,setModal,totalOrcFinal,totalOrc,totalOrcComN
     .sign-city{font-size:9.5pt;font-weight:600;color:#334155;text-align:center;margin-bottom:32px}
     .sign-area{display:flex;justify-content:space-around;align-items:flex-end;break-inside:avoid;page-break-inside:avoid;gap:60px}
     .sign-block{flex:1;text-align:center;break-inside:avoid;page-break-inside:avoid;max-width:240px}
-    .sign-stamp{height:72px;display:flex;align-items:center;justify-content:center;margin-bottom:0}
-    .sign-stamp img{max-height:68px;max-width:140px;object-fit:contain;opacity:.85}
+    .sign-stamp{height:80px;display:flex;align-items:center;justify-content:center;margin-bottom:0}
+    .sign-stamp img{height:70px;width:auto;max-width:160px;object-fit:contain;display:block;margin:0 auto}
     .sign-space{height:72px}
     .sign-line{border-top:1.5px solid #1e293b;padding-top:7px;margin-top:0}
     .sign-name{font-size:10.5pt;font-weight:800;color:#1e293b;letter-spacing:.2px}
@@ -816,66 +816,30 @@ function ModalPDF({o,empresa,getCli,setModal,totalOrcFinal,totalOrc,totalOrcComN
   const downloadPDF=async()=>{
     setDownloading(true);
     try{
-      // html2canvas e jsPDF importados estaticamente no topo — sem risco de chunk hash stale
       const el=zoneRef.current;
-      const prevMax=el.style.maxHeight,prevOv=el.style.overflowY,prevW=el.style.width,prevMinW=el.style.minWidth;
+      const prev={mh:el.style.maxHeight,ov:el.style.overflowY};
       el.style.maxHeight='none';el.style.overflowY='visible';
-      // Força largura desktop mesmo em celular — evita PDF deformado em viewport estreito
-      el.style.width='800px';el.style.minWidth='800px';
-      // Captura posição de TODOS os blocos que não devem ser quebrados entre páginas
-      const elRect=el.getBoundingClientRect();
-      // Blocos que nunca podem ser cortados internamente
-      const noBreakSel='.svc-table tbody tr,.cond-card,.sign-block,.total-row,.hdr,.orc-banner,.cli-row,.footer-wrap';
-      // Elementos "órfãos" — quando a quebra cai logo depois deles, recua para incluí-los na próxima página
-      const orphanSel='.sec-title,.svc-table thead';
-      const mkBounds=sel=>Array.from(el.querySelectorAll(sel)).map(row=>{
-        const r=row.getBoundingClientRect();
-        return{topPx:Math.round((r.top-elRect.top)*2),botPx:Math.round((r.bottom-elRect.top)*2)};
-      }).sort((a,b)=>a.topPx-b.topPx);
-      const rowBounds=mkBounds(noBreakSel);
-      const orphanBounds=mkBounds(orphanSel);
-      const canvas=await html2canvas(el,{scale:2,useCORS:true,backgroundColor:'#fff',logging:false,scrollY:-window.scrollY,windowWidth:1200});
-      el.style.maxHeight=prevMax;el.style.overflowY=prevOv;el.style.width=prevW;el.style.minWidth=prevMinW;
-      const pdf=new jsPDF({orientation:'p',unit:'mm',format:'a4'});
-      const pw=pdf.internal.pageSize.getWidth(),ph=pdf.internal.pageSize.getHeight();
-      const mx=8,my=8;
-      const cW=pw-mx*2,cH=ph-my*2;
-      const pxPerMm=canvas.width/cW;
-      const pageHpx=cH*pxPerMm;
-      let pageStart=0,pageNum=0;
-      while(pageStart<canvas.height){
-        let pageEnd=Math.min(pageStart+pageHpx,canvas.height);
-        if(pageEnd<canvas.height){
-          let safeEnd=pageEnd;
-          // 1) Recua para não cortar dentro de blocos
-          for(const rb of rowBounds){
-            if(rb.topPx<safeEnd&&rb.botPx>safeEnd) safeEnd=rb.topPx;
-          }
-          // 2) Se bloco maior que a página, avança até o fim do bloco
-          if(safeEnd<=pageStart){
-            const big=rowBounds.find(rb=>rb.topPx<=pageStart+10&&rb.botPx>pageStart);
-            safeEnd=big?big.botPx:pageEnd;
-          }
-          // 3) Prevenção de órfãos: passe único — só retrai se o título/thead ficou
-          //    literalmente sozinho no final da página (dentro de 120px do corte)
-          const orphaned=orphanBounds.filter(rb=>
-            rb.botPx<=safeEnd&&rb.botPx>=safeEnd-120&&rb.topPx>pageStart
-          );
-          if(orphaned.length>0) safeEnd=orphaned[0].topPx;
-          // 4) Garante progresso mínimo
-          if(safeEnd<=pageStart) safeEnd=pageStart+pageHpx;
-          pageEnd=safeEnd;
-        }
-        const cropH=Math.round(pageEnd-pageStart);
-        if(cropH<=0){pageStart=Math.round(pageEnd)+1;continue;}
-        if(pageNum>0)pdf.addPage();
-        const off=document.createElement('canvas');
-        off.width=canvas.width;off.height=cropH;
-        off.getContext('2d').drawImage(canvas,0,pageStart,canvas.width,cropH,0,0,canvas.width,cropH);
-        pdf.addImage(off.toDataURL('image/jpeg',0.93),'JPEG',mx,my,cW,cropH/pxPerMm);
-        pageStart=Math.round(pageEnd);pageNum++;
-      }
-      pdf.save(`${isOS?"OS":"ORC"}_${o.num}_${c?.nome||"cliente"}.pdf`.replace(/\s+/g,'_'));
+      const html=el.innerHTML;
+      el.style.maxHeight=prev.mh;el.style.overflowY=prev.ov;
+      const fname=`${isOS?'OS':'ORC'}_${o.num}_${c?.nome||'cliente'}`.replace(/\s+/g,'_');
+      const win=window.open('','_blank');
+      if(!win){alert('Permita pop-ups para baixar o PDF.');setDownloading(false);return;}
+      win.document.write(`<!DOCTYPE html><html><head>
+<meta charset="utf-8"><title>${fname}</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;padding:16px;background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact;color-adjust:exact}
+${printCSS}
+@media print{
+  @page{size:A4;margin:10mm 8mm}
+  body{padding:0}
+  .doc{border:none!important;box-shadow:none!important;border-radius:0!important}
+}
+</style></head><body>
+<div class="doc" style="max-width:900px;margin:0 auto;background:#fff;border-radius:8px;overflow:hidden;border:1.5px solid #e5e7eb">${html}</div>
+<script>window.addEventListener('load',function(){setTimeout(function(){window.print();},400);});<\/script>
+</body></html>`);
+      win.document.close();
     }catch(err){
       console.error('[PDF] Erro ao gerar PDF:',err);
       alert('Erro ao gerar PDF: '+(err?.message||String(err)));
@@ -920,7 +884,7 @@ function ModalPDF({o,empresa,getCli,setModal,totalOrcFinal,totalOrc,totalOrcComN
       <div className="sign-area">
         <div className="sign-block">
           <div className="sign-stamp">
-            {empresa.logo&&<img src={empresa.logo} width="110" height="70" alt="" style={{width:110,height:70,objectFit:"contain",display:"block",margin:"0 auto"}}/>}
+            {empresa.logo&&<img src={empresa.logo} alt="" style={{height:70,width:"auto",maxWidth:160,objectFit:"contain",display:"block",margin:"0 auto"}}/>}
           </div>
           <div className="sign-line"/>
           <div className="sign-name">{empresa.nome}</div>

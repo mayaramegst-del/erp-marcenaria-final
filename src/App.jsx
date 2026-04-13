@@ -856,17 +856,12 @@ function ModalPDF({o,empresa,getCli,setModal,totalOrcFinal,totalOrc,totalOrcComN
             const big=rowBounds.find(rb=>rb.topPx<=pageStart+10&&rb.botPx>pageStart);
             safeEnd=big?big.botPx:pageEnd;
           }
-          // 3) Prevenção de órfãos: se a quebra cai logo após um título/thead (≤300px antes),
-          //    recua mais para levá-los junto com o conteúdo seguinte
-          let changed=true;
-          while(changed){
-            changed=false;
-            for(const rb of orphanBounds){
-              if(rb.botPx<=safeEnd&&rb.botPx>=safeEnd-300&&rb.topPx>pageStart){
-                safeEnd=rb.topPx;changed=true;break;
-              }
-            }
-          }
+          // 3) Prevenção de órfãos: passe único — só retrai se o título/thead ficou
+          //    literalmente sozinho no final da página (dentro de 120px do corte)
+          const orphaned=orphanBounds.filter(rb=>
+            rb.botPx<=safeEnd&&rb.botPx>=safeEnd-120&&rb.topPx>pageStart
+          );
+          if(orphaned.length>0) safeEnd=orphaned[0].topPx;
           // 4) Garante progresso mínimo
           if(safeEnd<=pageStart) safeEnd=pageStart+pageHpx;
           pageEnd=safeEnd;
@@ -925,7 +920,7 @@ function ModalPDF({o,empresa,getCli,setModal,totalOrcFinal,totalOrc,totalOrcComN
       <div className="sign-area">
         <div className="sign-block">
           <div className="sign-stamp">
-            {empresa.logo&&<img src={empresa.logo} width="90" height="60" alt="" style={{objectFit:"contain",display:"block",margin:"0 auto",maxWidth:90,maxHeight:60}}/>}
+            {empresa.logo&&<img src={empresa.logo} width="110" height="70" alt="" style={{width:110,height:70,objectFit:"contain",display:"block",margin:"0 auto"}}/>}
           </div>
           <div className="sign-line"/>
           <div className="sign-name">{empresa.nome}</div>

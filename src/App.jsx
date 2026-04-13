@@ -875,7 +875,7 @@ function ModalPDF({o,empresa,getCli,setModal,totalOrcFinal,totalOrc,totalOrcComN
       <table className="svc-table">
         <thead><tr><th>Descrição</th><th className="r" style={{width:120}}>Valor</th></tr></thead>
         <tbody>
-          {o.ambientes.map((a,i)=>(
+          {[...o.ambientes].sort((a,b)=>(a.desc||'').length-(b.desc||'').length).map((a,i)=>(
             <tr key={a.id}>
               <td className="td-desc"><strong>{a.nome||`Serviço ${i+1}`}</strong>{a.desc&&<p>{a.desc}</p>}</td>
               <td className="td-val">{fmtR(a.valorTotal)}</td>

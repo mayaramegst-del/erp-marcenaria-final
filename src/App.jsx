@@ -848,10 +848,15 @@ function ModalPDF({o,empresa,getCli,setModal,totalOrcFinal,totalOrc,totalOrcComN
             const big=rowBounds.find(rb=>rb.topPx<=pageStart+10&&rb.botPx>pageStart);
             safeEnd=big?big.botPx:pageEnd;
           }
-          // 3) Órfão: puxa sec-title/thead que ficou sozinho no final (threshold 250px)
-          const THRESH=250;
-          const orphaned=orphanBounds.filter(rb=>rb.botPx<=safeEnd&&rb.botPx>=safeEnd-THRESH&&rb.topPx>pageStart);
-          if(orphaned.length>0) safeEnd=orphaned[0].topPx;
+          // 3) Órfão: sobe apenas pelos elementos ADJACENTES (≤60px) ao ponto de corte,
+          //    em cascata curta — para de subir quando não há mais adjacente
+          let prev=-1;
+          while(safeEnd!==prev){
+            prev=safeEnd;
+            // pega apenas o elemento mais próximo ao corte dentro de 60px
+            const adj=orphanBounds.filter(rb=>rb.botPx<=safeEnd&&rb.botPx>safeEnd-60&&rb.topPx>pageStart);
+            if(adj.length>0) safeEnd=adj.reduce((a,b)=>a.topPx<b.topPx?a:b).topPx;
+          }
           if(safeEnd<=pageStart) safeEnd=pageEnd;
           pageEnd=safeEnd;
         }

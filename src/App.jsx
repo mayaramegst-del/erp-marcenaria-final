@@ -826,8 +826,7 @@ function ModalPDF({o,empresa,getCli,setModal,totalOrcFinal,totalOrc,totalOrcComN
         const r=row.getBoundingClientRect();
         return{topPx:Math.round((r.top-elRect.top)*2),botPx:Math.round((r.bottom-elRect.top)*2)};
       }).sort((a,b)=>a.topPx-b.topPx);
-      const rowBounds=mkBounds('.svc-table tbody tr,.cond-card,.sign-block,.total-row,.hdr,.orc-banner,.cli-row,.footer-wrap');
-      const orphanBounds=mkBounds('.sec-title,.svc-table thead');
+      const rowBounds=mkBounds('.svc-table tbody tr,.cond-card,.sign-block,.total-row,.hdr,.orc-banner,.cli-row,.footer-wrap,.sec-title,.svc-table thead');
       const canvas=await html2canvas(el,{scale:2,useCORS:true,backgroundColor:'#fff',logging:false,scrollY:-window.scrollY,windowWidth:800});
       el.style.maxHeight=prevMax;el.style.overflowY=prevOv;el.style.width=prevW;el.style.minWidth=prevMinW;
       const pdf=new jsPDF({orientation:'p',unit:'mm',format:'a4'});
@@ -847,15 +846,6 @@ function ModalPDF({o,empresa,getCli,setModal,totalOrcFinal,totalOrc,totalOrcComN
           if(safeEnd<=pageStart){
             const big=rowBounds.find(rb=>rb.topPx<=pageStart+10&&rb.botPx>pageStart);
             safeEnd=big?big.botPx:pageEnd;
-          }
-          // 3) Órfão: sobe apenas pelos elementos ADJACENTES (≤60px) ao ponto de corte,
-          //    em cascata curta — para de subir quando não há mais adjacente
-          let prev=-1;
-          while(safeEnd!==prev){
-            prev=safeEnd;
-            // pega apenas o elemento mais próximo ao corte dentro de 60px
-            const adj=orphanBounds.filter(rb=>rb.botPx<=safeEnd&&rb.botPx>safeEnd-60&&rb.topPx>pageStart);
-            if(adj.length>0) safeEnd=adj.reduce((a,b)=>a.topPx<b.topPx?a:b).topPx;
           }
           if(safeEnd<=pageStart) safeEnd=pageEnd;
           pageEnd=safeEnd;

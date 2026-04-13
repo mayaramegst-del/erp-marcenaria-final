@@ -824,36 +824,52 @@ function ModalPDF({o,empresa,getCli,setModal,totalOrcFinal,totalOrc,totalOrcComN
       el.style.width='800px';el.style.minWidth='800px';
       // Captura posição de TODOS os blocos que não devem ser quebrados entre páginas
       const elRect=el.getBoundingClientRect();
+      // Blocos que nunca podem ser cortados internamente
       const noBreakSel='.svc-table tbody tr,.cond-card,.sign-block,.total-row,.hdr,.orc-banner,.cli-row,.footer-wrap';
-      const rowBounds=Array.from(el.querySelectorAll(noBreakSel)).map(row=>{
+      // Elementos "órfãos" — quando a quebra cai logo depois deles, recua para incluí-los na próxima página
+      const orphanSel='.sec-title,.svc-table thead';
+      const mkBounds=sel=>Array.from(el.querySelectorAll(sel)).map(row=>{
         const r=row.getBoundingClientRect();
         return{topPx:Math.round((r.top-elRect.top)*2),botPx:Math.round((r.bottom-elRect.top)*2)};
       }).sort((a,b)=>a.topPx-b.topPx);
+      const rowBounds=mkBounds(noBreakSel);
+      const orphanBounds=mkBounds(orphanSel);
       const canvas=await html2canvas(el,{scale:2,useCORS:true,backgroundColor:'#fff',logging:false,scrollY:-window.scrollY,windowWidth:1200});
       el.style.maxHeight=prevMax;el.style.overflowY=prevOv;el.style.width=prevW;el.style.minWidth=prevMinW;
       const pdf=new jsPDF({orientation:'p',unit:'mm',format:'a4'});
       const pw=pdf.internal.pageSize.getWidth(),ph=pdf.internal.pageSize.getHeight();
-      const mx=8,my=8; // margens em mm
-      const cW=pw-mx*2,cH=ph-my*2; // área útil
+      const mx=8,my=8;
+      const cW=pw-mx*2,cH=ph-my*2;
       const pxPerMm=canvas.width/cW;
-      const pageHpx=cH*pxPerMm; // altura de página em pixels do canvas
+      const pageHpx=cH*pxPerMm;
       let pageStart=0,pageNum=0;
       while(pageStart<canvas.height){
         let pageEnd=Math.min(pageStart+pageHpx,canvas.height);
-        // Evita cortar dentro de qualquer bloco: move a quebra para antes do bloco mais externo afetado
         if(pageEnd<canvas.height){
           let safeEnd=pageEnd;
+          // 1) Recua para não cortar dentro de blocos
           for(const rb of rowBounds){
-            if(rb.topPx<safeEnd&&rb.botPx>safeEnd){
-              safeEnd=rb.topPx;
-            }
+            if(rb.topPx<safeEnd&&rb.botPx>safeEnd) safeEnd=rb.topPx;
           }
-          // Se retrocedeu demais (bloco maior que a página), corta no final do bloco
+          // 2) Se bloco maior que a página, avança até o fim do bloco
           if(safeEnd<=pageStart){
             const big=rowBounds.find(rb=>rb.topPx<=pageStart+10&&rb.botPx>pageStart);
             safeEnd=big?big.botPx:pageEnd;
           }
-          pageEnd=Math.max(pageStart+10,safeEnd);
+          // 3) Prevenção de órfãos: se a quebra cai logo após um título/thead (≤300px antes),
+          //    recua mais para levá-los junto com o conteúdo seguinte
+          let changed=true;
+          while(changed){
+            changed=false;
+            for(const rb of orphanBounds){
+              if(rb.botPx<=safeEnd&&rb.botPx>=safeEnd-300&&rb.topPx>pageStart){
+                safeEnd=rb.topPx;changed=true;break;
+              }
+            }
+          }
+          // 4) Garante progresso mínimo
+          if(safeEnd<=pageStart) safeEnd=pageStart+pageHpx;
+          pageEnd=safeEnd;
         }
         const cropH=Math.round(pageEnd-pageStart);
         if(cropH<=0){pageStart=Math.round(pageEnd)+1;continue;}
@@ -908,7 +924,9 @@ function ModalPDF({o,empresa,getCli,setModal,totalOrcFinal,totalOrc,totalOrcComN
       <div className="sign-city">{cidade||""}</div>
       <div className="sign-area">
         <div className="sign-block">
-          <div className="sign-space"/>
+          <div className="sign-stamp">
+            {empresa.logo&&<img src={empresa.logo} width="90" height="60" alt="" style={{objectFit:"contain",display:"block",margin:"0 auto",maxWidth:90,maxHeight:60}}/>}
+          </div>
           <div className="sign-line"/>
           <div className="sign-name">{empresa.nome}</div>
           {empresa.cnpj&&<div className="sign-doc">CNPJ: {empresa.cnpj}</div>}

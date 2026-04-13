@@ -1796,6 +1796,7 @@ export default function ERP(){
   const [cortadores,setCortadores]=useState(()=>LS('cortadores')||[]);
   const [ordensCort,setOrdensCort]=useState(()=>LS('ordensCort')||[]);
   const [showComissoes,setShowComissoes]=useState(false);
+  const [showComissoesVend,setShowComissoesVend]=useState(false);
   const [saldoInicial,setSaldoInicial]=useState(()=>+(LS('saldoInicial')||0));
   const [editSaldoInicial,setEditSaldoInicial]=useState(false);
   const [dreAno,setDreAno]=useState(new Date().getFullYear());
@@ -3194,6 +3195,17 @@ export default function ERP(){
       showToast("Lançamento criado!");
     };
     const comPendTotal=comEntries.reduce((s,f)=>(f.parcelas||[]).filter(p=>!p.pago).reduce((a,p)=>a+p.valor,s),0);
+    // Comissões de vendedores
+    const vendComEntries=financeiro.filter(f=>f.vendedorId&&f.tipo==="pagar");
+    const pedsComVend=pedidos.filter(p=>p.vendedorId);
+    const semLancVend=pedsComVend.filter(p=>!vendComEntries.find(f=>f.pedidoId===p.id));
+    const gerarLancVend=(ped)=>{
+      const v=vendedores.find(x=>x.id===ped.vendedorId);if(!v)return;
+      const comVend=+(ped.vt*(v.comissao/100)).toFixed(2);
+      setFinanceiro(prev=>[...prev,{id:uid(),tipo:"pagar",desc:`Comissão Vendedor ${ped.num||''} - ${v.nome}`,valor:comVend,valorPago:0,parcelas:[{id:uid(),valor:comVend,venc:"",pago:false,dataPago:"",formaPag:"pix"}],pedidoId:ped.id,vendedorId:v.id,fornecedor:v.nome,categoria:"Folha/Comissão",status:"aberto"}]);
+      showToast("Lançamento vendedor criado!");
+    };
+    const vendComPendTotal=vendComEntries.reduce((s,f)=>(f.parcelas||[]).filter(p=>!p.pago).reduce((a,p)=>a+p.valor,s),0);
     const hj=hojeISO();
     const mesAtual=fluxoMes;
     // Normaliza dataPago — suporta formato ISO (yyyy-mm-dd) e BR legado (dd/mm/yyyy)
@@ -3566,6 +3578,83 @@ export default function ERP(){
                   <div style={{display:"flex",gap:6,alignItems:"center"}}>
                     <Badge color={pendente===0?"green":"red"}>{pendente===0?"✓ Quitado":"Pendente"}</Badge>
                     <button onClick={()=>{if(window.confirm("Cancelar esta comissão? O lançamento será removido."))setFinanceiro(ff=>ff.filter(x=>x.id!==f.id));}} style={{padding:"3px 8px",borderRadius:5,background:"none",border:"1px solid var(--rd)",color:"var(--rd)",fontSize:10,cursor:"pointer",fontWeight:700}} title="Cancelar comissão">✕ Cancelar</button>
+                  </div>
+                </div>
+                {(f.parcelas||[]).length===0&&<div style={{fontSize:11,color:"var(--tx3)",fontStyle:"italic",marginBottom:6}}>Sem parcelas. Use "+ Parcela".</div>}
+                {(f.parcelas||[]).map((p,pi)=>(
+                  <div key={p.id||pi} style={{display:"grid",gridTemplateColumns:"140px 100px 110px 1fr 28px",gap:6,alignItems:"flex-end",padding:"6px 0",borderBottom:"1px solid var(--bd)33"}}>
+                    <div><div style={{fontSize:8,color:"var(--tx3)",fontWeight:700,marginBottom:2}}>VENC.</div>
+                      <input type="date" value={p.venc||""} onChange={e=>{const v=e.target.value;setFinanceiro(ff=>ff.map(x=>x.id===f.id?{...x,parcelas:x.parcelas.map((q,qi)=>qi===pi?{...q,venc:v}:q)}:x));}} style={{padding:"5px 6px",borderRadius:6,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:11,width:"100%"}}/>
+                    </div>
+                    <div><div style={{fontSize:8,color:"var(--tx3)",fontWeight:700,marginBottom:2}}>VALOR</div>
+                      <input type="number" value={p.valor||0} step="0.01" onChange={e=>{const v=+e.target.value;setFinanceiro(ff=>ff.map(x=>x.id===f.id?{...x,parcelas:x.parcelas.map((q,qi)=>qi===pi?{...q,valor:v}:q)}:x));}} style={{padding:"5px 6px",borderRadius:6,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:11,width:"100%"}}/>
+                    </div>
+                    <div><div style={{fontSize:8,color:"var(--tx3)",fontWeight:700,marginBottom:2}}>FORMA</div>
+                      <select value={p.formaPag||"pix"} onChange={e=>{const v=e.target.value;setFinanceiro(ff=>ff.map(x=>x.id===f.id?{...x,parcelas:x.parcelas.map((q,qi)=>qi===pi?{...q,formaPag:v}:q)}:x));}} style={{padding:"5px 6px",borderRadius:6,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:11,width:"100%"}}>
+                        <option value="pix">PIX</option><option value="ted">TED</option><option value="dinheiro">Dinheiro</option><option value="cheque">Cheque</option>
+                      </select>
+                    </div>
+                    <div style={{display:"flex",justifyContent:"center"}}>
+                      {p.pago
+                        ?<div style={{textAlign:"center"}}>
+                            <div style={{fontSize:9,color:"var(--gn)",fontWeight:800}}>✓{isoToBR(p.dataPago)}</div>
+                            <button onClick={()=>{setFinanceiro(ff=>ff.map(x=>x.id===f.id?{...x,valorPago:Math.max(0,(x.valorPago||0)-p.valor),parcelas:x.parcelas.map((q,qi)=>qi===pi?{...q,pago:false,dataPago:""}:q)}:x));showToast("Reaberto");}} style={{padding:"2px 6px",borderRadius:4,background:"none",border:"1px solid var(--rd)",color:"var(--rd)",fontSize:9,cursor:"pointer"}}>↩</button>
+                          </div>
+                        :<button onClick={()=>{setFinanceiro(ff=>ff.map(x=>x.id===f.id?{...x,valorPago:(x.valorPago||0)+p.valor,parcelas:x.parcelas.map((q,qi)=>qi===pi?{...q,pago:true,dataPago:hojeISO()}:q)}:x));showToast("Pago!");}} style={{padding:"6px 10px",borderRadius:6,background:"var(--gnb)",border:"1.5px solid var(--gn)",color:"var(--gn)",fontSize:11,fontWeight:800,cursor:"pointer"}}>✓ Baixar</button>
+                      }
+                    </div>
+                    <button onClick={()=>setFinanceiro(ff=>ff.map(x=>x.id===f.id?{...x,parcelas:x.parcelas.filter((_,qi)=>qi!==pi)}:x))} style={{background:"none",border:"none",color:"var(--rd)",cursor:"pointer",fontSize:16,paddingBottom:4}}>×</button>
+                  </div>
+                ))}
+                <div style={{marginTop:8}}>
+                  <Btn v="ghost" small onClick={()=>setFinanceiro(ff=>ff.map(x=>{if(x.id!==f.id)return x;const somaAtual=(x.parcelas||[]).reduce((s,p)=>s+p.valor,0);const restante=+Math.max(0,x.valor-somaAtual).toFixed(2);return{...x,parcelas:[...(x.parcelas||[]),{id:uid(),valor:restante,venc:"",pago:false,dataPago:"",formaPag:"pix"}]};}))}><I.Plus/> Parcela</Btn>
+                </div>
+              </div>);
+            })}
+          </div>
+        </Card>}
+      </div>
+
+      {/* ══ COMISSÕES DE VENDEDORES (colapsável) ══ */}
+      <div style={{marginBottom:14}}>
+        <button onClick={()=>setShowComissoesVend(p=>!p)} style={{width:"100%",display:"flex",justifyContent:"space-between",alignItems:"center",padding:"9px 14px",borderRadius:"var(--r)",border:"1.5px solid rgba(99,102,241,.4)",background:"var(--sf)",color:"var(--tx2)",fontSize:11,fontWeight:700,cursor:"pointer",marginBottom:showComissoesVend?8:0}}>
+          <span>🧑‍💼 Comissões de Vendedores{vendComPendTotal>0?` — A pagar: ${R$(vendComPendTotal)}`:""}</span>
+          <span style={{fontSize:10}}>{showComissoesVend?"▲ Fechar":"▼ Abrir"}</span>
+        </button>
+        {showComissoesVend&&<Card style={{padding:0,border:"1.5px solid rgba(99,102,241,.2)"}}>
+          <div style={{padding:"12px 16px"}}>
+            {semLancVend.length===0&&vendComEntries.length===0&&(
+              <div style={{fontSize:12,color:"var(--tx3)",textAlign:"center",padding:"10px 0"}}>Nenhum pedido com vendedor designado.</div>
+            )}
+            {semLancVend.map(ped=>{
+              const v=vendedores.find(x=>x.id===ped.vendedorId);
+              const comVend=+(ped.vt*(v?.comissao||0)/100).toFixed(2);
+              return(<div key={ped.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 0",borderBottom:"1px solid var(--bd)",gap:8,flexWrap:"wrap"}}>
+                <div>
+                  <div style={{fontSize:12,fontWeight:700,color:"var(--tx)"}}>Pedido {ped.num} — {getCli(ped.clienteId)?.nome}</div>
+                  <div style={{fontSize:10,color:"var(--tx3)"}}>{v?.nome} · {v?.comissao}% · <strong style={{color:"var(--rd)"}}>{R$(comVend)}</strong></div>
+                </div>
+                <Btn small onClick={()=>gerarLancVend(ped)}><I.Plus/> Gerar Lançamento</Btn>
+              </div>);
+            })}
+            {vendComEntries.map(f=>{
+              const vend=vendedores.find(v=>v.id===f.vendedorId);
+              const pedCom=pedidos.find(p=>p.id===f.pedidoId);
+              const pago=(f.parcelas||[]).filter(p=>p.pago).reduce((s,p)=>s+p.valor,0);
+              const pendente=(f.parcelas||[]).filter(p=>!p.pago).reduce((s,p)=>s+p.valor,0);
+              return(<div key={f.id} style={{borderBottom:"1px solid var(--bd)",paddingBottom:12,marginBottom:12}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+                  <div>
+                    <div style={{fontSize:12,fontWeight:800,color:"var(--tx)"}}>{f.desc}{(()=>{const cliNome=getCli(pedCom?.clienteId)?.nome;return cliNome?<span style={{fontWeight:600,color:"var(--tx2)",marginLeft:6}}>— {cliNome}</span>:null;})()}</div>
+                    <div style={{fontSize:10,color:"var(--tx3)",display:"flex",gap:10,marginTop:2,flexWrap:"wrap"}}>
+                      <span>{vend?.nome}</span><span>Total: <b>{R$(f.valor)}</b></span>
+                      <span style={{color:"var(--gn)"}}>Pago: <b>{R$(pago)}</b></span>
+                      <span style={{color:pendente>0?"var(--rd)":"var(--tx3)"}}>Pendente: <b>{R$(pendente)}</b></span>
+                    </div>
+                  </div>
+                  <div style={{display:"flex",gap:6,alignItems:"center"}}>
+                    <Badge color={pendente===0?"green":"red"}>{pendente===0?"✓ Quitado":"Pendente"}</Badge>
+                    <button onClick={()=>{if(window.confirm("Cancelar esta comissão?"))setFinanceiro(ff=>ff.filter(x=>x.id!==f.id));}} style={{padding:"3px 8px",borderRadius:5,background:"none",border:"1px solid var(--rd)",color:"var(--rd)",fontSize:10,cursor:"pointer",fontWeight:700}}>✕ Cancelar</button>
                   </div>
                 </div>
                 {(f.parcelas||[]).length===0&&<div style={{fontSize:11,color:"var(--tx3)",fontStyle:"italic",marginBottom:6}}>Sem parcelas. Use "+ Parcela".</div>}
@@ -4074,7 +4163,16 @@ export default function ERP(){
   // VENDEDORES
   const PgVendedores=()=>{
     const [eV,setEV]=useState(null);
-    const getVendComissao=v=>pedidos.filter(p=>p.vendedorId===v.id).reduce((s,p)=>{const vt=totalOrcFinal(orcamentos.find(o=>o.id===p.orcId)||{});const perc=orcamentos.find(o=>o.id===p.orcId)?.percVendedor||v.comissao;return s+(vt*perc/100);},0);
+    const [expandVend,setExpandVend]=useState(null);
+    // Entradas financeiras de comissão por vendedor
+    const vendFinEntries=v=>financeiro.filter(f=>f.vendedorId===v.id&&f.tipo==="pagar");
+    const vendPedsSemLanc=v=>pedidos.filter(p=>p.vendedorId===v.id&&!financeiro.find(f=>f.pedidoId===p.id&&f.vendedorId===v.id&&f.tipo==="pagar"));
+    const gerarLancVendPg=(ped)=>{
+      const v=vendedores.find(x=>x.id===ped.vendedorId);if(!v)return;
+      const comVend=+(ped.vt*(v.comissao/100)).toFixed(2);
+      setFinanceiro(prev=>[...prev,{id:uid(),tipo:"pagar",desc:`Comissão Vendedor ${ped.num||''} - ${v.nome}`,valor:comVend,valorPago:0,parcelas:[{id:uid(),valor:comVend,venc:"",pago:false,dataPago:"",formaPag:"pix"}],pedidoId:ped.id,vendedorId:v.id,fornecedor:v.nome,categoria:"Folha/Comissão",status:"aberto"}]);
+      showToast("Lançamento criado!");
+    };
     return(<div style={{animation:"fadeIn .3s"}}>
       <SH title="Vendedores" sub={`${vendedores.length} cadastrados`} right={<Btn onClick={()=>setEV({nome:"",tel:"",comissao:5,ativo:true})}><I.Plus/> Novo</Btn>}/>
       {eV&&<Modal onClose={()=>setEV(null)}>
@@ -4095,17 +4193,91 @@ export default function ERP(){
         </div>
       </Modal>}
       <Card>
-        <TH cols={[{l:"Nome",w:"2fr"},{l:"Telefone",w:"1fr"},{l:"Comissão",w:"90px"},{l:"Ativo",w:"70px"},{l:"",w:"70px"}]}/>
-        {vendedores.map(v=><div key={v.id} style={{display:"grid",gridTemplateColumns:"2fr 1fr 90px 70px 70px",gap:6,padding:"10px 18px",borderBottom:"1.5px solid var(--bd)",alignItems:"center",fontSize:12}}>
-          <span style={{fontWeight:700,color:"var(--tx)"}}>{v.nome}</span>
-          <span style={{color:"var(--tx2)"}}>{v.tel}</span>
-          <Badge color="pri">{v.comissao}%</Badge>
-          <button onClick={()=>setVendedores(p=>p.map(x=>x.id===v.id?{...x,ativo:!x.ativo}:x))} style={{width:28,height:28,borderRadius:8,border:"2px solid "+(v.ativo?"var(--gn)":"var(--bd)"),background:v.ativo?"var(--gn)":"transparent",cursor:"pointer"}}/>
-          <div style={{display:"flex",gap:3}}>
-            <button onClick={()=>setEV(v)} style={{background:"none",border:"none",color:"var(--tx3)",padding:3}}><I.Edit/></button>
-            <button onClick={()=>{setVendedores(p=>p.filter(x=>x.id!==v.id));showToast("Removido","red")}} style={{background:"none",border:"none",color:"var(--rd)",padding:3}}><I.Trash/></button>
-          </div>
-        </div>)}
+        <TH cols={[{l:"Nome",w:"2fr"},{l:"Telefone",w:"1fr"},{l:"Comissão",w:"80px"},{l:"Total",w:"100px"},{l:"A Pagar",w:"100px"},{l:"Ativo",w:"60px"},{l:"",w:"80px"}]}/>
+        {vendedores.map(v=>{
+          const fins=vendFinEntries(v);
+          const semLanc=vendPedsSemLanc(v);
+          const totalCom=fins.reduce((s,f)=>s+f.valor,0);
+          const totalPago=fins.reduce((s,f)=>s+f.valorPago,0);
+          const aPagar=totalCom-totalPago;
+          const isExp=expandVend===v.id;
+          return(<React.Fragment key={v.id}>
+            <div style={{display:"grid",gridTemplateColumns:"2fr 1fr 80px 100px 100px 60px 80px",gap:6,padding:"10px 18px",borderBottom:"1.5px solid var(--bd)",alignItems:"center",fontSize:12,cursor:"pointer",background:isExp?"var(--prib)":"transparent"}} onClick={()=>setExpandVend(isExp?null:v.id)}>
+              <span style={{fontWeight:700,color:"var(--tx)"}}>{v.nome}</span>
+              <span style={{color:"var(--tx2)"}}>{v.tel}</span>
+              <Badge color="pri">{v.comissao}%</Badge>
+              <span style={{fontWeight:700,color:"var(--tx)"}}>{totalCom>0?R$(totalCom):"—"}</span>
+              <span style={{fontWeight:700,color:aPagar>0?"var(--rd)":"var(--gn)"}}>{aPagar>0?R$(aPagar):"✓"}</span>
+              <button onClick={e=>{e.stopPropagation();setVendedores(p=>p.map(x=>x.id===v.id?{...x,ativo:!x.ativo}:x));}} style={{width:28,height:28,borderRadius:8,border:"2px solid "+(v.ativo?"var(--gn)":"var(--bd)"),background:v.ativo?"var(--gn)":"transparent",cursor:"pointer"}}/>
+              <div style={{display:"flex",gap:3}} onClick={e=>e.stopPropagation()}>
+                <button onClick={()=>setEV(v)} style={{background:"none",border:"none",color:"var(--tx3)",padding:3}}><I.Edit/></button>
+                <button onClick={()=>{setVendedores(p=>p.filter(x=>x.id!==v.id));showToast("Removido","red");}} style={{background:"none",border:"none",color:"var(--rd)",padding:3}}><I.Trash/></button>
+              </div>
+            </div>
+            {isExp&&<div style={{padding:"14px 20px",background:"var(--bg)",borderBottom:"2px solid var(--pri)"}}>
+              {/* Pedidos sem lançamento */}
+              {semLanc.length>0&&<div style={{marginBottom:12}}>
+                <div style={{fontSize:10,fontWeight:800,color:"var(--am)",textTransform:"uppercase",marginBottom:6}}>Pedidos sem lançamento de comissão</div>
+                {semLanc.map(ped=>{
+                  const comVend=+(ped.vt*(v.comissao/100)).toFixed(2);
+                  return(<div key={ped.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 10px",borderRadius:8,background:"rgba(245,158,11,.08)",border:"1px solid rgba(245,158,11,.3)",marginBottom:6}}>
+                    <span style={{fontSize:12,fontWeight:600,color:"var(--tx)"}}>Pedido {ped.num} — {getCli(ped.clienteId)?.nome} · <b style={{color:"var(--rd)"}}>{R$(comVend)}</b></span>
+                    <Btn small onClick={()=>gerarLancVendPg(ped)}><I.Plus/> Gerar</Btn>
+                  </div>);
+                })}
+              </div>}
+              {/* Entradas de comissão existentes */}
+              {fins.length===0&&semLanc.length===0&&<div style={{fontSize:12,color:"var(--tx3)",padding:"8px 0"}}>Nenhum lançamento de comissão ainda.</div>}
+              {fins.map(f=>{
+                const pedCom=pedidos.find(p=>p.id===f.pedidoId);
+                const pago=(f.parcelas||[]).filter(p=>p.pago).reduce((s,p)=>s+p.valor,0);
+                const pendente=(f.parcelas||[]).filter(p=>!p.pago).reduce((s,p)=>s+p.valor,0);
+                return(<div key={f.id} style={{background:"var(--sf)",borderRadius:10,border:"1.5px solid var(--bd)",padding:"12px 14px",marginBottom:10}}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+                    <div>
+                      <div style={{fontSize:12,fontWeight:800,color:"var(--tx)"}}>{f.desc}</div>
+                      <div style={{fontSize:10,color:"var(--tx3)",display:"flex",gap:10,marginTop:2,flexWrap:"wrap"}}>
+                        {pedCom&&<span>Pedido {pedCom.num} · {getCli(pedCom.clienteId)?.nome}</span>}
+                        <span>Total: <b>{R$(f.valor)}</b></span>
+                        <span style={{color:"var(--gn)"}}>Pago: <b>{R$(pago)}</b></span>
+                        <span style={{color:pendente>0?"var(--rd)":"var(--tx3)"}}>Pendente: <b>{R$(pendente)}</b></span>
+                      </div>
+                    </div>
+                    <Badge color={pendente===0?"green":"red"}>{pendente===0?"✓ Quitado":"Pendente"}</Badge>
+                  </div>
+                  {(f.parcelas||[]).map((p,pi)=>(
+                    <div key={p.id||pi} style={{display:"grid",gridTemplateColumns:"140px 100px 110px 1fr 28px",gap:6,alignItems:"flex-end",padding:"6px 0",borderBottom:"1px solid var(--bd)33"}}>
+                      <div><div style={{fontSize:8,color:"var(--tx3)",fontWeight:700,marginBottom:2}}>VENC.</div>
+                        <input type="date" value={p.venc||""} onChange={e=>{const nv=e.target.value;setFinanceiro(ff=>ff.map(x=>x.id===f.id?{...x,parcelas:x.parcelas.map((q,qi)=>qi===pi?{...q,venc:nv}:q)}:x));}} style={{padding:"5px 6px",borderRadius:6,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:11,width:"100%"}}/>
+                      </div>
+                      <div><div style={{fontSize:8,color:"var(--tx3)",fontWeight:700,marginBottom:2}}>VALOR</div>
+                        <input type="number" defaultValue={p.valor||0} key={f.id+"_"+pi+"_v"} step="0.01" onBlur={e=>{const nv=+e.target.value;setFinanceiro(ff=>ff.map(x=>x.id===f.id?{...x,parcelas:x.parcelas.map((q,qi)=>qi===pi?{...q,valor:nv}:q)}:x));}} style={{padding:"5px 6px",borderRadius:6,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:11,width:"100%"}}/>
+                      </div>
+                      <div><div style={{fontSize:8,color:"var(--tx3)",fontWeight:700,marginBottom:2}}>FORMA</div>
+                        <select value={p.formaPag||"pix"} onChange={e=>{const nv=e.target.value;setFinanceiro(ff=>ff.map(x=>x.id===f.id?{...x,parcelas:x.parcelas.map((q,qi)=>qi===pi?{...q,formaPag:nv}:q)}:x));}} style={{padding:"5px 6px",borderRadius:6,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:11,width:"100%"}}>
+                          <option value="pix">PIX</option><option value="ted">TED</option><option value="dinheiro">Dinheiro</option><option value="cheque">Cheque</option>
+                        </select>
+                      </div>
+                      <div style={{display:"flex",justifyContent:"center"}}>
+                        {p.pago
+                          ?<div style={{textAlign:"center"}}>
+                              <div style={{fontSize:9,color:"var(--gn)",fontWeight:800}}>✓{isoToBR(p.dataPago)}</div>
+                              <button onClick={()=>{setFinanceiro(ff=>ff.map(x=>x.id===f.id?{...x,valorPago:Math.max(0,(x.valorPago||0)-p.valor),parcelas:x.parcelas.map((q,qi)=>qi===pi?{...q,pago:false,dataPago:""}:q)}:x));showToast("Reaberto");}} style={{padding:"2px 6px",borderRadius:4,background:"none",border:"1px solid var(--rd)",color:"var(--rd)",fontSize:9,cursor:"pointer"}}>↩</button>
+                            </div>
+                          :<button onClick={()=>{setFinanceiro(ff=>ff.map(x=>x.id===f.id?{...x,valorPago:(x.valorPago||0)+p.valor,parcelas:x.parcelas.map((q,qi)=>qi===pi?{...q,pago:true,dataPago:hojeISO()}:q)}:x));showToast("Pago!");}} style={{padding:"6px 10px",borderRadius:6,background:"var(--gnb)",border:"1.5px solid var(--gn)",color:"var(--gn)",fontSize:11,fontWeight:800,cursor:"pointer"}}>✓ Baixar</button>
+                        }
+                      </div>
+                      <button onClick={()=>setFinanceiro(ff=>ff.map(x=>x.id===f.id?{...x,parcelas:x.parcelas.filter((_,qi)=>qi!==pi)}:x))} style={{background:"none",border:"none",color:"var(--rd)",cursor:"pointer",fontSize:16,paddingBottom:4}}>×</button>
+                    </div>
+                  ))}
+                  <div style={{marginTop:8}}>
+                    <Btn v="ghost" small onClick={()=>setFinanceiro(ff=>ff.map(x=>{if(x.id!==f.id)return x;const somaAtual=(x.parcelas||[]).reduce((s,p)=>s+p.valor,0);const restante=+Math.max(0,x.valor-somaAtual).toFixed(2);return{...x,parcelas:[...(x.parcelas||[]),{id:uid(),valor:restante,venc:"",pago:false,dataPago:"",formaPag:"pix"}]};}))}><I.Plus/> Parcela</Btn>
+                  </div>
+                </div>);
+              })}
+            </div>}
+          </React.Fragment>);
+        })}
         {vendedores.length===0&&<div style={{padding:30,textAlign:"center",color:"var(--tx3)",fontSize:12,fontWeight:600}}>Nenhum vendedor cadastrado</div>}
       </Card>
     </div>);

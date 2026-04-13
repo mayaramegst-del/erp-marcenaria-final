@@ -511,7 +511,7 @@ function ModalDetFin({f:fInit,financeiro,setModal,pagarParcela,editParcela,addPa
   const [payVal,setPayVal]=useState("");
   const [payFormaPag,setPayFormaPag]=useState("pix");
   const [editMeta,setEditMeta]=useState(false);
-  const [meta,setMeta]=useState({desc:f.desc,categoria:f.categoria||"Outros",fornecedor:f.fornecedor||""});
+  const [meta,setMeta]=useState({desc:f.desc,categoria:f.categoria||"Outros",fornecedor:f.fornecedor||"",valor:f.valor||0});
   const eCats=catsProp||getEmpresaCats();
   const cats=eCats[f.tipo]||eCats.pagar;
   const isCom=!!f.marcId;
@@ -528,6 +528,10 @@ function ModalDetFin({f:fInit,financeiro,setModal,pagarParcela,editParcela,addPa
                 {cats.map(c=><option key={c} value={c}>{c}</option>)}
               </select>
               <input value={meta.fornecedor} onChange={e=>setMeta(m=>({...m,fornecedor:e.target.value}))} placeholder="Fornecedor/Credor" style={{flex:1,padding:"5px 8px",borderRadius:8,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:12,outline:"none"}}/>
+            </div>
+            <div style={{display:"flex",gap:6,alignItems:"center"}}>
+              <label style={{fontSize:10,color:"var(--tx3)",whiteSpace:"nowrap"}}>Valor total R$</label>
+              <input type="number" value={meta.valor} onChange={e=>setMeta(m=>({...m,valor:+e.target.value}))} step="0.01" min="0" style={{padding:"5px 8px",borderRadius:8,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:12,fontWeight:700,outline:"none",width:130}}/>
             </div>
             <div style={{display:"flex",gap:5}}>
               <Btn small onClick={()=>{updFin(f.id,meta);setEditMeta(false);showToast("Conta atualizada!")}}><I.Check/> Salvar</Btn>

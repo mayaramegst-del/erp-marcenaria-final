@@ -2232,11 +2232,21 @@ export default function ERP(){
   const designarMarc=(pid,mid)=>{
     const m=getMarc(mid);if(!m)return;
     const ped=pedidos.find(x=>x.id===pid);
-    const comVal=ped?ped.vt*(m.comissao/100):0;
+    const comVal=ped?+(ped.vt*(m.comissao/100)).toFixed(2):0;
+    const oldMarcId=ped?.marcId;
     updPed(pid,p=>({...p,marcId:mid,comPerc:m.comissao,comVal,status:"em_producao"}));
     setFinanceiro(prev=>{
-      if(prev.find(f=>f.pedidoId===pid&&f.tipo==="pagar"&&f.marcId===mid))return prev;
-      return[...prev,{id:uid(),tipo:"pagar",desc:`Comissão ${ped?.num||''} - ${m.nome}`,valor:comVal,valorPago:0,parcelas:[{id:uid(),valor:comVal,venc:"",pago:false,dataPago:""}],pedidoId:pid,marcId:mid,fornecedor:m.nome,status:"aberto"}];
+      // Remove a entrada de comissão do marceneiro anterior (se não paga)
+      let next=prev;
+      if(oldMarcId&&oldMarcId!==mid){
+        next=prev.filter(f=>!(f.pedidoId===pid&&f.tipo==="pagar"&&f.marcId===oldMarcId&&!(f.valorPago>0)));
+      }
+      const existing=next.find(f=>f.pedidoId===pid&&f.tipo==="pagar"&&f.marcId===mid);
+      if(existing){
+        // Atualiza o valor da entrada existente
+        return next.map(f=>f.id===existing.id?{...f,valor:comVal,desc:`Comissão ${ped?.num||''} - ${m.nome}`,parcelas:f.parcelas.map(pa=>pa.pago?pa:{...pa,valor:comVal})}:f);
+      }
+      return[...next,{id:uid(),tipo:"pagar",desc:`Comissão ${ped?.num||''} - ${m.nome}`,valor:comVal,valorPago:0,parcelas:[{id:uid(),valor:comVal,venc:"",pago:false,dataPago:""}],pedidoId:pid,marcId:mid,fornecedor:m.nome,status:"aberto"}];
     });
     showToast(`Designado: ${m.nome}`);
     if(ped) notifyMarceneiro(ped,mid);

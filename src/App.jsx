@@ -905,13 +905,11 @@ function ModalPDF({o,empresa,getCli,setModal,totalOrcFinal,totalOrc,totalOrcComN
       <div className="sign-city">{cidade||""}</div>
       <div className="sign-area">
         <div className="sign-block">
-          {empresa.logo
-            ?<div className="sign-stamp"><img src={empresa.logo} alt=""/></div>
-            :<div className="sign-space"/>}
+          <div className="sign-space"/>
           <div className="sign-line"/>
           <div className="sign-name">{empresa.nome}</div>
-          <div className="sign-name2">{empresa.nome}</div>
           {empresa.cnpj&&<div className="sign-doc">CNPJ: {empresa.cnpj}</div>}
+          <div className="sign-role">Contratada — Responsável Técnico</div>
         </div>
         <div className="sign-block">
           <div className="sign-space"/>

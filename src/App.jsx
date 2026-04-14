@@ -2341,8 +2341,9 @@ export default function ERP(){
       // Sempre recalcula total e sincroniza pedido/financeiro vinculados se o valor mudou
       const vtOld=Math.max(0,((o.ambientes||[]).reduce((s,a)=>s+(a.valorTotal||0),0))-(o.descontoR||0))*(1-(o.desconto||0)/100);
       const vtFinalNew=Math.max(0,((updated.ambientes||[]).reduce((s,a)=>s+(a.valorTotal||0),0))-(updated.descontoR||0))*(1-(updated.desconto||0)/100);
+      const newAmbs=updated.ambientes.map(a=>({nome:a.nome,desc:a.desc,val:a.valorTotal}));
       if(vtFinalNew!==vtOld){
-        setPedidos(pp=>pp.map(p=>p.orcId===id?{...p,vt:vtFinalNew}:p));
+        setPedidos(pp=>pp.map(p=>p.orcId===id?{...p,vt:vtFinalNew,ambs:newAmbs}:p));
         setFinanceiro(ff=>ff.map(f=>{
           if(!f.pedidoId)return f;
           const ped=pedidos.find(p=>p.orcId===id&&p.id===f.pedidoId);
@@ -2351,6 +2352,8 @@ export default function ERP(){
           const parcelas=f.parcelas.map(p=>p.pago?p:{...p,valor:+(p.valor*ratio).toFixed(2)});
           return{...f,valor:vtFinalNew,parcelas};
         }));
+      } else {
+        setPedidos(pp=>pp.map(p=>p.orcId===id?{...p,ambs:newAmbs}:p));
       }
       return updated;
     }));

@@ -1566,17 +1566,28 @@ function MarceneiroApp({user,pedidos,setPedidos,clientes,financeiro,showToast,on
                   </div>
                 </div>
                 {cf?.parcelas?.length>0&&<div style={{marginTop:10,borderTop:"1.5px solid var(--bd)",paddingTop:10}}>
-                  <div style={{fontSize:13,fontWeight:800,color:"var(--tx3)",textTransform:"uppercase",letterSpacing:".5px",marginBottom:6}}>Histórico de Pagamentos</div>
-                  {cf.parcelas.filter(x=>x.pago).map(x=>(
-                    <div key={x.id} style={{display:"flex",justifyContent:"space-between",fontSize:12,padding:"4px 0",borderBottom:"1px solid var(--bd)",color:"var(--gn)",fontWeight:600}}>
-                      <span>✓ {x.dataPago||"—"}</span><span>{R$(x.valor)}</span>
-                    </div>
-                  ))}
-                  {cf.parcelas.filter(x=>!x.pago).map(x=>(
-                    <div key={x.id} style={{display:"flex",justifyContent:"space-between",fontSize:12,padding:"4px 0",borderBottom:"1px solid var(--bd)",color:"var(--tx3)"}}>
-                      <span>⏳ {x.venc||"Aguardando"}</span><span>{R$(x.valor)}</span>
-                    </div>
-                  ))}
+                  {cf.parcelas.filter(x=>!x.pago).length>0&&<>
+                    <div style={{fontSize:11,fontWeight:800,color:"var(--am)",textTransform:"uppercase",letterSpacing:".5px",marginBottom:6}}>📅 Agendamento de Pagamento</div>
+                    {cf.parcelas.filter(x=>!x.pago).map((x,i)=>(
+                      <div key={x.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",fontSize:12,padding:"7px 10px",marginBottom:4,borderRadius:8,background:"var(--amb)"}}>
+                        <div>
+                          <span style={{fontWeight:700,color:"var(--am)"}}>Parcela {i+1}</span>
+                          {x.venc
+                            ?<span style={{marginLeft:6,fontWeight:800,color:"var(--tx)"}}> 📆 {isoToBR(x.venc)}</span>
+                            :<span style={{marginLeft:6,color:"var(--tx3)",fontStyle:"italic"}}>Data a confirmar</span>}
+                        </div>
+                        <span style={{fontWeight:800,color:"var(--am)"}}>{R$(x.valor)}</span>
+                      </div>
+                    ))}
+                  </>}
+                  {cf.parcelas.filter(x=>x.pago).length>0&&<>
+                    <div style={{fontSize:11,fontWeight:800,color:"var(--gn)",textTransform:"uppercase",letterSpacing:".5px",margin:"10px 0 6px"}}>✓ Já Recebido</div>
+                    {cf.parcelas.filter(x=>x.pago).map((x,i)=>(
+                      <div key={x.id} style={{display:"flex",justifyContent:"space-between",fontSize:12,padding:"4px 0",borderBottom:"1px solid var(--bd)",color:"var(--gn)",fontWeight:600}}>
+                        <span>✓ {x.dataPago?isoToBR(x.dataPago):"—"}</span><span>{R$(x.valor)}</span>
+                      </div>
+                    ))}
+                  </>}
                 </div>}
               </div>
             </div>
@@ -4414,14 +4425,30 @@ export default function ERP(){
           <I.Chev d={op?"up":"down"}/>
         </div>
         {op&&cf&&<div style={{padding:"10px 18px",background:"var(--bg)",borderBottom:"1.5px solid var(--bd)"}}>
-          <div style={{background:"var(--bd)",borderRadius:4,height:5,marginBottom:8,overflow:"hidden"}}><div style={{background:"var(--gn)",height:"100%",width:`${v>0?Math.min(100,(r/v)*100):0}%`,borderRadius:4}}/></div>
-          {cf.parcelas.map((pa,i)=><div key={pa.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"5px 0",borderBottom:"1px solid var(--bd)",fontSize:11}}>
-            <div><span style={{fontWeight:700}}>Parcela {i+1}</span>{pa.venc&&<span style={{color:"var(--tx3)",marginLeft:6,fontSize:10}}>Venc: {pa.venc}</span>}</div>
-            <div style={{display:"flex",alignItems:"center",gap:8}}>
-              <span style={{fontWeight:800,color:pa.pago?"var(--gn)":"var(--tx)"}}>{R$(pa.valor)}</span>
-              {pa.pago?<Badge color="green">✓ {pa.dataPago}</Badge>:<Badge color="amber">Pendente</Badge>}
-            </div>
-          </div>)}
+          <div style={{background:"var(--bd)",borderRadius:4,height:5,marginBottom:10,overflow:"hidden"}}><div style={{background:"var(--gn)",height:"100%",width:`${v>0?Math.min(100,(r/v)*100):0}%`,borderRadius:4}}/></div>
+          {cf.parcelas.filter(pa=>!pa.pago).length>0&&<>
+            <div style={{fontSize:10,fontWeight:800,color:"var(--am)",textTransform:"uppercase",marginBottom:4}}>📅 Agendamento</div>
+            {cf.parcelas.filter(pa=>!pa.pago).map((pa,i)=>(
+              <div key={pa.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 10px",marginBottom:4,borderRadius:8,background:"var(--amb)",fontSize:12}}>
+                <div>
+                  <span style={{fontWeight:700,color:"var(--am)"}}>Parcela {i+1}</span>
+                  {pa.venc
+                    ?<span style={{marginLeft:8,fontWeight:800,color:"var(--tx)"}}>📆 {isoToBR(pa.venc)}</span>
+                    :<span style={{marginLeft:8,color:"var(--tx3)",fontStyle:"italic"}}>Data a confirmar</span>}
+                </div>
+                <span style={{fontWeight:800,color:"var(--am)"}}>{R$(pa.valor)}</span>
+              </div>
+            ))}
+          </>}
+          {cf.parcelas.filter(pa=>pa.pago).length>0&&<>
+            <div style={{fontSize:10,fontWeight:800,color:"var(--gn)",textTransform:"uppercase",margin:"8px 0 4px"}}>✓ Já Recebido</div>
+            {cf.parcelas.filter(pa=>pa.pago).map((pa,i)=>(
+              <div key={pa.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"5px 0",borderBottom:"1px solid var(--bd)",fontSize:11}}>
+                <span style={{color:"var(--gn)",fontWeight:700}}>✓ {pa.dataPago?isoToBR(pa.dataPago):"—"}</span>
+                <span style={{fontWeight:800,color:"var(--gn)"}}>{R$(pa.valor)}</span>
+              </div>
+            ))}
+          </>}
           {cf.parcelas.length===0&&<span style={{fontSize:11,color:"var(--tx3)"}}>Nenhuma parcela cadastrada</span>}
         </div>}
       </div>)})}</Card></div>)};

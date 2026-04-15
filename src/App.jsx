@@ -3321,6 +3321,65 @@ export default function ERP(){
           <span style={{fontWeight:700,color:"var(--tx)"}}>{m.nome}</span><span style={{color:"var(--tx2)"}}>{m.esp}</span><span style={{color:"var(--tx2)"}}>{m.tel}</span><Badge color="pri">{m.comissao}%</Badge><span style={{color:"var(--tx3)",fontSize:11}}>{m.login}</span><Badge color={m.ativo?"green":"red"}>{m.ativo?"Ativo":"Off"}</Badge><span style={{textAlign:"center",fontWeight:700,color:"var(--tx)"}}>{obs}</span>
           <div style={{display:"flex",gap:3}}><button onClick={()=>setEM(m)} style={{background:"none",border:"none",color:"var(--tx3)",padding:3}}><I.Edit/></button><button onClick={()=>{setMarceneiros(p=>p.filter(x=>x.id!==m.id));showToast("Removido","red")}} style={{background:"none",border:"none",color:"var(--rd)",padding:3}}><I.Trash/></button></div>
         </div>)})}</Card>
+
+        {/* ── POSIÇÃO FINANCEIRA POR MARCENEIRO ── */}
+        {(()=>{
+          const comEntries=financeiro.filter(f=>f.marcId&&f.tipo==="pagar");
+          const totalGeralCom=comEntries.reduce((s,f)=>s+f.valor,0);
+          const totalPagoCom=comEntries.reduce((s,f)=>s+f.valorPago,0);
+          const totalPendCom=totalGeralCom-totalPagoCom;
+          if(comEntries.length===0)return null;
+          return(<>
+            <div style={{margin:"20px 0 10px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <span style={{fontSize:11,fontWeight:800,color:"var(--tx3)",textTransform:"uppercase",letterSpacing:"1px"}}>💰 Posição Financeira — Comissões</span>
+              <div style={{display:"flex",gap:16}}>
+                <span style={{fontSize:11,fontWeight:700,color:"var(--tx3)"}}>Total: <b style={{color:"var(--tx)"}}>{R$(totalGeralCom)}</b></span>
+                <span style={{fontSize:11,fontWeight:700,color:"var(--tx3)"}}>Pago: <b style={{color:"var(--gn)"}}>{R$(totalPagoCom)}</b></span>
+                <span style={{fontSize:11,fontWeight:700,color:"var(--tx3)"}}>Pendente: <b style={{color:totalPendCom>0?"var(--rd)":"var(--tx3)"}}>{R$(totalPendCom)}</b></span>
+              </div>
+            </div>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(280px,1fr))",gap:10}}>
+              {marceneiros.map(m=>{
+                const comM=comEntries.filter(f=>f.marcId===m.id);
+                if(comM.length===0)return null;
+                const totalM=comM.reduce((s,f)=>s+f.valor,0);
+                const pagoM=comM.reduce((s,f)=>s+f.valorPago,0);
+                const pendM=totalM-pagoM;
+                const pct=totalM>0?Math.min(100,(pagoM/totalM)*100):0;
+                const parcPend=comM.flatMap(f=>(f.parcelas||[]).filter(p=>!p.pago));
+                const proxVenc=parcPend.filter(p=>p.venc).sort((a,b)=>a.venc>b.venc?1:-1)[0];
+                return(<Card key={m.id} style={{padding:"14px 16px"}}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:10}}>
+                    <div>
+                      <div style={{fontWeight:800,fontSize:13,color:"var(--tx)"}}>{m.nome}</div>
+                      <div style={{fontSize:10,color:"var(--tx3)",marginTop:2}}>{m.comissao}% comissão · {comM.length} lançamento{comM.length!==1?"s":""}</div>
+                    </div>
+                    <Badge color={pendM===0?"green":"red"}>{pendM===0?"✓ Quitado":"Pendente"}</Badge>
+                  </div>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6,marginBottom:10}}>
+                    <div style={{background:"var(--bg)",borderRadius:8,padding:"8px 10px",textAlign:"center"}}>
+                      <div style={{fontSize:8,fontWeight:800,color:"var(--tx3)",textTransform:"uppercase",marginBottom:3}}>Total</div>
+                      <div style={{fontSize:13,fontWeight:800,color:"var(--tx)"}}>{R$(totalM)}</div>
+                    </div>
+                    <div style={{background:"rgba(16,185,129,.06)",borderRadius:8,padding:"8px 10px",textAlign:"center"}}>
+                      <div style={{fontSize:8,fontWeight:800,color:"var(--gn)",textTransform:"uppercase",marginBottom:3}}>Pago</div>
+                      <div style={{fontSize:13,fontWeight:800,color:"var(--gn)"}}>{R$(pagoM)}</div>
+                    </div>
+                    <div style={{background:"rgba(239,68,68,.06)",borderRadius:8,padding:"8px 10px",textAlign:"center"}}>
+                      <div style={{fontSize:8,fontWeight:800,color:"var(--rd)",textTransform:"uppercase",marginBottom:3}}>Pendente</div>
+                      <div style={{fontSize:13,fontWeight:800,color:pendM>0?"var(--rd)":"var(--tx3)"}}>{R$(pendM)}</div>
+                    </div>
+                  </div>
+                  <div style={{height:4,background:"var(--bg)",borderRadius:4,marginBottom:8}}>
+                    <div style={{height:"100%",width:`${pct}%`,background:"linear-gradient(90deg,#10b981,#3b82f6)",borderRadius:4,transition:"width .5s"}}/>
+                  </div>
+                  {proxVenc&&<div style={{fontSize:10,color:"var(--tx3)",fontWeight:600}}>Próx. venc.: <span style={{color:"var(--am)",fontWeight:800}}>{isoToBR(proxVenc.venc)}</span> — {R$(proxVenc.valor)}</div>}
+                  {parcPend.length>0&&<div style={{fontSize:10,color:"var(--tx3)",marginTop:2}}>{parcPend.length} parcela{parcPend.length!==1?"s":""} em aberto</div>}
+                </Card>);
+              })}
+            </div>
+          </>);
+        })()}
       </>}
       {marcTab==="cortadores"&&<>
         {eC&&<Modal onClose={()=>setEC(null)}><h2 style={{fontSize:16,fontWeight:800,color:"var(--tx)",marginBottom:16}}>{eC.id?"Editar":"Novo"} Cortador</h2>

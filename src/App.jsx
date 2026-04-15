@@ -2473,7 +2473,7 @@ export default function ERP(){
   const [vendedores,setVendedores]=useState(()=>LS('vendedores')||[]);
   const [cortadores,setCortadores]=useState(()=>LS('cortadores')||[]);
   const [ordensCort,setOrdensCort]=useState(()=>LS('ordensCort')||[]);
-  const [matLib,setMatLib]=useState(()=>LS('matLib')||DEMO_MATLIB);
+  const [matLib,setMatLib]=useState(()=>{const v=LS('matLib');return(v&&v.length>0)?v:DEMO_MATLIB;});
   const [notifs,setNotifs]=useState(()=>LS('notifs')||[]);
   const [showComissoes,setShowComissoes]=useState(false);
   const [showComissoesVend,setShowComissoesVend]=useState(false);
@@ -4891,7 +4891,7 @@ export default function ERP(){
         const [mEdit,setMEdit]=useState(null);
         const cats=[...new Set(matLib.map(m=>m.categoria).filter(Boolean))];
         return(<>
-          <SH title="📦 Biblioteca de Materiais" sub="Itens pré-cadastrados que os marceneiros usam para lançar materiais por obra" right={<Btn onClick={()=>setMEdit({nome:"",unidade:"un",categoria:"",preco:0})}><I.Plus/> Novo Material</Btn>} style={{marginTop:24}}/>
+          <SH title="📦 Biblioteca de Materiais" sub="Itens pré-cadastrados que os marceneiros usam para lançar materiais por obra" right={<div style={{display:"flex",gap:8}}><Btn v="secondary" onClick={()=>{const novos=DEMO_MATLIB.filter(d=>!matLib.find(m=>m.id===d.id));if(novos.length===0)return showToast("Padrões já carregados!");setMatLib(p=>[...p,...novos]);showToast(`${novos.length} material(is) adicionado(s)!`);}} small>↺ Carregar Padrões</Btn><Btn onClick={()=>setMEdit({nome:"",unidade:"un",categoria:"",preco:0})}><I.Plus/> Novo Material</Btn></div>} style={{marginTop:24}}/>
           {mEdit&&<Modal onClose={()=>setMEdit(null)}>
             <h2 style={{fontSize:16,fontWeight:800,color:"var(--tx)",marginBottom:16}}>{mEdit.id?"Editar":"Novo"} Material</h2>
             <Field label="Descrição do Material" value={mEdit.nome} onChange={v=>setMEdit({...mEdit,nome:v})} placeholder="Ex: MDF 18mm Branco TX — chapa 2750×1850"/>
@@ -4906,7 +4906,7 @@ export default function ERP(){
             </div>
           </Modal>}
           {matLib.length===0
-            ?<Card style={{padding:"24px 20px",textAlign:"center",color:"var(--tx3)",fontSize:13,fontWeight:600}}>Biblioteca vazia — cadastre os materiais que seus marceneiros utilizam nas obras.</Card>
+            ?<Card style={{padding:"24px 20px",textAlign:"center",color:"var(--tx3)",fontSize:13,fontWeight:600}}>Biblioteca vazia — clique em "Carregar Padrões" ou cadastre manualmente.</Card>
             :<Card>
               <TH cols={[{l:"Descrição",w:"3fr"},{l:"Unidade",w:"80px"},{l:"Categoria",w:"120px"},{l:"Preço Unit.",w:"120px"},{l:"",w:"70px"}]}/>
               {matLib.map(m=>(

@@ -1970,6 +1970,8 @@ export default function ERP(){
   const recNomeRef=useRef("");const recMesRef=useRef(hojeISO().slice(0,7));const [recAddingMes,setRecAddingMes]=useState(false);
   const [recExpId,setRecExpId]=useState(null);
   const [recTab,setRecTab]=useState("pedidos");
+  const [editRecId,setEditRecId]=useState(null);
+  const [editRecDraft,setEditRecDraft]=useState({cliente:"",obs:""});
   const [poolTab,setPoolTab]=useState("1012");
   const recorrentesRef=useRef(recorrentes);useEffect(()=>{recorrentesRef.current=recorrentes;},[recorrentes]);
   const recGeradoRef=useRef(false);
@@ -4587,13 +4589,36 @@ export default function ERP(){
                 {r.cliente?.[0]?.toUpperCase()||"?"}
               </div>
               <div>
-                <div style={{fontWeight:800,fontSize:14,color:"var(--tx)"}}>{r.cliente}</div>
-                <div style={{fontSize:11,color:"var(--tx3)",fontWeight:600,marginTop:1}}>
-                  {r.obs&&<span>{r.obs} • </span>}
-                  {r.parcelas.length} parcela{r.parcelas.length!==1?"s":""}
-                  {atrasadas>0&&<span style={{color:"var(--rd)",fontWeight:800}}> • {atrasadas} atrasada{atrasadas>1?"s":""}</span>}
-                  {cli&&<span> • <button onClick={e=>{e.stopPropagation();setTab("clientes")}} style={{background:"none",border:"none",color:"var(--pri)",fontSize:11,fontWeight:700,cursor:"pointer",padding:0}}>ver cadastro</button></span>}
-                </div>
+                {editRecId===r.id
+                  ?<div onClick={e=>e.stopPropagation()} style={{display:"flex",flexDirection:"column",gap:4}}>
+                    <input autoFocus value={editRecDraft.cliente} onChange={e=>setEditRecDraft(p=>({...p,cliente:e.target.value}))}
+                      placeholder="Nome do cliente"
+                      style={{fontWeight:800,fontSize:14,padding:"3px 7px",borderRadius:6,border:"1.5px solid var(--pri)",background:"var(--sf)",color:"var(--tx)",outline:"none",width:220}}/>
+                    <input value={editRecDraft.obs} onChange={e=>setEditRecDraft(p=>({...p,obs:e.target.value}))}
+                      placeholder="Descrição / observação"
+                      style={{fontSize:11,padding:"3px 7px",borderRadius:6,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",outline:"none",width:280}}/>
+                    <div style={{display:"flex",gap:4,marginTop:2}}>
+                      <button onClick={()=>{updRec(r.id,x=>({...x,cliente:editRecDraft.cliente.trim()||x.cliente,obs:editRecDraft.obs}));setEditRecId(null);}}
+                        style={{background:"var(--gn)",border:"none",color:"#fff",borderRadius:5,fontSize:10,fontWeight:800,padding:"3px 8px",cursor:"pointer"}}>✓ Salvar</button>
+                      <button onClick={()=>setEditRecId(null)}
+                        style={{background:"none",border:"1px solid var(--bd)",color:"var(--tx3)",borderRadius:5,fontSize:10,fontWeight:700,padding:"3px 7px",cursor:"pointer"}}>Cancelar</button>
+                    </div>
+                  </div>
+                  :<div>
+                    <div style={{display:"flex",alignItems:"center",gap:5}}>
+                      <span style={{fontWeight:800,fontSize:14,color:"var(--tx)"}}>{r.cliente}</span>
+                      <button onClick={e=>{e.stopPropagation();setEditRecDraft({cliente:r.cliente,obs:r.obs||""});setEditRecId(r.id);}}
+                        title="Editar nome e descrição"
+                        style={{background:"none",border:"none",color:"var(--tx3)",cursor:"pointer",padding:"1px 3px",display:"flex",alignItems:"center",opacity:.6,fontSize:11}}>✏</button>
+                    </div>
+                    <div style={{fontSize:11,color:"var(--tx3)",fontWeight:600,marginTop:1}}>
+                      {r.obs&&<span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:320,display:"inline-block",verticalAlign:"bottom"}}>{r.obs} • </span>}
+                      {r.parcelas.length} parcela{r.parcelas.length!==1?"s":""}
+                      {atrasadas>0&&<span style={{color:"var(--rd)",fontWeight:800}}> • {atrasadas} atrasada{atrasadas>1?"s":""}</span>}
+                      {cli&&<span> • <button onClick={e=>{e.stopPropagation();setTab("clientes")}} style={{background:"none",border:"none",color:"var(--pri)",fontSize:11,fontWeight:700,cursor:"pointer",padding:0}}>ver cadastro</button></span>}
+                    </div>
+                  </div>
+                }
               </div>
             </div>
             <div style={{display:"flex",gap:20,alignItems:"center"}}>

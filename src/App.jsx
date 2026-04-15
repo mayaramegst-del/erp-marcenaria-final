@@ -1204,12 +1204,12 @@ function MarceneiroApp({user,pedidos,setPedidos,clientes,financeiro,showToast,on
     const statusLabel={aguardando:"\u23f3 Aguardando",em_corte:"\u2699 Em Corte",concluido:"\u2713 Conclu\xeddo",cancelado:"\u2715 Cancelado"};
     const FIT_TIPOS=[{v:"N",l:"\u2014"},{v:"0.5",l:"0,5mm"},{v:"1",l:"1mm"},{v:"2",l:"2mm"},{v:"3",l:"3mm"}];
     const MATERIAIS=["MDF","MDP","Compensado","OSB","Madeira Maci\xe7a"];
-    const ESPESSURAS=["6","9","12","15","18","20","25","30"];
+    const ESPESSURAS=["3","6","15","18","30"];
     const CHAPAS_STD=[{l:"MDF 2750\xd71850",w:2750,h:1850},{l:"MDF 2440\xd71220",w:2440,h:1220},{l:"Personalizado",w:0,h:0}];
 
     const novaOrdem=()=>{
       setForm({
-        pedidoId:"",cortadorId:"",obs:"",
+        pedidoId:"",cortadorId:"",obs:"",prazo:"",
         chapa:{material:"MDF",espessura:"15",largura:2750,altura:1850,cor:"Branco TX",qt_chapas:1,preset:"MDF 2750\xd71850",kerf:3},
         pecas:[{id:uid(),nome:"",larg:400,alt:300,qt:1,fio:"N",fitamento:{topo:{tipo:"N",cor:""},base:{tipo:"N",cor:""},esq:{tipo:"N",cor:""},dir:{tipo:"N",cor:""}}}]
       });
@@ -1288,7 +1288,7 @@ function MarceneiroApp({user,pedidos,setPedidos,clientes,financeiro,showToast,on
       if(form.pecas.length===0||form.pecas.some(p=>!p.nome||p.larg<=0||p.alt<=0))return showToast("Preencha todas as pe\xe7as!","red");
       const sheets=computeLayout(form);
       const num="CRT"+(String(ordensCort.length+1).padStart(3,"0"));
-      const nova={id:uid(),num,marcId:user.id,pedidoId:form.pedidoId||null,cortadorId:form.cortadorId,status:"aguardando",createdAt:hojeISO(),obs:form.obs,chapa:form.chapa,pecas:form.pecas,sheets_count:sheets.length};
+      const nova={id:uid(),num,marcId:user.id,pedidoId:form.pedidoId||null,cortadorId:form.cortadorId,status:"aguardando",createdAt:hojeISO(),obs:form.obs,prazo:form.prazo||"",chapa:form.chapa,pecas:form.pecas,sheets_count:sheets.length};
       setOrdensCort(prev=>[...prev,nova]);
       // Move pedido vinculado para a etapa "Plano de Corte" no Kanban
       if(form.pedidoId)setPedidos(prev=>prev.map(p=>p.id===form.pedidoId?{...p,stage:"corte",status:p.status==="em_espera"?"em_producao":p.status}:p));
@@ -1346,6 +1346,7 @@ function MarceneiroApp({user,pedidos,setPedidos,clientes,financeiro,showToast,on
               </div>
             </div>
           ))}
+          {o.prazo&&<div style={{marginTop:8,padding:"8px 10px",borderRadius:8,background:"rgba(245,158,11,.1)",border:"1px solid rgba(245,158,11,.3)",fontSize:12,fontWeight:700,color:"#d97706"}}>⏰ Prazo de Entrega: {isoToBR(o.prazo)}</div>}
           {o.obs&&<div style={{marginTop:8,fontSize:11,color:"var(--tx3)"}}><b>Obs:</b> {o.obs}</div>}
         </Card2>
       </div>);
@@ -1462,6 +1463,15 @@ function MarceneiroApp({user,pedidos,setPedidos,clientes,financeiro,showToast,on
           );})()}
         </Card2>}
         <Card2 style={{marginBottom:10,padding:"12px 16px"}}>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:10}}>
+            <div>
+              <div style={{fontSize:10,color:"var(--tx3)",fontWeight:700,marginBottom:4}}>📅 PRAZO DE ENTREGA</div>
+              <input type="date" value={form.prazo||""} onChange={e=>setForm(f=>({...f,prazo:e.target.value}))} style={{width:"100%",padding:"8px 10px",borderRadius:8,border:"1.5px solid var(--am)",background:"var(--sf)",color:"var(--tx)",fontSize:12,fontWeight:700}}/>
+            </div>
+            <div style={{display:"flex",alignItems:"flex-end"}}>
+              {form.prazo&&<div style={{background:"rgba(245,158,11,.12)",border:"1px solid rgba(245,158,11,.3)",borderRadius:8,padding:"8px 10px",fontSize:12,fontWeight:700,color:"#d97706",width:"100%",textAlign:"center"}}>{isoToBR(form.prazo)}</div>}
+            </div>
+          </div>
           <div style={{fontSize:10,color:"var(--tx3)",fontWeight:700,marginBottom:4}}>OBSERVA\xc7\xd5ES</div>
           <textarea value={form.obs} onChange={e=>setForm(f=>({...f,obs:e.target.value}))} placeholder="Ex: Refor\xe7ar pe\xe7as maiores, prefer\xeancia de corte..." rows={3} style={{width:"100%",padding:"8px 10px",borderRadius:8,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:12,resize:"vertical"}}/>
         </Card2>
@@ -1487,6 +1497,7 @@ function MarceneiroApp({user,pedidos,setPedidos,clientes,financeiro,showToast,on
             <span>\ud83d\udcd0 {o.pecas.reduce((s,p)=>s+p.qt,0)} pe\xe7as</span>
             <span>\ud83e\ude9a {cort?.nome||"\u2014"}</span>
             <span>\ud83d\udcc5 {o.createdAt}</span>
+            {o.prazo&&<span style={{color:"#d97706",fontWeight:700}}>⏰ Prazo: {isoToBR(o.prazo)}</span>}
           </div>
         </div>);
       })}
@@ -1784,7 +1795,55 @@ function CortadorApp({user,ordensCort,setOrdensCort,setPedidos,showToast,onLogou
 
   const computeLayout=(o)=>{
     const flat=o.pecas.flatMap(p=>Array.from({length:p.qt},(_,i)=>({...p,id:p.id+'_'+i,w:p.larg,h:p.alt})));
-    return packSheets(flat,+o.chapa.largura,+o.chapa.altura);
+    return packSheets(flat,+o.chapa.largura,+o.chapa.altura,+(o.chapa.kerf||3));
+  };
+
+  const exportarPDFCort=(o,sheets)=>{
+    const pdf=new jsPDF({orientation:'p',unit:'mm',format:'a4'});
+    const W=210,mg=14;let y=mg;
+    const fita=calcFita(o.pecas);
+    pdf.setFillColor(14,165,233);pdf.rect(0,0,210,28,'F');
+    pdf.setTextColor(255,255,255);pdf.setFontSize(16);pdf.setFont(undefined,'bold');
+    pdf.text(`Ordem de Corte — ${o.num}`,mg,12);
+    pdf.setFontSize(9);pdf.setFont(undefined,'normal');
+    pdf.text(`${o.chapa.material} ${o.chapa.espessura}mm | ${o.chapa.largura}×${o.chapa.altura}mm | ${o.chapa.cor} | Kerf: ${o.chapa.kerf||3}mm`,mg,20);
+    const prazoTxt=o.prazo?`Prazo: ${isoToBR(o.prazo)}`:'';
+    pdf.text(`Criado: ${o.createdAt} | ${sheets.length} chapa(s)${prazoTxt?' | '+prazoTxt:''}`,mg+80,20);
+    pdf.setTextColor(0,0,0);y=36;
+    sheets.forEach((sh,si)=>{
+      if(y+80>285){pdf.addPage();y=mg;}
+      pdf.setFontSize(11);pdf.setFont(undefined,'bold');
+      pdf.text(`Chapa ${si+1} — ${sh.aprov}% aproveitamento | desperdício: ${sh.desperdicio} m²`,mg,y);y+=4;
+      const img=renderCorteToDataURL(sh,+o.chapa.largura,+o.chapa.altura);
+      const imgW=W-mg*2;const imgH=imgW*(+o.chapa.altura/+o.chapa.largura);
+      const h2=Math.min(imgH,75);
+      pdf.addImage(img,'PNG',mg,y,imgW,h2);y+=h2+6;
+    });
+    if(y+20>285){pdf.addPage();y=mg;}
+    pdf.setFontSize(11);pdf.setFont(undefined,'bold');pdf.text('Lista de Peças',mg,y);y+=5;
+    pdf.setFillColor(14,165,233);pdf.rect(mg,y-3.5,W-mg*2,6,'F');
+    pdf.setTextColor(255,255,255);pdf.setFontSize(8);
+    ['#','Nome','Larg','Alt','Qt','Fio','Fitamento'].forEach((h,i)=>{pdf.text(h,mg+[0,8,60,76,92,104,116][i],y);});
+    pdf.setTextColor(0,0,0);y+=4;
+    o.pecas.forEach((p,i)=>{
+      if(y+5>285){pdf.addPage();y=mg+6;}
+      if(i%2===0){pdf.setFillColor(240,249,255);pdf.rect(mg,y-3.5,W-mg*2,5.5,'F');}
+      pdf.setFontSize(8);pdf.setFont(undefined,'normal');
+      const fit=['topo','base','esq','dir'].filter(l=>p.fitamento?.[l]?.tipo&&p.fitamento[l].tipo!=='N').map(l=>`${l[0].toUpperCase()}:${p.fitamento[l].tipo}mm`).join(' ');
+      [i+1,p.nome,p.larg+'mm',p.alt+'mm',p.qt,p.fio==='N'?'—':p.fio,fit||'—'].forEach((v,j)=>{pdf.text(String(v),mg+[0,8,60,76,92,104,116][j],y);});
+      y+=5;
+    });
+    if(fita.length>0){
+      if(y+20>285){pdf.addPage();y=mg;}
+      y+=4;pdf.setFontSize(11);pdf.setFont(undefined,'bold');pdf.text('Fita de Borda Necessária',mg,y);y+=5;
+      fita.forEach(f=>{
+        if(y+5>285){pdf.addPage();y=mg+6;}
+        pdf.setFontSize(9);pdf.setFont(undefined,'normal');
+        pdf.text(`Fita ${f.tipo}mm${f.cor?' ('+f.cor+')':''}: ${f.metros.toFixed(2)} m`,mg+4,y);y+=5;
+      });
+    }
+    if(o.obs){y+=3;pdf.setFontSize(9);pdf.setFont(undefined,'italic');pdf.text(`Obs: ${o.obs}`,mg,y);}
+    pdf.save(`${o.num}-corte.pdf`);
   };
 
   const DetalhePeca=({p,i})=>(
@@ -1833,25 +1892,44 @@ function CortadorApp({user,ordensCort,setOrdensCort,setPedidos,showToast,onLogou
             <span style={{fontWeight:800,fontSize:14,color:"var(--tx)"}}>{selOrdem.num}</span>
             <span style={{padding:"3px 10px",borderRadius:20,fontSize:10,fontWeight:800,color:statusCor[selOrdem.status]}}>{statusLabel[selOrdem.status]}</span>
           </div>
+          {selOrdem.prazo&&<div style={{background:"rgba(245,158,11,.12)",border:"1.5px solid rgba(245,158,11,.4)",borderRadius:10,padding:"10px 14px",marginBottom:12,display:"flex",alignItems:"center",gap:10}}>
+            <span style={{fontSize:22}}>⏰</span>
+            <div><div style={{fontSize:10,fontWeight:800,color:"#d97706",textTransform:"uppercase",letterSpacing:".5px"}}>Prazo de Entrega</div><div style={{fontSize:15,fontWeight:800,color:"#b45309"}}>{isoToBR(selOrdem.prazo)}</div></div>
+          </div>}
           <div style={{display:"flex",gap:8,marginBottom:12}}>
             {selOrdem.status==="aguardando"&&<button onClick={()=>updStatus(selOrdem.id,"em_corte")} style={{flex:1,padding:"11px",borderRadius:10,background:"var(--pri)",color:"#fff",fontSize:12,fontWeight:800,border:"none",cursor:"pointer"}}>\u2699 Iniciar Corte</button>}
             {selOrdem.status==="em_corte"&&<button onClick={()=>updStatus(selOrdem.id,"concluido")} style={{flex:1,padding:"11px",borderRadius:10,background:"var(--gn)",color:"#fff",fontSize:12,fontWeight:800,border:"none",cursor:"pointer"}}>\u2713 Marcar Conclu\xeddo</button>}
             {selOrdem.status==="concluido"&&<div style={{flex:1,padding:"11px",borderRadius:10,background:"var(--gnb)",color:"var(--gn)",fontSize:12,fontWeight:800,textAlign:"center"}}>\u2713 Corte Conclu\xeddo</div>}
+            {(()=>{const sh=computeLayout(selOrdem);return <button onClick={()=>exportarPDFCort(selOrdem,sh)} style={{padding:"11px 16px",borderRadius:10,background:"#0ea5e9",color:"#fff",fontSize:12,fontWeight:800,border:"none",cursor:"pointer"}}>📄 PDF</button>;})()}
           </div>
           <div style={{background:"var(--sf)",borderRadius:12,border:"1.5px solid var(--bd)",padding:"12px 14px",marginBottom:10}}>
             <div style={{fontSize:11,fontWeight:800,color:"var(--tx3)",textTransform:"uppercase",marginBottom:6}}>Chapa</div>
             <div style={{fontSize:13,fontWeight:800,color:"var(--tx)"}}>{selOrdem.chapa.material} {selOrdem.chapa.espessura}mm</div>
-            <div style={{fontSize:11,color:"var(--tx3)",marginTop:2}}>{selOrdem.chapa.largura}\xd7{selOrdem.chapa.altura}mm \xb7 {selOrdem.chapa.cor} \xb7 {selOrdem.chapa.qt_chapas} chapa(s)</div>
+            <div style={{fontSize:11,color:"var(--tx3)",marginTop:2}}>{selOrdem.chapa.largura}\xd7{selOrdem.chapa.altura}mm \xb7 {selOrdem.chapa.cor} \xb7 {selOrdem.chapa.qt_chapas} chapa(s) \xb7 Kerf: {selOrdem.chapa.kerf||3}mm</div>
           </div>
           {(()=>{const sheets=computeLayout(selOrdem);return sheets.map((sh,si)=>(
             <div key={si} style={{background:"var(--sf)",borderRadius:12,border:"1.5px solid var(--bd)",padding:"12px 14px",marginBottom:10}}>
-              <div style={{fontSize:11,fontWeight:800,color:"var(--tx)",marginBottom:8}}>Plano de Corte \u2014 Chapa {si+1} ({sh.aprov}% aproveitamento)</div>
+              <div style={{fontSize:11,fontWeight:800,color:"var(--tx)",marginBottom:8}}>Plano de Corte \u2014 Chapa {si+1} <span style={{color:"var(--gn)"}}>{sh.aprov}% aproveitamento</span> · <span style={{color:"var(--rd)",fontSize:10}}>desperdício: {sh.desperdicio} m²</span></div>
               <CanvasCorte sheet={sh} cW={+selOrdem.chapa.largura} cH={+selOrdem.chapa.altura}/>
             </div>
           ))})()}
           <div style={{background:"var(--sf)",borderRadius:12,border:"1.5px solid var(--bd)",padding:"12px 14px",marginBottom:10}}>
             <div style={{fontSize:11,fontWeight:800,color:"var(--tx3)",textTransform:"uppercase",marginBottom:8}}>Lista de Pe\xe7as com Fitamento</div>
             {selOrdem.pecas.map((p,i)=><DetalhePeca key={p.id} p={p} i={i}/>)}
+            {(()=>{const fita=calcFita(selOrdem.pecas);return fita.length>0&&(
+              <div style={{marginTop:10,borderTop:"1.5px solid var(--bd)",paddingTop:10}}>
+                <div style={{fontSize:10,fontWeight:800,color:"#d97706",textTransform:"uppercase",marginBottom:6}}>🎀 Fita de Borda Necessária</div>
+                <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+                  {fita.map((f,i)=>(
+                    <div key={i} style={{background:"rgba(245,158,11,.1)",border:"1px solid rgba(245,158,11,.3)",borderRadius:8,padding:"6px 10px",fontSize:11}}>
+                      <span style={{fontWeight:800,color:"#d97706"}}>Fita {f.tipo}mm</span>
+                      {f.cor&&<span style={{color:"var(--tx3)",marginLeft:4}}>({f.cor})</span>}
+                      <span style={{fontWeight:800,color:"var(--tx)",marginLeft:6}}>{f.metros.toFixed(2)} m</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );})()}
             {selOrdem.obs&&<div style={{marginTop:8,padding:"8px 10px",borderRadius:8,background:"var(--bg)",fontSize:11,color:"var(--tx2)"}}><b>Obs:</b> {selOrdem.obs}</div>}
           </div>
         </>):(
@@ -1871,6 +1949,7 @@ function CortadorApp({user,ordensCort,setOrdensCort,setPedidos,showToast,onLogou
                   <span>\ud83d\udccb {o.chapa.material} {o.chapa.espessura}mm</span>
                   <span>\ud83d\udcd0 {o.pecas.reduce((s,p)=>s+p.qt,0)} pe\xe7as</span>
                   <span>\ud83d\udcc5 {o.createdAt}</span>
+                  {o.prazo&&<span style={{color:"#d97706",fontWeight:700}}>⏰ {isoToBR(o.prazo)}</span>}
                 </div>
               </div>
             ))}

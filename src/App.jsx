@@ -1166,7 +1166,7 @@ function calcFita(pecas){
 /* ═══════════════════════════════════════════
    MARCENEIRO APP — TELA MOBILE
    ═══════════════════════════════════════════ */
-function MarceneiroApp({user,pedidos,setPedidos,clientes,financeiro,showToast,onRefresh,onLogout,ordensCort,setOrdensCort,cortadores}){
+function MarceneiroApp({user,pedidos,setPedidos,clientes,financeiro,showToast,onRefresh,onLogout,ordensCort,setOrdensCort,cortadores,matLib=[]}){
   const [nav,setNav]=useState("pedidos");
   const [filtro,setFiltro]=useState("andamento");
   const [expandId,setExpandId]=useState(null);
@@ -1183,6 +1183,15 @@ function MarceneiroApp({user,pedidos,setPedidos,clientes,financeiro,showToast,on
   const totalPago=meusP.reduce((s,p)=>{const f=getComFin(p);return s+(f?.valorPago||0);},0);
   const totalPend=totalCom-totalPago;
   const setStage=(pid,stage,extra={})=>{setPedidos(prev=>prev.map(p=>p.id===pid?{...p,stage,...extra}:p));showToast("Etapa atualizada!");setExpandId(null);setInstPid(null);};
+  // ── Lançamento de materiais ──
+  const [matModal,setMatModal]=useState(null); // {pedidoId, ambNome}
+  const [matForm,setMatForm]=useState({materialId:"",nome:"",unidade:"",qt:1}); // form de custom
+  const addMatLancMarc=(pedidoId,ambNome,item)=>{
+    setPedidos(prev=>prev.map(p=>p.id!==pedidoId?p:{...p,matLanc:[...(p.matLanc||[]),{id:Date.now().toString(36),ambNome,...item}]}));
+  };
+  const delMatLancMarc=(pedidoId,mid)=>{
+    setPedidos(prev=>prev.map(p=>p.id!==pedidoId?p:{...p,matLanc:(p.matLanc||[]).filter(m=>m.id!==mid)}));
+  };
   const dlFile=(url,nome)=>{try{const a=document.createElement("a");a.href=url;a.download=nome||"arquivo";a.target="_blank";document.body.appendChild(a);a.click();setTimeout(()=>document.body.removeChild(a),100);}catch{window.open(url,"_blank");}};
   const filtrados=meusP.filter(p=>{
     if(filtro==="andamento")return p.stage!=="concluido";
@@ -1636,6 +1645,43 @@ function MarceneiroApp({user,pedidos,setPedidos,clientes,financeiro,showToast,on
                       {a.desc&&<div style={{fontSize:11,color:"var(--tx3)",marginTop:3,whiteSpace:"pre-line",lineHeight:1.6}}>{a.desc}</div>}
                     </div>)}
                   </div>;})()}
+                  {/* ── LANÇAMENTO DE MATERIAIS ── */}
+                  {(()=>{
+                    const ambs=p.ambs?.length>0?p.ambs:[{nome:"Geral"}];
+                    const lancados=p.matLanc||[];
+                    return(
+                      <div style={{background:"var(--bg)",borderRadius:12,border:"1.5px solid var(--bd)",padding:"12px 14px",marginBottom:10}}>
+                        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+                          <div style={{fontSize:12,fontWeight:800,color:"var(--tx)"}}>📦 Materiais Utilizados</div>
+                          <span style={{fontSize:10,color:"var(--tx3)",fontWeight:600}}>{lancados.length} item(ns)</span>
+                        </div>
+                        {/* Botões por ambiente */}
+                        <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:10}}>
+                          {ambs.map((a,i)=>(
+                            <button key={i} onClick={()=>{setMatModal({pedidoId:p.id,ambNome:a.nome});setMatForm({materialId:"",nome:"",unidade:"",qt:1});}} style={{padding:"6px 12px",borderRadius:8,border:"1.5px solid var(--pri)",background:"var(--prib)",color:"var(--pri)",fontSize:11,fontWeight:700,cursor:"pointer"}}>+ {a.nome||"Ambiente"}</button>
+                          ))}
+                        </div>
+                        {/* Lista dos lançados */}
+                        {lancados.length>0&&(()=>{
+                          const grupos={};lancados.forEach(m=>{const k=m.ambNome||"Geral";if(!grupos[k])grupos[k]=[];grupos[k].push(m);});
+                          return Object.entries(grupos).map(([amb,items])=>(
+                            <div key={amb} style={{marginBottom:8}}>
+                              <div style={{fontSize:9,fontWeight:800,color:"var(--pri)",textTransform:"uppercase",marginBottom:4}}>📦 {amb}</div>
+                              {items.map(m=>(
+                                <div key={m.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"5px 8px",background:"var(--sf)",borderRadius:7,marginBottom:4,border:"1px solid var(--bd)"}}>
+                                  <div style={{flex:1}}>
+                                    <span style={{fontSize:12,fontWeight:700,color:"var(--tx)"}}>{m.nome}</span>
+                                    <span style={{fontSize:11,color:"var(--tx3)",marginLeft:6}}>{m.qt} {m.unidade}</span>
+                                  </div>
+                                  <button onClick={()=>delMatLancMarc(p.id,m.id)} style={{background:"none",border:"none",color:"var(--rd)",padding:2,cursor:"pointer",fontSize:16}}>×</button>
+                                </div>
+                              ))}
+                            </div>
+                          ));
+                        })()}
+                      </div>
+                    );
+                  })()}
                   {p.arquivos?.length>0&&<div style={{background:"var(--blb)",borderRadius:12,padding:"10px 14px"}}>
                     <div style={{fontSize:10,fontWeight:800,color:"var(--bl)",marginBottom:8}}>📎 Anexos do Projeto</div>
                     {p.arquivos.map(a=>(
@@ -1650,6 +1696,86 @@ function MarceneiroApp({user,pedidos,setPedidos,clientes,financeiro,showToast,on
           })}
         </div>
       </>}
+
+      {/* ── MODAL LANÇAR MATERIAL ── */}
+      {matModal&&(()=>{
+        const libCats=[...new Set(matLib.map(m=>m.categoria).filter(Boolean))];
+        const [mCat,setMCat]=useState("");
+        const libFiltrada=matLib.filter(m=>!mCat||m.categoria===mCat);
+        const [modo,setModo]=useState("lib"); // "lib" ou "custom"
+        const [customF,setCustomF]=useState({nome:"",unidade:"un",qt:1});
+        const pedMats=(pedidos.find(p=>p.id===matModal.pedidoId)?.matLanc||[]).filter(m=>m.ambNome===matModal.ambNome);
+        return(
+          <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.5)",zIndex:1000,display:"flex",flexDirection:"column",justifyContent:"flex-end"}}>
+            <div style={{background:"var(--sf)",borderRadius:"18px 18px 0 0",padding:"18px 16px",maxHeight:"85vh",overflowY:"auto"}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+                <div>
+                  <div style={{fontSize:15,fontWeight:800,color:"var(--tx)"}}>📦 Materiais — {matModal.ambNome}</div>
+                  <div style={{fontSize:11,color:"var(--tx3)",marginTop:2}}>{pedMats.length} item(ns) lançado(s)</div>
+                </div>
+                <button onClick={()=>setMatModal(null)} style={{background:"none",border:"none",fontSize:22,color:"var(--tx3)",cursor:"pointer",lineHeight:1}}>×</button>
+              </div>
+              {/* Já lançados */}
+              {pedMats.length>0&&<div style={{marginBottom:12,background:"var(--bg)",borderRadius:10,padding:"10px 12px"}}>
+                <div style={{fontSize:10,fontWeight:800,color:"var(--tx3)",textTransform:"uppercase",marginBottom:6}}>Já lançados</div>
+                {pedMats.map(m=>(
+                  <div key={m.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"5px 0",borderBottom:"1px solid var(--bd)"}}>
+                    <span style={{fontSize:12,color:"var(--tx)",fontWeight:600}}>{m.nome} <span style={{color:"var(--tx3)",fontWeight:400}}>× {m.qt} {m.unidade}</span></span>
+                    <button onClick={()=>delMatLancMarc(matModal.pedidoId,m.id)} style={{background:"none",border:"none",color:"var(--rd)",cursor:"pointer",fontSize:16}}>×</button>
+                  </div>
+                ))}
+              </div>}
+              {/* Abas */}
+              <div style={{display:"flex",gap:6,marginBottom:12}}>
+                <button onClick={()=>setModo("lib")} style={{flex:1,padding:"8px",borderRadius:8,border:"none",background:modo==="lib"?"var(--pri)":"var(--bd2)",color:modo==="lib"?"#fff":"var(--tx2)",fontSize:12,fontWeight:700,cursor:"pointer"}}>📚 Biblioteca</button>
+                <button onClick={()=>setModo("custom")} style={{flex:1,padding:"8px",borderRadius:8,border:"none",background:modo==="custom"?"var(--am)":"var(--bd2)",color:modo==="custom"?"#fff":"var(--tx2)",fontSize:12,fontWeight:700,cursor:"pointer"}}>✏ Item Manual</button>
+              </div>
+              {modo==="lib"&&<>
+                {libCats.length>0&&<div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:10}}>
+                  <button onClick={()=>setMCat("")} style={{padding:"4px 10px",borderRadius:20,border:"none",background:!mCat?"var(--pri)":"var(--bd)",color:!mCat?"#fff":"var(--tx3)",fontSize:11,fontWeight:700,cursor:"pointer"}}>Todos</button>
+                  {libCats.map(c=><button key={c} onClick={()=>setMCat(c)} style={{padding:"4px 10px",borderRadius:20,border:"none",background:mCat===c?"var(--pri)":"var(--bd)",color:mCat===c?"#fff":"var(--tx3)",fontSize:11,fontWeight:700,cursor:"pointer"}}>{c}</button>)}
+                </div>}
+                {matLib.length===0
+                  ?<div style={{padding:"20px",textAlign:"center",color:"var(--tx3)",fontSize:12}}>Biblioteca vazia — o administrador precisa cadastrar os materiais primeiro.</div>
+                  :libFiltrada.map(m=>{
+                    const jaTem=pedMats.find(x=>x.materialId===m.id);
+                    const [qtLocal,setQtLocal]=useState(jaTem?.qt||1);
+                    return(
+                      <div key={m.id} style={{display:"flex",alignItems:"center",gap:8,padding:"8px 10px",borderRadius:10,border:`1.5px solid ${jaTem?"var(--pri)":"var(--bd)"}`,background:jaTem?"var(--prib)":"var(--bg)",marginBottom:6}}>
+                        <div style={{flex:1}}>
+                          <div style={{fontSize:12,fontWeight:700,color:"var(--tx)"}}>{m.nome}</div>
+                          <div style={{fontSize:10,color:"var(--tx3)",marginTop:1}}>{m.unidade} {m.categoria&&`· ${m.categoria}`}</div>
+                        </div>
+                        <input type="number" value={qtLocal} min="0.01" step="0.01" onChange={e=>setQtLocal(Math.max(0.01,+e.target.value))} style={{width:52,padding:"5px 6px",borderRadius:7,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:13,fontWeight:700,textAlign:"center",outline:"none"}}/>
+                        <button onClick={()=>{if(jaTem){delMatLancMarc(matModal.pedidoId,jaTem.id);}addMatLancMarc(matModal.pedidoId,matModal.ambNome,{materialId:m.id,nome:m.nome,unidade:m.unidade,qt:qtLocal,precoUnit:m.preco||0});showToast(jaTem?"Atualizado!":"Material adicionado!");}} style={{padding:"6px 12px",borderRadius:8,border:"none",background:"var(--pri)",color:"#fff",fontSize:11,fontWeight:800,cursor:"pointer"}}>{jaTem?"↻":"+"}</button>
+                      </div>
+                    );
+                  })
+                }
+              </>}
+              {modo==="custom"&&<div style={{background:"var(--bg)",borderRadius:12,padding:"12px 14px"}}>
+                <div style={{fontSize:11,fontWeight:800,color:"var(--am)",marginBottom:10}}>Material não listado na biblioteca</div>
+                <div style={{marginBottom:8}}>
+                  <div style={{fontSize:10,color:"var(--tx3)",fontWeight:700,marginBottom:3}}>DESCRIÇÃO</div>
+                  <input value={customF.nome} onChange={e=>setCustomF(f=>({...f,nome:e.target.value}))} placeholder="Ex: Cola PU 750ml, Perfil alumínio 3m..." style={{width:"100%",padding:"8px 10px",borderRadius:8,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:12,outline:"none"}}/>
+                </div>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:12}}>
+                  <div>
+                    <div style={{fontSize:10,color:"var(--tx3)",fontWeight:700,marginBottom:3}}>UNIDADE</div>
+                    <input value={customF.unidade} onChange={e=>setCustomF(f=>({...f,unidade:e.target.value}))} placeholder="un, m², m, kg, lt..." style={{width:"100%",padding:"8px 10px",borderRadius:8,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:12,outline:"none"}}/>
+                  </div>
+                  <div>
+                    <div style={{fontSize:10,color:"var(--tx3)",fontWeight:700,marginBottom:3}}>QUANTIDADE</div>
+                    <input type="number" value={customF.qt} min="0.01" step="0.01" onChange={e=>setCustomF(f=>({...f,qt:Math.max(0.01,+e.target.value)}))} style={{width:"100%",padding:"8px 10px",borderRadius:8,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:12,outline:"none",textAlign:"center"}}/>
+                  </div>
+                </div>
+                <button onClick={()=>{if(!customF.nome?.trim())return showToast("Descrição obrigatória!","red");addMatLancMarc(matModal.pedidoId,matModal.ambNome,{materialId:null,nome:customF.nome,unidade:customF.unidade,qt:customF.qt,precoUnit:0});setCustomF({nome:"",unidade:"un",qt:1});showToast("Material adicionado!");}} style={{width:"100%",padding:"12px",borderRadius:10,border:"none",background:"var(--am)",color:"#fff",fontSize:13,fontWeight:800,cursor:"pointer"}}>+ Adicionar Material</button>
+              </div>}
+              <button onClick={()=>setMatModal(null)} style={{width:"100%",marginTop:14,padding:"12px",borderRadius:10,border:"1.5px solid var(--bd)",background:"none",color:"var(--tx2)",fontSize:13,fontWeight:700,cursor:"pointer"}}>✓ Concluído</button>
+            </div>
+          </div>
+        );
+      })()}
 
       {nav==="comissoes"&&<div style={{padding:"14px 16px 110px"}}>
         {/* Barra total */}
@@ -2190,6 +2316,7 @@ export default function ERP(){
   const [vendedores,setVendedores]=useState(()=>LS('vendedores')||[]);
   const [cortadores,setCortadores]=useState(()=>LS('cortadores')||[]);
   const [ordensCort,setOrdensCort]=useState(()=>LS('ordensCort')||[]);
+  const [matLib,setMatLib]=useState(()=>LS('matLib')||[]);
   const [showComissoes,setShowComissoes]=useState(false);
   const [showComissoesVend,setShowComissoesVend]=useState(false);
   const [saldoInicial,setSaldoInicial]=useState(()=>+(LS('saldoInicial')||0));
@@ -2213,14 +2340,14 @@ export default function ERP(){
   const saveEmpresa=async e=>{setEmpresa(e);localStorage.setItem('erpEmpresa',JSON.stringify(e));setSyncStatus("syncing");const ok=await dbSet('empresa',e);setSyncStatus(ok?"ok":"error");showToast(ok?"Configurações salvas na nuvem!":"Salvo localmente (verificar conexão)","success");};
 
   // ── SUPABASE SYNC ──
-  const DB_KEYS=['clientes','orcamentos','pedidos','marceneiros','estoque','financeiro','leads','biblioteca','recebimentos','recorrentes','vendedores','cortadores','ordensCort'];
+  const DB_KEYS=['clientes','orcamentos','pedidos','marceneiros','estoque','financeiro','leads','biblioteca','recebimentos','recorrentes','vendedores','cortadores','ordensCort','matLib'];
   const syncTimers=useRef({});
   const pendingSync=useRef(new Set()); // chaves com gravações pendentes (debounce ativo)
 
   const getSnap=useCallback(()=>({
     clientes,orcamentos,pedidos,marceneiros,estoque,financeiro,
-    leads,biblioteca,recebimentos,recorrentes,vendedores,cortadores,ordensCort,
-  }),[clientes,orcamentos,pedidos,marceneiros,estoque,financeiro,leads,biblioteca,recebimentos,recorrentes,vendedores,cortadores,ordensCort]);
+    leads,biblioteca,recebimentos,recorrentes,vendedores,cortadores,ordensCort,matLib,
+  }),[clientes,orcamentos,pedidos,marceneiros,estoque,financeiro,leads,biblioteca,recebimentos,recorrentes,vendedores,cortadores,ordensCort,matLib]);
 
   const _getFinMes=(f)=>{
     const venc=f.parcelas&&f.parcelas.find(p=>p.venc)?.venc;
@@ -2299,11 +2426,11 @@ export default function ERP(){
 
   // Import: restaura estado + localStorage + Supabase
   const importBackup=useCallback(async(data)=>{
-    const keys=['clientes','orcamentos','pedidos','marceneiros','estoque','financeiro','leads','biblioteca','recebimentos','recorrentes','vendedores','cortadores','ordensCort'];
+    const keys=['clientes','orcamentos','pedidos','marceneiros','estoque','financeiro','leads','biblioteca','recebimentos','recorrentes','vendedores','cortadores','ordensCort','matLib'];
     const setters2={clientes:setClientes,orcamentos:setOrcamentos,pedidos:setPedidos,marceneiros:setMarceneiros,
       estoque:setEstoque,financeiro:setFinanceiro,leads:setLeads,biblioteca:setBiblioteca,
       recebimentos:setRecebimentos,recorrentes:setRecorrentes,vendedores:setVendedores,
-      cortadores:setCortadores,ordensCort:setOrdensCort};
+      cortadores:setCortadores,ordensCort:setOrdensCort,matLib:setMatLib};
     const entries=[];
     keys.forEach(k=>{
       if(data[k]!==undefined){
@@ -2359,7 +2486,7 @@ export default function ERP(){
       marceneiros:setMarceneiros,estoque:setEstoque,financeiro:setFinanceiro,
       leads:setLeads,biblioteca:setBiblioteca,recebimentos:setRecebimentos,
       recorrentes:setRecorrentes,vendedores:setVendedores,
-      cortadores:setCortadores,ordensCort:setOrdensCort};
+      cortadores:setCortadores,ordensCort:setOrdensCort,matLib:setMatLib};
     const toUpload=[];
     for(const k of DB_KEYS){
       // Nunca sobrescrever mudanças locais não sincronizadas (evita reverter delete/edição)
@@ -2474,6 +2601,7 @@ export default function ERP(){
   useEffect(()=>{if(dbLoaded)syncCloud('vendedores',vendedores);},[vendedores,dbLoaded]);
   useEffect(()=>{if(dbLoaded)syncCloud('cortadores',cortadores);},[cortadores,dbLoaded]);
   useEffect(()=>{if(dbLoaded)syncCloud('ordensCort',ordensCort);},[ordensCort,dbLoaded]);
+  useEffect(()=>{if(dbLoaded)syncCloud('matLib',matLib);},[matLib,dbLoaded]);
 
   // Flush antes de fechar a aba — keepalive=true garante que o request complete mesmo após unload
   useEffect(()=>{
@@ -2604,6 +2732,50 @@ export default function ERP(){
   const updMat=(pid,mid,d)=>setPedidos(prev=>prev.map(p=>{if(p.id!==pid)return p;const mats=p.mats.map(m=>{if(m.id!==mid)return m;const nm={...m,...d};return{...nm,sub:nm.qtd*nm.vu};});const cm=mats.reduce((s,m)=>s+m.sub,0);return{...p,mats,cm};}));
   const addMat=(pid)=>setPedidos(prev=>prev.map(p=>p.id===pid?{...p,mats:[...p.mats,{id:uid(),nome:"",qtd:1,vu:0,sub:0}]}:p));
   const delMat=(pid,mid)=>setPedidos(prev=>prev.map(p=>{if(p.id!==pid)return p;const mats=p.mats.filter(m=>m.id!==mid);const cm=mats.reduce((s,m)=>s+m.sub,0);return{...p,mats,cm};}));
+  // ── MATERIAIS LANÇADOS (matLanc) ──
+  const addMatLanc=(pid,item)=>setPedidos(prev=>prev.map(p=>p.id===pid?{...p,matLanc:[...(p.matLanc||[]),{id:uid(),...item}]}:p));
+  const updMatLancPreco=(pid,mid,precoUnit)=>setPedidos(prev=>prev.map(p=>p.id!==pid?p:{...p,matLanc:(p.matLanc||[]).map(m=>m.id===mid?{...m,precoUnit}:m)}));
+  const delMatLanc=(pid,mid)=>setPedidos(prev=>prev.map(p=>p.id!==pid?p:{...p,matLanc:(p.matLanc||[]).filter(m=>m.id!==mid)}));
+  const exportMatLancPDF=(p,c)=>{
+    const pdf=new jsPDF({orientation:'p',unit:'mm',format:'a4'});
+    const W=210,mg=14;let y=mg;
+    pdf.setFillColor(99,102,241);pdf.rect(0,0,210,28,'F');
+    pdf.setTextColor(255,255,255);pdf.setFontSize(16);pdf.setFont(undefined,'bold');
+    pdf.text(`Lista de Materiais — ${p.num}`,mg,12);
+    pdf.setFontSize(9);pdf.setFont(undefined,'normal');
+    pdf.text(`Cliente: ${c?.nome||'—'} | Data: ${hoje()} | Obra: ${p.ambs?.map(a=>a.nome).join(', ')||'—'}`,mg,21);
+    pdf.setTextColor(0,0,0);y=36;
+    // Agrupar por ambiente
+    const grupos={};(p.matLanc||[]).forEach(m=>{const k=m.ambNome||'Geral';if(!grupos[k])grupos[k]=[];grupos[k].push(m);});
+    const total=(p.matLanc||[]).reduce((s,m)=>s+(m.qt*(m.precoUnit||0)),0);
+    Object.entries(grupos).forEach(([amb,items])=>{
+      if(y+14>285){pdf.addPage();y=mg;}
+      pdf.setFillColor(230,229,255);pdf.rect(mg,y-4,W-mg*2,7,'F');
+      pdf.setFontSize(10);pdf.setFont(undefined,'bold');pdf.setTextColor(80,70,200);
+      pdf.text(`📦 ${amb}`,mg+2,y);pdf.setTextColor(0,0,0);y+=8;
+      pdf.setFillColor(245,244,255);pdf.rect(mg,y-4,W-mg*2,6,'F');
+      pdf.setFontSize(8);pdf.setFont(undefined,'bold');pdf.setTextColor(120,120,160);
+      ['Descrição','Un.','Qtd','Vl.Unit','Subtotal'].forEach((h,i)=>pdf.text(h,mg+[0,90,104,120,148][i],y));
+      pdf.setTextColor(0,0,0);y+=5;
+      items.forEach((m,i)=>{
+        if(y+5>285){pdf.addPage();y=mg+6;}
+        if(i%2===0){pdf.setFillColor(250,250,255);pdf.rect(mg,y-3.5,W-mg*2,5.5,'F');}
+        pdf.setFontSize(8.5);pdf.setFont(undefined,'normal');
+        pdf.text(m.nome,mg,y);
+        pdf.text(m.unidade||'un',mg+90,y);
+        pdf.text(String(m.qt),mg+104,y);
+        pdf.text(m.precoUnit>0?R$(m.precoUnit):'—',mg+120,y);
+        pdf.text(m.precoUnit>0?R$(m.qt*(m.precoUnit||0)):'—',mg+148,y);
+        y+=5;
+      });
+      y+=4;
+    });
+    if(y+10>285){pdf.addPage();y=mg;}
+    pdf.setFillColor(99,102,241);pdf.rect(mg,y-3,W-mg*2,8,'F');
+    pdf.setTextColor(255,255,255);pdf.setFontSize(10);pdf.setFont(undefined,'bold');
+    pdf.text('TOTAL',mg+2,y+2);pdf.text(R$(total),mg+148,y+2);
+    pdf.save(`${p.num}-materiais-fornecedor.pdf`);
+  };
 
   const gerarPedido=orc=>{
     // Guard: impede duplicata se orçamento já foi aprovado
@@ -2613,7 +2785,7 @@ export default function ERP(){
     const vtFinal=totalOrcFinal(orc);
     const pid=uid();
     const num=`PED-${String(pedidos.length+1).padStart(4,"0")}`;
-    const p={id:pid,num,orcId:orc.id,clienteId:orc.clienteId,data:hoje(),dataEntrega:"",status:"em_espera",marcId:"",stage:"aguardando",mats,cm,vt:vtFinal,comPerc:0,comVal:0,vendedorId:orc.vendedorId||"",percNF:orc.percNF||0,pags:[],arquivos:[],ambs:orc.ambientes.map(a=>({nome:a.nome,desc:a.desc,val:a.valorTotal})),garantia:orc.garantia,pgTermos:orc.pagamento};
+    const p={id:pid,num,orcId:orc.id,clienteId:orc.clienteId,data:hoje(),dataEntrega:"",status:"em_espera",marcId:"",stage:"aguardando",mats,cm,vt:vtFinal,comPerc:0,comVal:0,vendedorId:orc.vendedorId||"",percNF:orc.percNF||0,pags:[],arquivos:[],ambs:orc.ambientes.map(a=>({nome:a.nome,desc:a.desc,val:a.valorTotal})),garantia:orc.garantia,pgTermos:orc.pagamento,matLanc:[]};
     setPedidos(prev=>prev.some(x=>x.orcId===orc.id)?prev:[...prev,p]);
     updOrc(orc.id,{status:"aprovado"});
     // Gera entradas financeiras (fora do setPedidos — nunca chamar setState dentro de setState)
@@ -2817,6 +2989,7 @@ export default function ERP(){
       ordensCort={ordensCort}
       setOrdensCort={setOrdensCort}
       cortadores={cortadores}
+      matLib={matLib}
       onLogout={()=>{setUser(null);localStorage.removeItem('erpUser');setLoginView({l:"",s:""});}}
     />
   );
@@ -3382,6 +3555,46 @@ export default function ERP(){
             </div>
           );})}
           {(!p.ambs||p.ambs.length===0)&&<div style={{padding:"12px 0",color:"var(--tx3)",fontSize:12,fontWeight:600}}>Nenhum ambiente — clique em "+ Ambiente" para adicionar</div>}
+        </div>
+      </Card>
+      {/* ── MATERIAIS LANÇADOS PELO MARCENEIRO ── */}
+      <Card style={{marginTop:14}}><CardHead title="📦 Materiais Lançados pelo Marceneiro" right={
+        <div style={{display:"flex",gap:8,alignItems:"center"}}>
+          {(p.matLanc||[]).length>0&&<Btn v="secondary" small onClick={()=>exportMatLancPDF(p,getCli(p.clienteId))}><I.Printer/> PDF Fornecedor</Btn>}
+        </div>
+      }/>
+        <div style={{padding:14}}>
+          {(p.matLanc||[]).length===0
+            ?<div style={{padding:"14px 0",color:"var(--tx3)",fontSize:12,fontWeight:600}}>Nenhum material lançado pelo marceneiro ainda.</div>
+            :(()=>{
+              const grupos={};(p.matLanc||[]).forEach(m=>{const k=m.ambNome||'Geral';if(!grupos[k])grupos[k]=[];grupos[k].push(m);});
+              const total=(p.matLanc||[]).reduce((s,m)=>s+(m.qt*(m.precoUnit||0)),0);
+              return(<>
+                {Object.entries(grupos).map(([amb,items])=>(
+                  <div key={amb} style={{marginBottom:16}}>
+                    <div style={{fontSize:10,fontWeight:800,color:"var(--pri)",textTransform:"uppercase",letterSpacing:".5px",marginBottom:6,padding:"4px 8px",background:"var(--prib)",borderRadius:6,display:"inline-block"}}>📦 {amb}</div>
+                    <div style={{display:"grid",gridTemplateColumns:"3fr 60px 60px 100px 80px 24px",gap:4,padding:"5px 4px",borderBottom:"1.5px solid var(--bd)",marginBottom:4}}>
+                      {["Descrição","Un.","Qtd","Vl.Unit (R$)","Subtotal",""].map(h=><span key={h} style={{fontSize:9,fontWeight:800,textTransform:"uppercase",color:"var(--tx3)",letterSpacing:".4px"}}>{h}</span>)}
+                    </div>
+                    {items.map(m=>(
+                      <div key={m.id} style={{display:"grid",gridTemplateColumns:"3fr 60px 60px 100px 80px 24px",gap:4,alignItems:"center",padding:"5px 4px",borderBottom:"1px solid var(--bd)"}}>
+                        <span style={{fontSize:12,fontWeight:600,color:"var(--tx)"}}>{m.nome}</span>
+                        <span style={{fontSize:11,color:"var(--tx2)"}}>{m.unidade}</span>
+                        <span style={{fontSize:12,fontWeight:700,color:"var(--tx)",textAlign:"center"}}>{m.qt}</span>
+                        <input type="number" defaultValue={m.precoUnit||""} key={m.id+"_p"} onBlur={e=>updMatLancPreco(p.id,m.id,Math.max(0,+e.target.value))} placeholder="0,00" step="0.01" style={{padding:"4px 6px",borderRadius:6,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:11,outline:"none",width:"100%"}}/>
+                        <span style={{fontSize:12,fontWeight:700,color:m.precoUnit>0?"var(--pri)":"var(--tx3)"}}>{m.precoUnit>0?R$(m.qt*m.precoUnit):"—"}</span>
+                        <button onClick={()=>delMatLanc(p.id,m.id)} style={{background:"none",border:"none",color:"var(--rd)",padding:1,cursor:"pointer"}}><I.Trash/></button>
+                      </div>
+                    ))}
+                  </div>
+                ))}
+                <div style={{display:"flex",justifyContent:"space-between",paddingTop:10,fontWeight:800,fontSize:14,borderTop:"2px solid var(--bd)",marginTop:4}}>
+                  <span style={{color:"var(--tx)"}}>Total Materiais</span>
+                  <span style={{color:"var(--pri)"}}>{R$(total)}</span>
+                </div>
+              </>);
+            })()
+          }
         </div>
       </Card>
       <Card style={{marginTop:14}}><CardHead title="Garantia / Termos de Pagamento"/>
@@ -4494,6 +4707,42 @@ export default function ERP(){
         <span style={{fontWeight:700,color:"var(--tx)"}}>{R$(e.qtd*e.custo)}</span>
         <div style={{display:"flex",gap:3}}><button onClick={()=>setEE(e)} style={{background:"none",border:"none",color:"var(--tx3)",padding:3}}><I.Edit/></button><button onClick={()=>{setEstoque(p=>p.filter(x=>x.id!==e.id));showToast("Removido","red")}} style={{background:"none",border:"none",color:"var(--rd)",padding:3}}><I.Trash/></button></div>
       </div>)})}</Card>
+
+      {/* ── BIBLIOTECA DE MATERIAIS (para marceneiros lançarem) ── */}
+      {(()=>{
+        const [mEdit,setMEdit]=useState(null);
+        const cats=[...new Set(matLib.map(m=>m.categoria).filter(Boolean))];
+        return(<>
+          <SH title="📦 Biblioteca de Materiais" sub="Itens pré-cadastrados que os marceneiros usam para lançar materiais por obra" right={<Btn onClick={()=>setMEdit({nome:"",unidade:"un",categoria:"",preco:0})}><I.Plus/> Novo Material</Btn>} style={{marginTop:24}}/>
+          {mEdit&&<Modal onClose={()=>setMEdit(null)}>
+            <h2 style={{fontSize:16,fontWeight:800,color:"var(--tx)",marginBottom:16}}>{mEdit.id?"Editar":"Novo"} Material</h2>
+            <Field label="Descrição do Material" value={mEdit.nome} onChange={v=>setMEdit({...mEdit,nome:v})} placeholder="Ex: MDF 18mm Branco TX — chapa 2750×1850"/>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10}}>
+              <Field label="Unidade" value={mEdit.unidade} onChange={v=>setMEdit({...mEdit,unidade:v})} placeholder="un, m², m, kg"/>
+              <Field label="Categoria" value={mEdit.categoria||""} onChange={v=>setMEdit({...mEdit,categoria:v})} placeholder="MDF, Ferragem, Vidro..."/>
+              <Field label="Preço Unit. (R$)" type="number" value={mEdit.preco} onChange={v=>setMEdit({...mEdit,preco:+v})}/>
+            </div>
+            <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:8}}>
+              <Btn v="ghost" onClick={()=>setMEdit(null)}>Cancelar</Btn>
+              <Btn onClick={()=>{if(!mEdit.nome?.trim())return showToast("Descrição obrigatória!","red");if(mEdit.id){setMatLib(p=>p.map(x=>x.id===mEdit.id?{...x,...mEdit}:x))}else{setMatLib(p=>[...p,{...mEdit,id:uid()}]);}setMEdit(null);showToast("Material salvo!")}}><I.Check/> Salvar</Btn>
+            </div>
+          </Modal>}
+          {matLib.length===0
+            ?<Card style={{padding:"24px 20px",textAlign:"center",color:"var(--tx3)",fontSize:13,fontWeight:600}}>Biblioteca vazia — cadastre os materiais que seus marceneiros utilizam nas obras.</Card>
+            :<Card>
+              <TH cols={[{l:"Descrição",w:"3fr"},{l:"Unidade",w:"80px"},{l:"Categoria",w:"120px"},{l:"Preço Unit.",w:"120px"},{l:"",w:"70px"}]}/>
+              {matLib.map(m=>(
+                <div key={m.id} style={{display:"grid",gridTemplateColumns:"3fr 80px 120px 120px 70px",gap:6,padding:"10px 18px",borderBottom:"1.5px solid var(--bd)",alignItems:"center",fontSize:12}}>
+                  <span style={{fontWeight:700,color:"var(--tx)"}}>{m.nome}</span>
+                  <span style={{color:"var(--tx2)"}}>{m.unidade}</span>
+                  <Badge color="blue">{m.categoria||"—"}</Badge>
+                  <span style={{fontWeight:700,color:"var(--pri)"}}>{R$(m.preco)}</span>
+                  <div style={{display:"flex",gap:4}}><button onClick={()=>setMEdit(m)} style={{background:"none",border:"none",color:"var(--tx3)",padding:3,cursor:"pointer"}}><I.Edit/></button><button onClick={()=>{setMatLib(p=>p.filter(x=>x.id!==m.id));showToast("Removido","red")}} style={{background:"none",border:"none",color:"var(--rd)",padding:3,cursor:"pointer"}}><I.Trash/></button></div>
+                </div>
+              ))}
+            </Card>}
+        </>);
+      })()}
     </div>);};
 
   // DRE

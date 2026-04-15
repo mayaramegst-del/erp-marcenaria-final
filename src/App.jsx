@@ -64,6 +64,25 @@ const LS=k=>{try{const v=localStorage.getItem('erp_'+k);return v?JSON.parse(v):n
 const DEMO_CLIENTES=[{id:"cli1",nome:"João Mendes",tel:"(19)99812-3456",email:"joao@email.com",endereco:"Rua Augusta 450, Campinas/SP",doc:"123.456.789-00"},{id:"cli2",nome:"Ana Costa",tel:"(19)98765-4321",email:"ana@email.com",endereco:"Av Brasil 1200, Valinhos/SP",doc:"987.654.321-00"}];
 const DEMO_MARC=[{id:"m1",nome:"Carlos Silva",tel:"(19)99111-2233",esp:"Cozinhas",comissao:12,login:"carlos",senha:"1234",ativo:true},{id:"m2",nome:"Roberto Alves",tel:"(19)99444-5566",esp:"Dormitórios",comissao:10,login:"roberto",senha:"1234",ativo:true}];
 const DEMO_EST=[{id:"e1",nome:"MDF Branco 15mm",un:"chapa",qtd:45,custo:189.90},{id:"e2",nome:"MDF Amadeirado 15mm",un:"chapa",qtd:30,custo:210.50},{id:"e3",nome:"Puxador Gota 128mm",un:"un",qtd:200,custo:12.80},{id:"e4",nome:"Dobradiça 35mm",un:"un",qtd:500,custo:4.50},{id:"e5",nome:"Corrediça 400mm",un:"par",qtd:80,custo:38.90}];
+const DEMO_MATLIB=[
+  {id:"dm01",nome:"Chapa Branca 15mm",unidade:"chapa",categoria:"Chapas",preco:210},
+  {id:"dm02",nome:"Chapa Branca 18mm",unidade:"chapa",categoria:"Chapas",preco:300},
+  {id:"dm03",nome:"Chapa Amadeirada 15mm",unidade:"chapa",categoria:"Chapas",preco:450},
+  {id:"dm04",nome:"Chapa Amadeirada 18mm",unidade:"chapa",categoria:"Chapas",preco:550},
+  {id:"dm05",nome:"Chapa 6mm",unidade:"chapa",categoria:"Chapas",preco:330},
+  {id:"dm06",nome:"Fundo",unidade:"chapa",categoria:"Chapas",preco:280},
+  {id:"dm07",nome:"Corrediça Telescópica",unidade:"par",categoria:"Ferragens",preco:15},
+  {id:"dm08",nome:"Corrediça Telescópica c/ Amortecedor",unidade:"par",categoria:"Ferragens",preco:30},
+  {id:"dm09",nome:"Corrediça Invisível",unidade:"par",categoria:"Ferragens",preco:40},
+  {id:"dm10",nome:"Dobradiça de Canto",unidade:"un",categoria:"Ferragens",preco:28},
+  {id:"dm11",nome:"Dobradiça Comum",unidade:"un",categoria:"Ferragens",preco:4},
+  {id:"dm12",nome:"Suporte Kit",unidade:"kit",categoria:"Ferragens",preco:35},
+  {id:"dm13",nome:"Pistão",unidade:"un",categoria:"Ferragens",preco:10},
+  {id:"dm14",nome:"Tubo Cabideiro",unidade:"m",categoria:"Acessórios",preco:60},
+  {id:"dm15",nome:"Grapa",unidade:"un",categoria:"Acessórios",preco:30},
+  {id:"dm16",nome:"Pino",unidade:"un",categoria:"Acessórios",preco:9},
+  {id:"dm17",nome:"Fita, Cola e Parafuso",unidade:"kit",categoria:"Acessórios",preco:200},
+];
 const DEMO_LEADS=[{id:"l1",nome:"Fernando Lima",tel:"(19)99777-8899",email:"fernando@gmail.com",origem:"Instagram",interesse:"Cozinha completa",valor:25000,etapa:"Novo Lead",obs:"Viu nosso post e entrou em contato",data:hoje(),prioridade:"alta"},{id:"l2",nome:"Mariana Souza",tel:"(19)98888-1122",email:"mari@hotmail.com",origem:"Indicação",interesse:"Closet casal",valor:15000,etapa:"Contato Feito",obs:"Indicação do João Mendes",data:hoje(),prioridade:"media"},{id:"l3",nome:"Ricardo Prado",tel:"(11)99666-3344",email:"ricardo@empresa.com",origem:"Site",interesse:"Escritório completo",valor:35000,etapa:"Proposta Enviada",obs:"Empresa precisa de 3 estações",data:hoje(),prioridade:"alta"}];
 
 /* ═══════════════════════════════════════════
@@ -2454,7 +2473,7 @@ export default function ERP(){
   const [vendedores,setVendedores]=useState(()=>LS('vendedores')||[]);
   const [cortadores,setCortadores]=useState(()=>LS('cortadores')||[]);
   const [ordensCort,setOrdensCort]=useState(()=>LS('ordensCort')||[]);
-  const [matLib,setMatLib]=useState(()=>LS('matLib')||[]);
+  const [matLib,setMatLib]=useState(()=>LS('matLib')||DEMO_MATLIB);
   const [notifs,setNotifs]=useState(()=>LS('notifs')||[]);
   const [showComissoes,setShowComissoes]=useState(false);
   const [showComissoesVend,setShowComissoesVend]=useState(false);

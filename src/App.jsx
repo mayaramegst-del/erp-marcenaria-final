@@ -1048,8 +1048,8 @@ function InstallPrompt(){
 /* ═══════════════════════════════════════════
    GUILLOTINE CUTTING ALGORITHM
    ═══════════════════════════════════════════ */
-function packSheets(pecasIn,cW,cH){
-  const TRIM=4,GAP=2,usW=cW-TRIM*2,usH=cH-TRIM*2;
+function packSheets(pecasIn,cW,cH,kerf=3){
+  const TRIM=4,GAP=kerf,usW=cW-TRIM*2,usH=cH-TRIM*2;
   const sorted=[...pecasIn].sort((a,b)=>b.w*b.h-a.w*a.h);
   const sheets=[];let curPieces=[];let freeRects=[{x:TRIM,y:TRIM,w:usW,h:usH}];
   const startSheet=()=>{if(curPieces.length>0){sheets.push({pieces:curPieces});curPieces=[];}freeRects=[{x:TRIM,y:TRIM,w:usW,h:usH}];};
@@ -1073,7 +1073,11 @@ function packSheets(pecasIn,cW,cH){
   }
   if(curPieces.length>0)sheets.push({pieces:curPieces});
   const totArea=usW*usH;
-  sheets.forEach(s=>{const used=s.pieces.reduce((a,p)=>a+p.w*p.h,0);s.aprov=Math.round(used/totArea*100);});
+  sheets.forEach(s=>{
+    const used=s.pieces.reduce((a,p)=>a+p.w*p.h,0);
+    s.aprov=Math.round(used/totArea*100);
+    s.desperdicio=+((totArea-used)/1e6).toFixed(4); // m²
+  });
   return sheets;
 }
 
@@ -1109,6 +1113,54 @@ function CanvasCorte({sheet,cW,cH}){
     ctx.fillText(` \u2713 ${sheet.aprov}% aproveitamento  |  ${sheet.pieces.length} pe\xe7as`,2,cv.height-barH/2);
   },[sheet,cW,cH]);
   return <canvas ref={ref} style={{width:'100%',height:'auto',borderRadius:6,border:'1px solid var(--bd)',display:'block'}}/>;
+}
+
+function renderCorteToDataURL(sheet,cW,cH){
+  const cv=document.createElement('canvas');
+  const maxW=800;const sc=maxW/cW;
+  cv.width=Math.round(cW*sc);cv.height=Math.round(cH*sc);
+  const ctx=cv.getContext('2d');
+  ctx.fillStyle='#f0f0f0';ctx.fillRect(0,0,cv.width,cv.height);
+  ctx.strokeStyle='#888';ctx.lineWidth=1.5;ctx.strokeRect(0,0,cv.width,cv.height);
+  const COLS=['#6366f1','#8b5cf6','#ec4899','#14b8a6','#f59e0b','#ef4444','#3b82f6','#10b981','#f97316','#06b6d4','#84cc16','#a855f7'];
+  const FTC={'0.5':'#fbbf24','1':'#f59e0b','2':'#d97706','3':'#b45309'};
+  sheet.pieces.forEach((p,i)=>{
+    const cl=COLS[i%COLS.length];
+    const x=p.x*sc,y=p.y*sc,w=p.w*sc,h=p.h*sc;
+    ctx.fillStyle=cl+'44';ctx.fillRect(x,y,w,h);
+    ctx.strokeStyle=cl;ctx.lineWidth=1.5;ctx.strokeRect(x,y,w,h);
+    const fw=Math.max(4,Math.min(8,w*0.04));
+    const fit=p.fitamento||{};
+    [['topo',x,y,w,fw],['base',x,y+h-fw,w,fw],['esq',x,y,fw,h],['dir',x+w-fw,y,fw,h]].forEach(([k,sx,sy,sw,sh_])=>{
+      const t=fit[k]?.tipo;if(t&&t!=='N'){ctx.fillStyle=FTC[t]||'#fbbf24';ctx.fillRect(sx,sy,sw,sh_);}
+    });
+    if(w>30&&h>18){
+      ctx.fillStyle='#111';ctx.font=`bold ${Math.max(9,Math.min(13,w/8))}px Arial`;ctx.textAlign='center';ctx.textBaseline='middle';
+      ctx.fillText(p.nome.length>12?p.nome.slice(0,12)+'…':p.nome,x+w/2,y+h/2-6);
+      ctx.font=`${Math.max(8,Math.min(11,w/10))}px Arial`;ctx.fillStyle='#333';
+      ctx.fillText(`${p.w}×${p.h}`,x+w/2,y+h/2+8);
+      if(p.rotated){ctx.fillStyle='#6366f1';ctx.font='bold 8px Arial';ctx.fillText('↻',x+w/2,y+h/2+18);}
+    }
+  });
+  const barH=22;ctx.fillStyle='rgba(0,0,0,.6)';ctx.fillRect(0,cv.height-barH,cv.width,barH);
+  ctx.fillStyle='#fff';ctx.font='bold 11px Arial';ctx.textAlign='left';ctx.textBaseline='middle';
+  ctx.fillText(` ✓ ${sheet.aprov}% aproveitamento  |  ${sheet.pieces.length} peças  |  desperdício: ${sheet.desperdicio} m²`,4,cv.height-barH/2);
+  return cv.toDataURL('image/png');
+}
+
+function calcFita(pecas){
+  const map={};
+  pecas.forEach(p=>{
+    const fit=p.fitamento||{};
+    [['topo',p.larg],['base',p.larg],['esq',p.alt],['dir',p.alt]].forEach(([lado,dim])=>{
+      const t=fit[lado]?.tipo;if(!t||t==='N')return;
+      const cor=fit[lado]?.cor||'';
+      const key=`${t}|${cor}`;
+      if(!map[key])map[key]={tipo:t,cor,metros:0};
+      map[key].metros+=(dim*(p.qt||1))/1000;
+    });
+  });
+  return Object.values(map).sort((a,b)=>b.metros-a.metros);
 }
 
 /* ═══════════════════════════════════════════
@@ -1158,7 +1210,7 @@ function MarceneiroApp({user,pedidos,setPedidos,clientes,financeiro,showToast,on
     const novaOrdem=()=>{
       setForm({
         pedidoId:"",cortadorId:"",obs:"",
-        chapa:{material:"MDF",espessura:"15",largura:2750,altura:1850,cor:"Branco TX",qt_chapas:1,preset:"MDF 2750\xd71850"},
+        chapa:{material:"MDF",espessura:"15",largura:2750,altura:1850,cor:"Branco TX",qt_chapas:1,preset:"MDF 2750\xd71850",kerf:3},
         pecas:[{id:uid(),nome:"",larg:400,alt:300,qt:1,fio:"N",fitamento:{topo:{tipo:"N",cor:""},base:{tipo:"N",cor:""},esq:{tipo:"N",cor:""},dir:{tipo:"N",cor:""}}}]
       });
       setView("novo");
@@ -1171,7 +1223,64 @@ function MarceneiroApp({user,pedidos,setPedidos,clientes,financeiro,showToast,on
 
     const computeLayout=(f)=>{
       const flat=f.pecas.flatMap(p=>Array.from({length:p.qt},(_,i)=>({...p,id:p.id+'_'+i,nome:p.nome||(i>0?`Pe\xe7a ${i+1}`:p.nome)})));
-      return packSheets(flat.map(p=>({...p,w:p.larg,h:p.alt})),+f.chapa.largura,+f.chapa.altura);
+      return packSheets(flat.map(p=>({...p,w:p.larg,h:p.alt})),+f.chapa.largura,+f.chapa.altura,+(f.chapa.kerf||3));
+    };
+
+    const exportarPDF=(o,sheets)=>{
+      const pdf=new jsPDF({orientation:'p',unit:'mm',format:'a4'});
+      const W=210,mg=14;let y=mg;
+      const cort=cortadores.find(c=>c.id===o.cortadorId);
+      const fita=calcFita(o.pecas);
+      // ── Cabeçalho ──
+      pdf.setFillColor(99,102,241);pdf.rect(0,0,210,28,'F');
+      pdf.setTextColor(255,255,255);pdf.setFontSize(16);pdf.setFont(undefined,'bold');
+      pdf.text(`Ordem de Corte — ${o.num}`,mg,12);
+      pdf.setFontSize(9);pdf.setFont(undefined,'normal');
+      pdf.text(`${o.chapa.material} ${o.chapa.espessura}mm | ${o.chapa.largura}×${o.chapa.altura}mm | ${o.chapa.cor} | Kerf: ${o.chapa.kerf||3}mm`,mg,20);
+      pdf.text(`Cortador: ${cort?.nome||'—'} | Data: ${o.createdAt} | ${sheets.length} chapa(s)`,mg+120,20);
+      pdf.setTextColor(0,0,0);y=36;
+      // ── Chapas ──
+      sheets.forEach((sh,si)=>{
+        if(y+80>285){pdf.addPage();y=mg;}
+        pdf.setFontSize(11);pdf.setFont(undefined,'bold');
+        pdf.text(`Chapa ${si+1} — ${sh.aprov}% aproveitamento | desperdício: ${sh.desperdicio} m²`,mg,y);y+=4;
+        const img=renderCorteToDataURL(sh,+o.chapa.largura,+o.chapa.altura);
+        const imgW=W-mg*2;const imgH=imgW*(+o.chapa.altura/+o.chapa.largura);
+        const h2=Math.min(imgH,75);
+        pdf.addImage(img,'PNG',mg,y,imgW,h2);y+=h2+6;
+      });
+      // ── Lista de peças ──
+      if(y+20>285){pdf.addPage();y=mg;}
+      pdf.setFontSize(11);pdf.setFont(undefined,'bold');pdf.text('Lista de Peças',mg,y);y+=5;
+      pdf.setFillColor(99,102,241);pdf.rect(mg,y-3.5,W-mg*2,6,'F');
+      pdf.setTextColor(255,255,255);pdf.setFontSize(8);
+      ['#','Nome','Larg','Alt','Qt','Fio','Fitamento'].forEach((h,i)=>{
+        pdf.text(h,mg+[0,8,60,76,92,104,116][i],y);
+      });
+      pdf.setTextColor(0,0,0);y+=4;
+      o.pecas.forEach((p,i)=>{
+        if(y+5>285){pdf.addPage();y=mg+6;}
+        if(i%2===0){pdf.setFillColor(245,245,252);pdf.rect(mg,y-3.5,W-mg*2,5.5,'F');}
+        pdf.setFontSize(8);pdf.setFont(undefined,'normal');
+        const fit=['topo','base','esq','dir'].filter(l=>p.fitamento?.[l]?.tipo&&p.fitamento[l].tipo!=='N').map(l=>`${l[0].toUpperCase()}:${p.fitamento[l].tipo}mm`).join(' ');
+        [i+1,p.nome,p.larg+'mm',p.alt+'mm',p.qt,p.fio==='N'?'—':p.fio,fit||'—'].forEach((v,j)=>{
+          pdf.text(String(v),mg+[0,8,60,76,92,104,116][j],y);
+        });
+        y+=5.5;
+      });
+      // ── Fita de borda ──
+      if(fita.length>0){
+        y+=4;if(y+20>285){pdf.addPage();y=mg;}
+        pdf.setFontSize(11);pdf.setFont(undefined,'bold');pdf.text('Fita de Borda Necessária',mg,y);y+=5;
+        pdf.setFontSize(9);pdf.setFont(undefined,'normal');
+        fita.forEach(f=>{
+          if(y+5>285){pdf.addPage();y=mg;}
+          pdf.text(`• Fita ${f.tipo}mm${f.cor?` (${f.cor})`:''} — ${f.metros.toFixed(2)} m`,mg+4,y);y+=5;
+        });
+      }
+      // ── Obs ──
+      if(o.obs){y+=3;pdf.setFontSize(9);pdf.setFont(undefined,'italic');pdf.text(`Obs: ${o.obs}`,mg,y);}
+      pdf.save(`${o.num}-plano-corte.pdf`);
     };
 
     const enviarOrdem=()=>{
@@ -1193,10 +1302,11 @@ function MarceneiroApp({user,pedidos,setPedidos,clientes,financeiro,showToast,on
       const sheets=computeLayout(o);
       const cort=cortadores.find(c=>c.id===o.cortadorId);
       return(<div style={{animation:"fadeIn .3s"}}>
-        <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:14}}>
-          <button onClick={()=>{setView("list");setSelOrdem(null);}} style={{background:"none",border:"1px solid var(--bd)",borderRadius:8,padding:"6px 12px",cursor:"pointer",color:"var(--tx2)",fontSize:12}}>\u2190 Voltar</button>
+        <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:14,flexWrap:"wrap"}}>
+          <button onClick={()=>{setView("list");setSelOrdem(null);}} style={{background:"none",border:"1px solid var(--bd)",borderRadius:8,padding:"6px 12px",cursor:"pointer",color:"var(--tx2)",fontSize:12}}>← Voltar</button>
           <span style={{fontWeight:800,fontSize:14,color:"var(--tx)"}}>{o.num}</span>
           <span style={{padding:"3px 10px",borderRadius:20,fontSize:10,fontWeight:800,background:"var(--sf)",color:statusCor[o.status]}}>{statusLabel[o.status]}</span>
+          <button onClick={()=>exportarPDF(o,sheets)} style={{marginLeft:"auto",padding:"7px 14px",borderRadius:8,background:"linear-gradient(135deg,#6366f1,#8b5cf6)",border:"none",color:"#fff",fontSize:11,fontWeight:800,cursor:"pointer"}}>📄 Exportar PDF</button>
         </div>
         <Card2 style={{marginBottom:10,padding:"12px 16px"}}>
           <div style={{fontSize:11,fontWeight:800,color:"var(--tx3)",textTransform:"uppercase",marginBottom:6}}>Chapa</div>
@@ -1205,10 +1315,26 @@ function MarceneiroApp({user,pedidos,setPedidos,clientes,financeiro,showToast,on
         </Card2>
         {sheets.map((sh,si)=>(
           <Card2 key={si} style={{marginBottom:10,padding:"12px 16px"}}>
-            <div style={{fontSize:11,fontWeight:800,color:"var(--tx)",marginBottom:8}}>Chapa {si+1} \u2014 {sh.aprov}% aproveitamento</div>
+            <div style={{fontSize:11,fontWeight:800,color:"var(--tx)",marginBottom:6}}>
+              Chapa {si+1} — <span style={{color:"var(--gn)"}}>{sh.aprov}% aproveitamento</span>
+              <span style={{color:"var(--rd)",marginLeft:8,fontSize:10,fontWeight:600}}>desperdício: {sh.desperdicio} m²</span>
+            </div>
             <CanvasCorte sheet={sh} cW={+o.chapa.largura} cH={+o.chapa.altura}/>
           </Card2>
         ))}
+        {(()=>{const fita=calcFita(o.pecas);return fita.length>0&&(
+          <Card2 style={{marginBottom:10,padding:"12px 16px"}}>
+            <div style={{fontSize:11,fontWeight:800,color:"#d97706",textTransform:"uppercase",marginBottom:8}}>🎀 Fita de Borda Necessária</div>
+            <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+              {fita.map((f,i)=>(
+                <div key={i} style={{background:"rgba(245,158,11,.1)",border:"1px solid rgba(245,158,11,.3)",borderRadius:8,padding:"8px 12px"}}>
+                  <div style={{fontSize:10,fontWeight:800,color:"#d97706"}}>Fita {f.tipo}mm{f.cor?` · ${f.cor}`:''}</div>
+                  <div style={{fontSize:15,fontWeight:800,color:"var(--tx)",marginTop:2}}>{f.metros.toFixed(2)} m</div>
+                </div>
+              ))}
+            </div>
+          </Card2>
+        );})()}
         <Card2 style={{padding:"12px 16px"}}>
           <div style={{fontSize:11,fontWeight:800,color:"var(--tx3)",textTransform:"uppercase",marginBottom:8}}>Pe\xe7as ({o.pecas.reduce((s,p)=>s+p.qt,0)} unidades)</div>
           {o.pecas.map((p,i)=>(
@@ -1272,11 +1398,12 @@ function MarceneiroApp({user,pedidos,setPedidos,clientes,financeiro,showToast,on
               ))}
             </div>
           </div>
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:8}}>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr 1fr",gap:8}}>
             <div><div style={{fontSize:10,color:"var(--tx3)",fontWeight:700,marginBottom:3}}>LARG (mm)</div><input type="number" value={form.chapa.largura} onChange={e=>setForm(f=>({...f,chapa:{...f.chapa,largura:+e.target.value,preset:"Personalizado"}}))} style={{width:"100%",padding:"8px",borderRadius:8,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:12}}/></div>
             <div><div style={{fontSize:10,color:"var(--tx3)",fontWeight:700,marginBottom:3}}>ALT (mm)</div><input type="number" value={form.chapa.altura} onChange={e=>setForm(f=>({...f,chapa:{...f.chapa,altura:+e.target.value,preset:"Personalizado"}}))} style={{width:"100%",padding:"8px",borderRadius:8,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:12}}/></div>
             <div><div style={{fontSize:10,color:"var(--tx3)",fontWeight:700,marginBottom:3}}>Qt CHAPAS</div><input type="number" value={form.chapa.qt_chapas} min="1" onChange={e=>setForm(f=>({...f,chapa:{...f.chapa,qt_chapas:+e.target.value}}))} style={{width:"100%",padding:"8px",borderRadius:8,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:12}}/></div>
             <div><div style={{fontSize:10,color:"var(--tx3)",fontWeight:700,marginBottom:3}}>COR/MODELO</div><input value={form.chapa.cor} onChange={e=>setForm(f=>({...f,chapa:{...f.chapa,cor:e.target.value}}))} placeholder="Ex: Branco TX" style={{width:"100%",padding:"8px",borderRadius:8,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:12}}/></div>
+            <div><div style={{fontSize:10,color:"var(--tx3)",fontWeight:700,marginBottom:3}}>KERF (mm) 🔧</div><select value={form.chapa.kerf||3} onChange={e=>setForm(f=>({...f,chapa:{...f.chapa,kerf:+e.target.value}}))} style={{width:"100%",padding:"8px",borderRadius:8,border:"1.5px solid var(--am)",background:"var(--sf)",color:"var(--tx)",fontSize:12,fontWeight:700}}>{[2,3,4,5].map(k=><option key={k} value={k}>{k}mm</option>)}</select></div>
           </div>
         </Card2>
         <Card2 style={{marginBottom:10,padding:"12px 16px"}}>
@@ -1312,13 +1439,27 @@ function MarceneiroApp({user,pedidos,setPedidos,clientes,financeiro,showToast,on
           ))}
         </Card2>
         {previewSheets.length>0&&<Card2 style={{marginBottom:10,padding:"12px 16px"}}>
-          <div style={{fontSize:11,fontWeight:800,color:"var(--tx3)",textTransform:"uppercase",marginBottom:8}}>Preview \u2014 {previewSheets.length} chapa(s)</div>
+          <div style={{fontSize:11,fontWeight:800,color:"var(--tx3)",textTransform:"uppercase",marginBottom:8}}>Preview — {previewSheets.length} chapa(s)</div>
           {previewSheets.map((sh,si)=>(
             <div key={si} style={{marginBottom:12}}>
-              <div style={{fontSize:11,fontWeight:700,color:"var(--tx)",marginBottom:6}}>Chapa {si+1} \u2014 {sh.aprov}% aproveitamento</div>
+              <div style={{fontSize:11,fontWeight:700,color:"var(--tx)",marginBottom:4}}>Chapa {si+1} — <span style={{color:"var(--gn)"}}>{sh.aprov}% aproveitamento</span> · <span style={{color:"var(--rd)",fontSize:10}}>desperdício: {sh.desperdicio} m²</span></div>
               <CanvasCorte sheet={sh} cW={+form.chapa.largura} cH={+form.chapa.altura}/>
             </div>
           ))}
+          {(()=>{const fita=calcFita(form.pecas);return fita.length>0&&(
+            <div style={{marginTop:10,borderTop:"1.5px solid var(--bd)",paddingTop:10}}>
+              <div style={{fontSize:10,fontWeight:800,color:"#d97706",textTransform:"uppercase",marginBottom:6}}>🎀 Fita de Borda Necessária</div>
+              <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+                {fita.map((f,i)=>(
+                  <div key={i} style={{background:"rgba(245,158,11,.1)",border:"1px solid rgba(245,158,11,.3)",borderRadius:8,padding:"6px 10px",fontSize:11}}>
+                    <span style={{fontWeight:800,color:"#d97706"}}>Fita {f.tipo}mm</span>
+                    {f.cor&&<span style={{color:"var(--tx3)",marginLeft:4}}>({f.cor})</span>}
+                    <span style={{fontWeight:800,color:"var(--tx)",marginLeft:6}}>{f.metros.toFixed(2)} m</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          );})()}
         </Card2>}
         <Card2 style={{marginBottom:10,padding:"12px 16px"}}>
           <div style={{fontSize:10,color:"var(--tx3)",fontWeight:700,marginBottom:4}}>OBSERVA\xc7\xd5ES</div>

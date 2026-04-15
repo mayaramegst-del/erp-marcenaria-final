@@ -3355,6 +3355,7 @@ export default function ERP(){
     const [showRec,setShowRec]=useState(false);
     const [recForm,setRecForm]=useState(null);
     const [fluxoTab,setFluxoTab]=useState("mes");
+    const [editObsFin,setEditObsFin]=useState(null); // {finId, cliente, obs}
     const [showStats,setShowStats]=useState(false);
     const [semSel,setSemSel]=useState(null);
     const [showFluxo,setShowFluxo]=useState(false);
@@ -3520,19 +3521,46 @@ export default function ERP(){
       if(f)setModal({t:"detFin",d:f});
     };
     // FluxoRow com ações de baixar / editar
-    const FluxoRow=({p,cor})=><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 0",borderBottom:"1px solid var(--bd)",fontSize:13}}>
-      <div style={{flex:1,minWidth:0}}>
-        <span style={{fontWeight:700,color:"var(--tx)",display:"block",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.desc}</span>
-        <span style={{color:"var(--tx3)",fontSize:11}}>{p.pago?isoToBR(normDate(p.dataPago)):isoToBR(p.venc)}{p.formaPag&&" · "}{p.formaPag&&(FORMAS_LAB[p.formaPag]||p.formaPag)}</span>
-      </div>
-      <div style={{display:"flex",alignItems:"center",gap:6,flexShrink:0}}>
-        {p.pago
-          ?<span style={{fontSize:11,color:"var(--gn)",fontWeight:700}}>✓ Pago</span>
-          :<Btn v="success" small onClick={()=>baixarParc(p)}>✓ Baixar</Btn>}
-        {!p.fonteManual&&<button onClick={()=>abrirEdicao(p)} title="Editar" style={{background:"none",border:"none",color:"var(--tx3)",padding:2,cursor:"pointer",fontSize:14}}><I.Edit/></button>}
-        <span style={{fontWeight:800,color:cor,fontSize:13,minWidth:80,textAlign:"right"}}>{R$(p.valor)}</span>
-      </div>
-    </div>;
+    const FluxoRow=({p,cor})=>{
+      const editing=editObsFin?.finId===p.finId&&p.fonteManual;
+      return(<div style={{borderBottom:"1px solid var(--bd)"}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 0",fontSize:13}}>
+          <div style={{flex:1,minWidth:0}}>
+            <div style={{display:"flex",alignItems:"center",gap:4}}>
+              <span style={{fontWeight:700,color:"var(--tx)",display:"block",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.desc}</span>
+              {p.fonteManual&&<button onClick={()=>setEditObsFin(editing?null:{finId:p.finId,cliente:recebimentos.find(r=>r.id===p.finId)?.cliente||"",obs:recebimentos.find(r=>r.id===p.finId)?.obs||""})} title="Editar descrição" style={{background:"none",border:"none",color:"var(--tx3)",cursor:"pointer",padding:"1px 3px",fontSize:11,flexShrink:0,opacity:.7}}>✏</button>}
+            </div>
+            <span style={{color:"var(--tx3)",fontSize:11}}>{p.pago?isoToBR(normDate(p.dataPago)):isoToBR(p.venc)}{p.formaPag&&" · "}{p.formaPag&&(FORMAS_LAB[p.formaPag]||p.formaPag)}</span>
+          </div>
+          <div style={{display:"flex",alignItems:"center",gap:6,flexShrink:0}}>
+            {p.pago
+              ?<span style={{fontSize:11,color:"var(--gn)",fontWeight:700}}>✓ Pago</span>
+              :<Btn v="success" small onClick={()=>baixarParc(p)}>✓ Baixar</Btn>}
+            {!p.fonteManual&&<button onClick={()=>abrirEdicao(p)} title="Editar" style={{background:"none",border:"none",color:"var(--tx3)",padding:2,cursor:"pointer",fontSize:14}}><I.Edit/></button>}
+            <span style={{fontWeight:800,color:cor,fontSize:13,minWidth:80,textAlign:"right"}}>{R$(p.valor)}</span>
+          </div>
+        </div>
+        {editing&&<div style={{background:"var(--prib)",borderRadius:8,padding:"8px 10px",marginBottom:8,display:"flex",gap:8,flexWrap:"wrap",alignItems:"flex-end"}}>
+          <div style={{flex:1,minWidth:140}}>
+            <div style={{fontSize:9,fontWeight:800,color:"var(--tx3)",marginBottom:3}}>NOME</div>
+            <input value={editObsFin.cliente} onChange={e=>setEditObsFin(p=>({...p,cliente:e.target.value}))}
+              style={{width:"100%",padding:"4px 8px",borderRadius:6,border:"1.5px solid var(--pri)",background:"var(--sf)",color:"var(--tx)",fontSize:12,fontWeight:700,outline:"none"}}/>
+          </div>
+          <div style={{flex:2,minWidth:180}}>
+            <div style={{fontSize:9,fontWeight:800,color:"var(--tx3)",marginBottom:3}}>DESCRIÇÃO</div>
+            <input value={editObsFin.obs} onChange={e=>setEditObsFin(p=>({...p,obs:e.target.value}))}
+              placeholder="Descrição curta..."
+              style={{width:"100%",padding:"4px 8px",borderRadius:6,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:12,outline:"none"}}/>
+          </div>
+          <div style={{display:"flex",gap:4}}>
+            <button onClick={()=>{setRecebimentos(prev=>prev.map(r=>r.id===editObsFin.finId?{...r,cliente:editObsFin.cliente.trim()||r.cliente,obs:editObsFin.obs}:r));setEditObsFin(null);showToast("Salvo!");}}
+              style={{padding:"5px 10px",borderRadius:6,background:"var(--gn)",border:"none",color:"#fff",fontSize:11,fontWeight:800,cursor:"pointer"}}>✓</button>
+            <button onClick={()=>setEditObsFin(null)}
+              style={{padding:"5px 8px",borderRadius:6,background:"none",border:"1px solid var(--bd)",color:"var(--tx3)",fontSize:11,cursor:"pointer"}}>✕</button>
+          </div>
+        </div>}
+      </div>);
+    };
     return(<div style={{animation:"fadeIn .3s"}}>
       <SH title="Financeiro" sub="Gestão de Caixa — Contas a Pagar e Receber" right={<Btn onClick={()=>setModal({t:"newFin"})}><I.Plus/> Nova Conta</Btn>}/>
 

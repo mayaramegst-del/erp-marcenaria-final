@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<title>Cotação de Materiais — Ana Paula e Silas Mariano</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Calibri','Segoe UI',Arial,sans-serif;font-size:10pt;color:#1e293b;background:#fff;padding:20px}
+  .page{max-width:900px;margin:0 auto}
+
+  /* HEADER */
+  .header{background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;padding:24px 28px;border-radius:10px;margin-bottom:20px;display:flex;justify-content:space-between;align-items:flex-start}
+  .header h1{font-size:18pt;font-weight:800;margin-bottom:4px}
+  .header p{font-size:9pt;opacity:.85;line-height:1.6}
+  .header-right{text-align:right;font-size:9pt;opacity:.85;line-height:1.8}
+  .header-right strong{font-size:11pt;opacity:1}
+
+  /* SECTION */
+  .section{margin-bottom:22px;page-break-inside:avoid}
+  .section-title{font-size:12pt;font-weight:800;color:#fff;padding:8px 14px;border-radius:6px;margin-bottom:0;display:flex;align-items:center;gap:8px}
+  .section-title.chapas{background:#6366f1}
+  .section-title.ferragens{background:#f59e0b}
+  .section-title.especiais{background:#10b981}
+  .section-title.outros{background:#64748b}
+
+  .sub-title{font-size:10pt;font-weight:800;color:#374151;background:#f1f5f9;padding:6px 14px;border-left:3px solid #6366f1;margin-top:12px;margin-bottom:0}
+  .sub-title.amber{border-color:#f59e0b}
+  .sub-title.green{border-color:#10b981}
+  .sub-title.gray{border-color:#94a3b8}
+
+  /* TABLE */
+  table{width:100%;border-collapse:collapse;font-size:9pt}
+  thead tr{background:#e8ecf1}
+  thead th{padding:6px 10px;text-align:left;font-weight:800;color:#374151;font-size:8.5pt;text-transform:uppercase;letter-spacing:.3px;border-bottom:2px solid #cbd5e1}
+  thead th.right{text-align:right}
+  tbody tr{border-bottom:1px solid #e8ecf1}
+  tbody tr:nth-child(even){background:#f8fafc}
+  tbody td{padding:6px 10px;vertical-align:middle;line-height:1.4}
+  tbody td.right{text-align:right;font-weight:700;color:#6366f1;white-space:nowrap}
+  tbody td.bold{font-weight:700}
+  tbody td small{display:block;color:#64748b;font-size:8pt;margin-top:1px}
+
+  .total-row{background:#e0e7ff!important;font-weight:800;color:#4338ca}
+  .total-row td{padding:7px 10px;border-top:2px solid #818cf8}
+
+  /* SUMMARY */
+  .summary{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px}
+  .sum-card{background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:8px;padding:12px;text-align:center}
+  .sum-card .val{font-size:18pt;font-weight:800;color:#6366f1;line-height:1}
+  .sum-card .lab{font-size:8pt;color:#64748b;font-weight:600;margin-top:4px}
+
+  /* OBS */
+  .obs{background:#fefce8;border:1.5px solid #fde047;border-radius:8px;padding:12px 14px;margin-top:18px;font-size:9pt;color:#713f12}
+  .obs strong{display:block;margin-bottom:4px;font-size:10pt}
+
+  /* FOOTER */
+  .footer{margin-top:24px;padding-top:12px;border-top:1.5px solid #e2e8f0;display:flex;justify-content:space-between;font-size:8pt;color:#94a3b8}
+
+  /* PRINT */
+  @media print{
+    body{padding:10px;font-size:9pt}
+    .no-print{display:none}
+    .section{page-break-inside:avoid}
+    table{page-break-inside:auto}
+    tr{page-break-inside:avoid}
+    .header{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    .section-title{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    .summary .sum-card{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  }
+
+  /* PRINT BUTTON */
+  .btn-print{position:fixed;bottom:24px;right:24px;background:#6366f1;color:#fff;border:none;border-radius:12px;padding:14px 22px;font-size:11pt;font-weight:800;cursor:pointer;box-shadow:0 4px 20px rgba(99,102,241,.4);display:flex;align-items:center;gap:8px}
+  .btn-print:hover{background:#4f46e5}
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- HEADER -->
+  <div class="header">
+    <div>
+      <h1>Cotação de Materiais</h1>
+      <p>
+        <strong>Cliente:</strong> Ana Paula e Silas Mariano<br>
+        <strong>Obra:</strong> Alameda Leônidas de Almeida Leme, Lote 6, Quadra R<br>
+        Residencial Monte Alegre — Piracicaba/SP<br>
+        <strong>Projeto:</strong> Marcenaria Completa (Hall, Cozinha, Lavanderia, Suítes, WCs)
+      </p>
+    </div>
+    <div class="header-right">
+      <strong>Data: 04/2026</strong><br>
+      23 pranchas<br>
+      18 ambientes<br>
+      Para cotação de fornecedor
+    </div>
+  </div>
+
+  <!-- RESUMO -->
+  <div class="summary">
+    <div class="sum-card"><div class="val">133</div><div class="lab">Chapas MDF (total)</div></div>
+    <div class="sum-card"><div class="val">116</div><div class="lab">Dobradiças</div></div>
+    <div class="sum-card"><div class="val">57</div><div class="lab">Pares Corrediça</div></div>
+    <div class="sum-card"><div class="val">75</div><div class="lab">Puxadores</div></div>
+  </div>
+
+  <!-- ═══════════ CHAPAS ═══════════ -->
+  <div class="section">
+    <div class="section-title chapas">🪵 CHAPAS MDF</div>
+
+    <div class="sub-title">MDF Jequitibá (Arauco) — 15mm — 2750×1850mm</div>
+    <table>
+      <thead><tr><th>Ambiente</th><th>Descrição das peças</th><th class="right">Qtd Chapas</th></tr></thead>
+      <tbody>
+        <tr><td class="bold">Hall de Entrada</td><td>Moldura painel espelho 691×277cm: top/base 691×40cm (×2), laterais 197×55cm (×2), 1 porta mimetizada 80×210cm<small>Frisos de 1cm no painel — dividido em 3 partes iguais</small></td><td class="right">3</td></tr>
+        <tr><td class="bold">Cozinha</td><td>Faixa decorativa entre superiores e inferiores (~741×50cm)<small>Tira de Jequitibá aparente na alzada frontal da cozinha</small></td><td class="right">1</td></tr>
+        <tr><td class="bold">Cozinha — Ilha</td><td>Corpo bancada ilha 300,8cm + laterais + base + tampo<small>Bancada principal com cooktop embutido, 2 fruteiras vidro incolor</small></td><td class="right">2</td></tr>
+        <tr><td class="bold">Suíte Hóspede</td><td>Detalhes e nichos internos em Jequitibá no guarda-roupa</td><td class="right">2</td></tr>
+        <tr><td class="bold">Suíte Master — Painel</td><td>Painel ripado 380×290cm (ripas verticais + suporte estrutural + painéis laterais)<small>Instalar acima do rodapé, LED acionamento na marcenaria</small></td><td class="right">4</td></tr>
+        <tr><td class="bold">Suíte Master — Closets</td><td>Detalhes/nichos em Jequitibá nos closets feminino e masculino</td><td class="right">2</td></tr>
+        <tr class="total-row"><td colspan="2">SUBTOTAL — MDF Jequitibá 15mm</td><td class="right">14 chapas</td></tr>
+      </tbody>
+    </table>
+
+    <div class="sub-title">MDF Areia (Guararapes) ou Off White (Duratex) — 15mm — 2750×1850mm</div>
+    <table>
+      <thead><tr><th>Ambiente</th><th>Descrição das peças</th><th class="right">Qtd Chapas</th></tr></thead>
+      <tbody>
+        <tr><td class="bold">Cozinha — Superiores</td><td>Corpos, laterais, prateleiras, divisórias (~741cm × 112cm + internos)<small>~10 portas com moldura provençal, vidro transparente, 2 portas embutir</small></td><td class="right">7</td></tr>
+        <tr><td class="bold">Cozinha — Balcão Inferior</td><td>Corpos, laterais, divisórias (~532×93cm + alzada 313×287cm)<small>Corrediça oculta Hettich, moldura provençal, armário de canto 85cm</small></td><td class="right">8</td></tr>
+        <tr><td class="bold">Lavanderia</td><td>Arm.1 (206cm) + Arm.2 (235cm) + Arm.3 (77,8cm, h=235cm) + Arm.4 (77,8cm, h=210cm) — todos os corpos, laterais, prateleiras e divisórias<small>Moldura provençal, prateleiras removíveis para quadro de energia</small></td><td class="right">9</td></tr>
+        <tr><td class="bold">Circulação Superior</td><td>Painel ripado 759×300cm, módulos ~40cm cada, cantos arredondados + armário central 110cm + laterais<small>Pórtico em MDF, vãos arredondados, fechamento quadro energia</small></td><td class="right">11</td></tr>
+        <tr><td class="bold">Suíte Bella — Closet</td><td>Módulo frontal 393×260cm + módulo lateral 240×260cm (corpos, divisórias, prateleiras, sapateiras)<small>Sem fundo, Metalon 30×30, sapateira inferior mais profunda</small></td><td class="right">9</td></tr>
+        <tr><td class="bold">Suíte Master — Closet Masculino</td><td>Módulo 4 (260cm) + Módulo 5 (280cm) + Módulo 6 (160cm) + Módulo 7 (160cm) — todos internos<small>Prateleiras 35cm prof., sapateira sem sapata, pino oculto 3,6cm</small></td><td class="right">13</td></tr>
+        <tr><td class="bold">Suíte Master — Closet Feminino</td><td>Corpo closet + 5 gavetas + sapateira + calceiro deslizante<small>Cabideiros LED Elegance 1601, puxador alça preto</small></td><td class="right">7</td></tr>
+        <tr><td class="bold">Suíte Master — Penteadeira</td><td>Penteadeira flutuante 190cm + gaveteiro volante 3 gavetas (4 rodízios)<small>Lateral arredondada, frente passante, puxador ponto champagne</small></td><td class="right">2</td></tr>
+        <tr class="total-row"><td colspan="2">SUBTOTAL — MDF Areia / Off White 15mm</td><td class="right">66 chapas</td></tr>
+      </tbody>
+    </table>
+
+    <div class="sub-title">MDF Grafite Trama (Duratex) — 15mm — 2750×1850mm</div>
+    <table>
+      <thead><tr><th>Ambiente</th><th>Descrição das peças</th><th class="right">Qtd Chapas</th></tr></thead>
+      <tbody>
+        <tr><td class="bold">Suíte Hóspede</td><td>Guarda-roupa completo: ala esq. 80+174cm (h=212cm) + ala dir. 300cm (h=210cm) + painel cabeceira<small>6 portas de giro + 4 portas de correr, puxador usinado no MDF</small></td><td class="right">7</td></tr>
+        <tr><td class="bold">Suíte Ana Laura — Rack</td><td>Rack flutuante 339×78cm com reforço estrutural + 3 gavetas<small>Frente passante sem puxador, tomadas atrás do móvel</small></td><td class="right">2</td></tr>
+        <tr class="total-row"><td colspan="2">SUBTOTAL — MDF Grafite Trama 15mm</td><td class="right">9 chapas</td></tr>
+      </tbody>
+    </table>
+
+    <div class="sub-title">MDF Branco Diamante Trama (Duratex) — 15mm — 2750×1850mm</div>
+    <table>
+      <thead><tr><th>Ambiente</th><th>Descrição das peças</th><th class="right">Qtd Chapas</th></tr></thead>
+      <tbody>
+        <tr><td class="bold">Suíte Ana Laura — Closet</td><td>Módulo 2 (213+60cm, h=245cm): corpos, prateleiras, sapateira 25cm — Módulo 3 (65+123+50cm, h=275cm): corpo + fundo falso + porta deslizante cofre — Módulo 4 (25+245cm, h=245cm): corpo + divisórias<small>8 portas com vidro incolor e moldura, LED Elegance 1601 preto</small></td><td class="right">9</td></tr>
+        <tr class="total-row"><td colspan="2">SUBTOTAL — MDF Branco Diamante Trama 15mm</td><td class="right">9 chapas</td></tr>
+      </tbody>
+    </table>
+
+    <div class="sub-title">MDF Cinza Cobalto VEL (Berneck) — 15mm — 2750×1850mm</div>
+    <table>
+      <thead><tr><th>Ambiente</th><th>Descrição das peças</th><th class="right">Qtd Chapas</th></tr></thead>
+      <tbody>
+        <tr><td class="bold">WC Ana Laura</td><td>Gabinete 146×120cm (2 gavetas + cuba) + nicho lateral 166×45cm (prof. 30cm)<small>Puxador ponto preto, armário sup. 100cm c/ porta espelho orgânico</small></td><td class="right">2</td></tr>
+        <tr><td class="bold">WC Bella</td><td>Gabinete 150cm (90+60) × 120cm + gavetão 50cm + coluna lateral 166cm<small>Puxador ponto preto, gavetão roupa suja, nicho revestido</small></td><td class="right">3</td></tr>
+        <tr class="total-row"><td colspan="2">SUBTOTAL — MDF Cinza Cobalto VEL 15mm</td><td class="right">5 chapas</td></tr>
+      </tbody>
+    </table>
+
+    <div class="sub-title">MDF Relva (Leo Madeiras) — 15mm — 2750×1850mm</div>
+    <table>
+      <thead><tr><th>Ambiente</th><th>Descrição das peças</th><th class="right">Qtd Chapas</th></tr></thead>
+      <tbody>
+        <tr><td class="bold">Suíte Bella — Rack</td><td>Rack flutuante 343×78cm com reforço + gavetas<small>Frente passante sem puxador, tomadas atrás do móvel</small></td><td class="right">1</td></tr>
+        <tr class="total-row"><td colspan="2">SUBTOTAL — MDF Relva 15mm</td><td class="right">1 chapa</td></tr>
+      </tbody>
+    </table>
+
+    <div class="sub-title gray">Chapa Fundo 6mm (HDF/MDF) — Fundo de todos os armários</div>
+    <table>
+      <thead><tr><th>Aplicação</th><th>Descrição</th><th class="right">Qtd Chapas</th></tr></thead>
+      <tbody>
+        <tr><td class="bold">Cozinha (sup. + inf. + canto)</td><td>Fundos dos corpos de armários superiores e inferiores</td><td class="right">7</td></tr>
+        <tr><td class="bold">Lavanderia</td><td>Fundos dos 4 armários</td><td class="right">4</td></tr>
+        <tr><td class="bold">Suíte Hóspede</td><td>Fundos do guarda-roupa</td><td class="right">3</td></tr>
+        <tr><td class="bold">Suíte Ana Laura — Closet</td><td>Fundos internos dos 3 módulos + fundo falso</td><td class="right">4</td></tr>
+        <tr><td class="bold">Suíte Bella — Closet</td><td>Fundos internos (closet sem fundo estrutural, mas divisórias necessitam)</td><td class="right">3</td></tr>
+        <tr><td class="bold">Suíte Master — Closets</td><td>Fundos internos módulos feminino e masculino</td><td class="right">5</td></tr>
+        <tr><td class="bold">WCs + Racks</td><td>Fundos de gabinetes e racks</td><td class="right">2</td></tr>
+        <tr class="total-row"><td colspan="2">SUBTOTAL — Chapa Fundo 6mm</td><td class="right">28 chapas</td></tr>
+      </tbody>
+    </table>
+
+    <table style="margin-top:10px">
+      <tbody>
+        <tr style="background:#312e81;color:#fff;font-weight:800">
+          <td style="padding:10px 14px;font-size:11pt">🪵 TOTAL GERAL — CHAPAS MDF</td>
+          <td style="padding:10px 14px;text-align:right;font-size:13pt;white-space:nowrap">133 chapas</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ═══════════ FERRAGENS ═══════════ -->
+  <div class="section" style="page-break-before:always">
+    <div class="section-title ferragens">🔩 FERRAGENS</div>
+
+    <div class="sub-title amber">Dobradiças (35mm — padrão para portas MDF)</div>
+    <table>
+      <thead><tr><th>Local</th><th>Descrição / Observação</th><th class="right">Portas</th><th class="right">Dobradiças</th></tr></thead>
+      <tbody>
+        <tr><td class="bold">Hall de Entrada</td><td>1 porta mimetizada de giro (para dentro)</td><td class="right">1</td><td class="right">2</td></tr>
+        <tr><td class="bold">Cozinha — Superiores</td><td>~10 portas de giro com moldura provençal</td><td class="right">10</td><td class="right">20</td></tr>
+        <tr><td class="bold">Cozinha — Inferiores + Alzada</td><td>~12 portas (balcão + alzada inferior)</td><td class="right">12</td><td class="right">24</td></tr>
+        <tr><td class="bold">Cozinha — Arm. Canto/Cristaleira</td><td>2 portas do armário de canto cristaleira</td><td class="right">2</td><td class="right">4</td></tr>
+        <tr><td class="bold">Lavanderia</td><td>Arm.1: 4 sup + 2 inf | Arm.2: 4 sup + 2 inf | Arm.3: 2 | Arm.4: 2 = 16 portas</td><td class="right">16</td><td class="right">32</td></tr>
+        <tr><td class="bold">Suíte Hóspede</td><td>6 portas de giro (ala esquerda do guarda-roupa)</td><td class="right">6</td><td class="right">12</td></tr>
+        <tr><td class="bold">Suíte Ana Laura — Closet</td><td>8 portas de giro com vidro incolor e moldura (módulos 2 e 3)</td><td class="right">8</td><td class="right">16</td></tr>
+        <tr><td class="bold">WC Ana Laura</td><td>1 porta espelho orgânico (armário superior)</td><td class="right">1</td><td class="right">2</td></tr>
+        <tr><td class="bold">WC Bella</td><td>1 porta espelho orgânico (arm. sup.) + 1 porta coluna lateral</td><td class="right">2</td><td class="right">4</td></tr>
+        <tr class="total-row"><td colspan="3">SUBTOTAL — Dobradiças</td><td class="right">116 un</td></tr>
+      </tbody>
+    </table>
+
+    <div class="sub-title amber">Corrediças de Gaveta — Telescópica (par)</div>
+    <table>
+      <thead><tr><th>Local</th><th>Descrição / Tipo</th><th class="right">Gavetas</th><th class="right">Pares</th></tr></thead>
+      <tbody>
+        <tr><td class="bold">Cozinha — Inferiores</td><td>Corrediça oculta Hettich (especificado em projeto)</td><td class="right">5</td><td class="right">5</td></tr>
+        <tr><td class="bold">Cozinha — Cristaleira</td><td>Gaveta metálica AvantBox Slim Baixa FGVTN (inclusa no sistema)</td><td class="right">3</td><td class="right">3</td></tr>
+        <tr><td class="bold">Lavanderia</td><td>Gavetas frontais dos armários 1 e 2</td><td class="right">4</td><td class="right">4</td></tr>
+        <tr><td class="bold">Suíte Hóspede</td><td>Gaveteiro com puxador cava no MDF</td><td class="right">3</td><td class="right">3</td></tr>
+        <tr><td class="bold">Suíte Ana Laura — Rack</td><td>3 gavetas ocultas no rack flutuante</td><td class="right">3</td><td class="right">3</td></tr>
+        <tr><td class="bold">WC Ana Laura</td><td>2 gavetas no gabinete</td><td class="right">2</td><td class="right">2</td></tr>
+        <tr><td class="bold">Suíte Bella — Rack</td><td>Gavetas ocultas no rack flutuante 343cm</td><td class="right">4</td><td class="right">4</td></tr>
+        <tr><td class="bold">Suíte Bella — Closet</td><td>Gavetas com frente em moldura provençal</td><td class="right">5</td><td class="right">5</td></tr>
+        <tr><td class="bold">WC Bella</td><td>2 gavetas + 1 gavetão roupa suja (h=50cm)</td><td class="right">3</td><td class="right">3</td></tr>
+        <tr><td class="bold">Suíte Master — Penteadeira</td><td>3 gavetas frente passante</td><td class="right">3</td><td class="right">3</td></tr>
+        <tr><td class="bold">Suíte Master — Gaveteiro volante</td><td>3 gavetas (sobre rodízios)</td><td class="right">3</td><td class="right">3</td></tr>
+        <tr><td class="bold">Suíte Master — Closet Feminino</td><td>5 gavetas com moldura provençal (75+48+75cm)</td><td class="right">5</td><td class="right">5</td></tr>
+        <tr><td class="bold">Suíte Master — Closet Masculino</td><td>Módulos 4, 5, 6, 7 — múltiplas colunas de gavetas</td><td class="right">14</td><td class="right">14</td></tr>
+        <tr class="total-row"><td colspan="3">SUBTOTAL — Corrediças</td><td class="right">57 pares</td></tr>
+      </tbody>
+    </table>
+
+    <div class="sub-title amber">Trilhos Porta de Correr</div>
+    <table>
+      <thead><tr><th>Local</th><th>Descrição</th><th class="right">Qtd Trilhos</th></tr></thead>
+      <tbody>
+        <tr><td class="bold">Suíte Hóspede</td><td>4 portas de correr por trás do painel (ala direita, 300cm)</td><td class="right">2 trilhos</td></tr>
+        <tr><td class="bold">Suíte Ana Laura — Closet Módulo 4</td><td>2 portas de correr por trás do armário (245+275cm)</td><td class="right">1 trilho</td></tr>
+        <tr><td class="bold">Suíte Master</td><td>Porta corredora por trás do painel ripado — batente em marcenaria</td><td class="right">1 trilho</td></tr>
+        <tr class="total-row"><td colspan="2">SUBTOTAL — Trilhos porta de correr</td><td class="right">4 trilhos</td></tr>
+      </tbody>
+    </table>
+
+    <div class="sub-title amber">Puxadores</div>
+    <table>
+      <thead><tr><th>Tipo</th><th>Local de aplicação</th><th class="right">Qtd</th></tr></thead>
+      <tbody>
+        <tr><td class="bold">Alça preta — 15 a 20cm</td><td>Cozinha sup. e inf. (~22 un) + Lavanderia (~16 un) + Master closets (~10 un)</td><td class="right">48 un</td></tr>
+        <tr><td class="bold">Ponto preto</td><td>Suíte Ana Laura closet (8 un) + Bella closet (8 un) + WC Ana Laura (2 un) + WC Bella (4 un)</td><td class="right">22 un</td></tr>
+        <tr><td class="bold">Ponto preto — cesto roupa</td><td>Circulação Superior</td><td class="right">2 un</td></tr>
+        <tr><td class="bold">Ponto champagne</td><td>Suíte Master penteadeira (gaveteiro)</td><td class="right">3 un</td></tr>
+        <tr><td class="bold">Usinado no MDF</td><td>Suíte Hóspede portas + Armário alto Circulação Superior</td><td class="right">sem custo extra</td></tr>
+        <tr><td class="bold">Frente passante s/ puxador</td><td>Suíte Ana Laura rack, Suíte Bella rack, Master penteadeira</td><td class="right">sem peça extra</td></tr>
+        <tr class="total-row"><td colspan="2">SUBTOTAL — Puxadores (com peça)</td><td class="right">75 un</td></tr>
+      </tbody>
+    </table>
+
+    <div class="sub-title amber">Pistões e Suportes</div>
+    <table>
+      <thead><tr><th>Local</th><th>Descrição</th><th class="right">Qtd</th></tr></thead>
+      <tbody>
+        <tr><td class="bold">WC Ana Laura</td><td>Pistões para porta basculante (espelho orgânico — armário superior)</td><td class="right">2 un</td></tr>
+        <tr><td class="bold">WC Bella</td><td>Pistões para porta basculante (espelho orgânico — armário superior)</td><td class="right">2 un</td></tr>
+        <tr class="total-row"><td colspan="2">SUBTOTAL — Pistões</td><td class="right">4 un</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ═══════════ SISTEMAS ESPECIAIS ═══════════ -->
+  <div class="section" style="page-break-before:always">
+    <div class="section-title especiais">⚡ SISTEMAS ESPECIAIS E ACESSÓRIOS</div>
+
+    <div class="sub-title green">Sistemas de Portas Especiais</div>
+    <table>
+      <thead><tr><th>Item</th><th>Descrição / Local</th><th class="right">Qtd</th></tr></thead>
+      <tbody>
+        <tr><td class="bold">Sistema Sotello FGVTN<br><small>ou Häfele Slido F-Park72 50A</small></td><td>Portas de embutir para ocultação de lava-louças e ice maker — Cozinha<small>2 portas no sistema (especificado no projeto — Cozinha 3)</small></td><td class="right">2 jogos</td></tr>
+        <tr><td class="bold">Despenseiro Häfele</td><td>Extração frontal, 5 prateleiras de encaixe, prateleira de madeira, antrácito pintura eletrostática preta — Cozinha<small>Armário de canto / Cozinha 4</small></td><td class="right">1 un</td></tr>
+        <tr><td class="bold">Gaveta metálica AvantBox Slim Baixa (FGVTN)</td><td>Gavetas metálicas para armário de canto/cristaleira — Cozinha<small>+ manta antiderrapante</small></td><td class="right">3 jogos</td></tr>
+        <tr><td class="bold">Cabideiro Basculante Häfele</td><td>45×27cm — Lavanderia<small>Arm. 1 (206cm), parede lateral</small></td><td class="right">1 un</td></tr>
+      </tbody>
+    </table>
+
+    <div class="sub-title green">Iluminação LED</div>
+    <table>
+      <thead><tr><th>Item</th><th>Local / Observação</th><th class="right">Qtd</th></tr></thead>
+      <tbody>
+        <tr><td class="bold">LED Elegance 1601 Preto</td><td>Todos os cabideiros da Suíte Ana Laura (closet) + Suíte Master (closets fem. e masc.)<small>Acionamento na marcenaria — confirmar botão para closets sem portas</small></td><td class="right">≈ 14m</td></tr>
+        <tr><td class="bold">Fita LED — iluminação indireta</td><td>Circulação Superior (pórtico / LED laranja no desenho) + Suíte Master painel ripado<small>Acionamento na marcenaria</small></td><td class="right">≈ 10m</td></tr>
+        <tr><td class="bold">LED cristaleira (acionamento ao abrir)</td><td>Cozinha — Armário de canto, 2 laterais internas<small>Sensor ou interruptor de abertura</small></td><td class="right">1 kit</td></tr>
+        <tr><td class="bold">LED nicho interno (Cozinha 4)</td><td>Nicho interno despenseiro — acionamento ao abrir</td><td class="right">1 kit</td></tr>
+        <tr><td class="bold">Driver / Acionador LED</td><td>Suíte Master (2), Suíte Ana Laura (1), Circulação Superior (1), WCs (2)</td><td class="right">6 un</td></tr>
+      </tbody>
+    </table>
+
+    <div class="sub-title green">Vidros e Espelhos</div>
+    <table>
+      <thead><tr><th>Item</th><th>Dimensões / Local</th><th class="right">Qtd</th></tr></thead>
+      <tbody>
+        <tr><td class="bold">Espelho — Hall de Entrada</td><td>Espelho retangular com recorte 45° nas quinas, aprox. 581×197cm<small>Hall de entrada — painel espelho com moldura Jequitibá</small></td><td class="right">1 un</td></tr>
+        <tr><td class="bold">Espelho Orgânico com LED Frontal</td><td>Formato orgânico — WC Ana Laura + WC Bella<small>Especificado em ambos os projetos de WC</small></td><td class="right">2 un</td></tr>
+        <tr><td class="bold">Espelho para Armário (perfil preto)</td><td>Armário espelhado Suíte Master Closet Feminino, prof. 15cm, 160cm largura<small>Puxador Slim Reto preto, perfil preto</small></td><td class="right">2 folhas</td></tr>
+        <tr><td class="bold">Vidro incolor — Portas de Closet</td><td>8 portas de vidro incolor com moldura — Suíte Ana Laura closet (módulos 2 e 3)</td><td class="right">8 pcs</td></tr>
+        <tr><td class="bold">Vidro incolor — Cristaleira Cozinha</td><td>Prateleiras e 2 portas do armário de canto cristaleira</td><td class="right">2 pcs + prateleiras</td></tr>
+        <tr><td class="bold">Vidro incolor — Fruteiras</td><td>2 fruteiras com frente em vidro incolor — Cozinha Ilha</td><td class="right">2 pcs</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ═══════════ OUTROS ═══════════ -->
+  <div class="section">
+    <div class="section-title outros">🪣 OUTROS MATERIAIS E CONSUMÍVEIS</div>
+
+    <table>
+      <thead><tr><th>Item</th><th>Aplicação</th><th class="right">Qtd Estimada</th></tr></thead>
+      <tbody>
+        <tr><td class="bold">Tubo Cabideiro (com suporte)</td><td>Suíte Hóspede (~2m) + Suíte Ana Laura (~4m) + Suíte Bella (~4m) + Master Fem. (~2m) + Master Masc. (~6m)</td><td class="right">≈ 20m</td></tr>
+        <tr><td class="bold">Metalon 30×30</td><td>Estrutura interna Suíte Bella closet + Suíte Master closets masculino e feminino</td><td class="right">≈ 20m</td></tr>
+        <tr><td class="bold">Fita de Borda PVC 0,4mm</td><td>Bordamento de todas as peças aparentes — por cor: Jequitibá, Areia, Grafite Trama, Branco Diamante, Cinza Cobalto, Relva</td><td class="right">≈ 300m total</td></tr>
+        <tr><td class="bold">Pino de Prateleira 5mm</td><td>Todas as prateleiras reguláveis dos armários</td><td class="right">≈ 350 un</td></tr>
+        <tr><td class="bold">Parafuso para MDF (variados)</td><td>Montagem geral</td><td class="right">≈ 2.500 un</td></tr>
+        <tr><td class="bold">Grapa / Grampo (fundo)</td><td>Fixação dos fundos 6mm</td><td class="right">≈ 600 un</td></tr>
+        <tr><td class="bold">Cola PU</td><td>Colagem de borda e MDF</td><td class="right">≈ 5 litros</td></tr>
+        <tr><td class="bold">Cola para borda (fita)</td><td>Aplicação de fita de borda PVC</td><td class="right">≈ 3 litros</td></tr>
+        <tr><td class="bold">Rodízios (master gaveteiro)</td><td>Gaveteiro volante penteadeira Suíte Master — 4 rodízios</td><td class="right">4 un</td></tr>
+        <tr><td class="bold">Manta Antiderrapante</td><td>Gavetas AvantBox (Cozinha) + gavetas eletros</td><td class="right">1 rolo</td></tr>
+        <tr><td class="bold">Pino Oculto 3,6cm (francês)</td><td>Divisórias internas closets Suíte Ana Laura, Bella, Master</td><td class="right">≈ 80 un</td></tr>
+        <tr><td class="bold">Suporte Prateleira 1,8cm</td><td>Prateleiras internas closets Master e Bella</td><td class="right">≈ 60 un</td></tr>
+        <tr><td class="bold">Tomada Embutida</td><td>Circulação Superior (1) + Suíte Master penteadeira (tomadas atrás) + Cozinha cristaleira (1)</td><td class="right">6 un</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- OBSERVAÇÕES -->
+  <div class="obs">
+    <strong>⚠ Observações Importantes para Cotação</strong>
+    1. Quantidades de chapas são estimativas baseadas nas dimensões do projeto — recomenda-se elaborar plano de corte por ambiente para confirmar consumo exato.<br>
+    2. Todas as medidas devem ser conferidas antes da fabricação (OBS do projeto).<br>
+    3. Materiais alternativos indicados no projeto: MDF Areia (Guararapes) <strong>ou</strong> Off White (Duratex) — confirmar com cliente antes de adquirir.<br>
+    4. Closets da Suíte Bella e Suíte Master são <strong>sem fundo</strong> (open back) — apenas divisórias internas com fundo 6mm.<br>
+    5. Confirmar especificação do sistema de portas de embutir (Sotello FGVTN <strong>ou</strong> Häfele Slido F-Park72 50A) com o cliente.<br>
+    6. Kerf de corte não incluído nas quantidades — adicionar margem de 10% para desperdício.
+  </div>
+
+  <!-- FOOTER -->
+  <div class="footer">
+    <span>Levantamento gerado em 04/2026 — Projeto: Marcenaria Ana Paula e Silas Mariano</span>
+    <span>Todas as medidas em centímetros conforme pranchas originais</span>
+  </div>
+
+</div>
+
+<!-- BOTÃO IMPRIMIR -->
+<button class="btn-print no-print" onclick="window.print()">🖨️ Salvar como PDF</button>
+
+</body>
+</html>

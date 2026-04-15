@@ -1166,10 +1166,12 @@ function calcFita(pecas){
 /* ═══════════════════════════════════════════
    MARCENEIRO APP — TELA MOBILE
    ═══════════════════════════════════════════ */
-function MarceneiroApp({user,pedidos,setPedidos,clientes,financeiro,showToast,onRefresh,onLogout,ordensCort,setOrdensCort,cortadores,matLib=[]}){
+function MarceneiroApp({user,pedidos,setPedidos,clientes,financeiro,showToast,onRefresh,onLogout,ordensCort,setOrdensCort,cortadores,matLib=[],notifs=[],addNotif,unreadFor,markAllRead,clearNotif}){
   const [nav,setNav]=useState("pedidos");
   const [filtro,setFiltro]=useState("andamento");
   const [expandId,setExpandId]=useState(null);
+  const [pedDetalheId,setPedDetalheId]=useState(null);
+  const [notifOpen,setNotifOpen]=useState(false);
   const [instPid,setInstPid]=useState(null);
   const [instData,setInstData]=useState("");
   const [instDias,setInstDias]=useState("");
@@ -1182,12 +1184,20 @@ function MarceneiroApp({user,pedidos,setPedidos,clientes,financeiro,showToast,on
   const totalCom=meusP.reduce((s,p)=>{const f=getComFin(p);return s+(f?.valor||p.comVal||0);},0);
   const totalPago=meusP.reduce((s,p)=>{const f=getComFin(p);return s+(f?.valorPago||0);},0);
   const totalPend=totalCom-totalPago;
-  const setStage=(pid,stage,extra={})=>{setPedidos(prev=>prev.map(p=>p.id===pid?{...p,stage,...extra}:p));showToast("Etapa atualizada!");setExpandId(null);setInstPid(null);};
+  const setStage=(pid,stage,extra={})=>{
+    const p=pedidos.find(x=>x.id===pid);
+    setPedidos(prev=>prev.map(x=>x.id===pid?{...x,stage,...extra}:x));
+    const stageLabel={aguardando:"Aguardando",corte:"Plano de Corte",montagem:"Montagem",instalacao:"Instalação",concluido:"Concluído"};
+    addNotif?.("admin","stage",`🔄 Etapa alterada — ${p?.num||""}`,`${user.nome} moveu para "${stageLabel[stage]||stage}"${p?.num?` (${p.num})`:""}`,{pedidoId:pid});
+    showToast("Etapa atualizada!");setExpandId(null);setPedDetalheId(null);setInstPid(null);
+  };
   // ── Lançamento de materiais ──
   const [matModal,setMatModal]=useState(null); // {pedidoId, ambNome}
   const [matForm,setMatForm]=useState({materialId:"",nome:"",unidade:"",qt:1}); // form de custom
   const addMatLancMarc=(pedidoId,ambNome,item)=>{
-    setPedidos(prev=>prev.map(p=>p.id!==pedidoId?p:{...p,matLanc:[...(p.matLanc||[]),{id:Date.now().toString(36),ambNome,...item}]}));
+    const p=pedidos.find(x=>x.id===pedidoId);
+    setPedidos(prev=>prev.map(x=>x.id!==pedidoId?x:{...x,matLanc:[...(x.matLanc||[]),{id:Date.now().toString(36),ambNome,...item}]}));
+    addNotif?.("admin","material",`📦 Material lançado — ${p?.num||""}`,`${user.nome} adicionou "${item.nome}" (${item.qt} ${item.unidade}) em ${ambNome}`,{pedidoId});
   };
   const delMatLancMarc=(pedidoId,mid)=>{
     setPedidos(prev=>prev.map(p=>p.id!==pedidoId?p:{...p,matLanc:(p.matLanc||[]).filter(m=>m.id!==mid)}));
@@ -1299,6 +1309,8 @@ function MarceneiroApp({user,pedidos,setPedidos,clientes,financeiro,showToast,on
       const num="CRT"+(String(ordensCort.length+1).padStart(3,"0"));
       const nova={id:uid(),num,marcId:user.id,pedidoId:form.pedidoId||null,cortadorId:form.cortadorId,status:"aguardando",createdAt:hojeISO(),obs:form.obs,prazo:form.prazo||"",chapa:form.chapa,pecas:form.pecas,sheets_count:sheets.length};
       setOrdensCort(prev=>[...prev,nova]);
+      const cort=cortadores.find(c=>c.id===form.cortadorId);
+      addNotif?.(["admin",form.cortadorId],"corte",`✂ Nova ordem de corte — ${num}`,`${user.nome} enviou ordem para ${cort?.nome||"cortador"}: ${form.pecas.reduce((s,p)=>s+p.qt,0)} peças em ${form.chapa.material} ${form.chapa.espessura}mm${form.prazo?" | Prazo: "+isoToBR(form.prazo):""}`,{ordemId:nova.id});
       // Move pedido vinculado para a etapa "Plano de Corte" no Kanban
       if(form.pedidoId)setPedidos(prev=>prev.map(p=>p.id===form.pedidoId?{...p,stage:"corte",status:p.status==="em_espera"?"em_producao":p.status}:p));
       showToast("Ordem enviada! Pedido movido para Plano de Corte ✓");
@@ -1513,184 +1525,282 @@ function MarceneiroApp({user,pedidos,setPedidos,clientes,financeiro,showToast,on
     </div>);
   };
 
+  // ── MARCENEIRO: notif count ──
+  const marcNotifCnt=unreadFor?.(user.id)||0;
+
+  // ── DETAIL VIEW PEDIDO ──
+  if(pedDetalheId){
+    const p=meusP.find(x=>x.id===pedDetalheId);
+    if(!p)return null;
+    const cli=getCli(p.clienteId);
+    const stage=KCOLS.find(k=>k.id===p.stage)||KCOLS[0];
+    const stageIdx=KCOLS.findIndex(k=>k.id===p.stage);
+    const atrasado=p.dataEntrega&&p.stage!=="concluido"&&new Date(p.dataEntrega.split("/").reverse().join("-"))<new Date();
+    const comFin=getComFin(p);
+    const comTotal=comFin?.valor||p.comVal||0;
+    const comPago=comFin?.valorPago||0;
+    const ambs=p.ambs||[];
+    const lancados=p.matLanc||[];
+    return(
+      <div style={{fontFamily:"var(--ft)",background:"var(--bg)",minHeight:"100vh",maxWidth:520,margin:"0 auto"}}>
+        <style>{CSS}</style>
+        {/* HEADER DETALHE */}
+        <div style={{background:"linear-gradient(135deg,#6366f1,#8b5cf6)",padding:"max(env(safe-area-inset-top),14px) 16px 16px",position:"sticky",top:0,zIndex:50}}>
+          <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:8}}>
+            <button onClick={()=>setPedDetalheId(null)} style={{background:"rgba(255,255,255,.2)",border:"none",borderRadius:10,width:40,height:40,color:"#fff",fontSize:20,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",flexShrink:0}}>←</button>
+            <div style={{flex:1}}>
+              <div style={{color:"rgba(255,255,255,.7)",fontSize:11,fontWeight:700}}>{p.num}</div>
+              <div style={{color:"#fff",fontWeight:800,fontSize:17,lineHeight:1.2}}>{cli?.nome||"Cliente"}</div>
+            </div>
+            <span style={{padding:"5px 12px",borderRadius:20,fontSize:11,fontWeight:800,background:stage.color+"33",color:"#fff",border:`1.5px solid ${stage.color}66`}}>{stage.label}</span>
+          </div>
+          {/* Pipeline visual */}
+          <div style={{display:"flex",gap:3,alignItems:"center"}}>
+            {KCOLS.map((k,i)=>(
+              <div key={k.id} style={{flex:1,height:4,borderRadius:4,background:i<=stageIdx?k.color:"rgba(255,255,255,.2)",transition:"background .3s"}}/>
+            ))}
+          </div>
+          <div style={{display:"flex",justifyContent:"space-between",marginTop:4}}>
+            {KCOLS.map((k,i)=><span key={k.id} style={{fontSize:8,color:i===stageIdx?"#fff":"rgba(255,255,255,.5)",fontWeight:i===stageIdx?800:500,textAlign:"center",flex:1}}>{k.label.split(" ")[0]}</span>)}
+          </div>
+        </div>
+        <div style={{padding:"16px 14px",paddingBottom:100}}>
+          {atrasado&&<div style={{background:"rgba(239,68,68,.1)",border:"1.5px solid rgba(239,68,68,.3)",borderRadius:12,padding:"10px 14px",marginBottom:12,display:"flex",gap:8,alignItems:"center"}}>
+            <span style={{fontSize:20}}>⚠</span><div><div style={{fontSize:13,fontWeight:800,color:"var(--rd)"}}>Pedido Atrasado</div><div style={{fontSize:11,color:"var(--tx3)"}}>Prazo era {p.dataEntrega}</div></div>
+          </div>}
+          {p.dataEntrega&&<div style={{background:"var(--prib)",borderRadius:12,padding:"10px 14px",marginBottom:12,display:"flex",gap:8,alignItems:"center"}}>
+            <span style={{fontSize:20}}>📅</span><div><div style={{fontSize:11,color:"var(--pri)",fontWeight:700}}>Prazo de Entrega</div><div style={{fontSize:15,fontWeight:800,color:"var(--tx)"}}>{p.dataEntrega}</div></div>
+          </div>}
+          {/* AÇÃO PRINCIPAL */}
+          <div style={{marginBottom:14}}>
+            {p.stage==="aguardando"&&<button onClick={()=>setStage(p.id,"corte")} style={{width:"100%",padding:18,borderRadius:16,border:"none",background:"linear-gradient(135deg,#10b981,#34d399)",color:"#fff",fontSize:16,fontWeight:800,cursor:"pointer",boxShadow:"0 4px 20px rgba(16,185,129,.4)",letterSpacing:".3px"}}>✅ Aceitar este Pedido</button>}
+            {p.stage==="corte"&&<div>
+              <div style={{background:"rgba(245,158,11,.12)",border:"1.5px solid rgba(245,158,11,.3)",borderRadius:12,padding:"10px 14px",marginBottom:10,display:"flex",gap:8,alignItems:"center"}}>
+                <span style={{fontSize:20}}>📐</span><div style={{fontSize:13,fontWeight:700,color:"#b45309"}}>Plano de Corte em andamento</div>
+              </div>
+              <button onClick={()=>setStage(p.id,"montagem")} style={{width:"100%",padding:16,borderRadius:14,border:"none",background:"linear-gradient(135deg,#3b82f6,#60a5fa)",color:"#fff",fontSize:15,fontWeight:800,cursor:"pointer",boxShadow:"0 4px 16px rgba(59,130,246,.3)"}}>Avançar para Montagem →</button>
+            </div>}
+            {p.stage==="montagem"&&<div>
+              <div style={{background:"rgba(59,130,246,.08)",border:"1.5px solid rgba(59,130,246,.2)",borderRadius:12,padding:"10px 14px",marginBottom:10,display:"flex",gap:8,alignItems:"center"}}>
+                <span style={{fontSize:20}}>🔧</span><div style={{fontSize:13,fontWeight:700,color:"#1d4ed8"}}>Montagem em andamento</div>
+              </div>
+              {instPid===p.id
+                ?<div style={{background:"var(--ppb)",borderRadius:14,padding:"14px 16px"}}>
+                  <div style={{fontSize:12,fontWeight:800,color:"var(--pp)",marginBottom:12}}>📅 Confirmar Instalação</div>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
+                    <div><label style={{fontSize:11,fontWeight:700,color:"var(--tx3)",display:"block",marginBottom:4}}>Data</label><input type="date" value={instData} onChange={e=>setInstData(e.target.value)} style={{width:"100%",padding:"10px",borderRadius:10,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:13,outline:"none"}}/></div>
+                    <div><label style={{fontSize:11,fontWeight:700,color:"var(--tx3)",display:"block",marginBottom:4}}>Dias previstos</label><input type="number" min="1" value={instDias} onChange={e=>setInstDias(e.target.value)} placeholder="Ex: 3" style={{width:"100%",padding:"10px",borderRadius:10,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:13,outline:"none"}}/></div>
+                  </div>
+                  <div style={{display:"flex",gap:8}}>
+                    <button onClick={()=>setInstPid(null)} style={{flex:1,padding:12,borderRadius:12,border:"1.5px solid var(--bd)",background:"none",color:"var(--tx3)",fontSize:13,fontWeight:700,cursor:"pointer"}}>Cancelar</button>
+                    <button onClick={()=>{if(!instData||!instDias)return showToast("Preencha data e dias!","red");setStage(p.id,"instalacao",{dataInstalacao:instData,diasPrevistos:+instDias});setInstData("");setInstDias("");}} style={{flex:2,padding:12,borderRadius:12,border:"none",background:"var(--pp)",color:"#fff",fontSize:13,fontWeight:800,cursor:"pointer"}}>✓ Confirmar Agendamento</button>
+                  </div>
+                </div>
+                :<button onClick={()=>{setInstPid(p.id);setInstData(p.dataInstalacao||"");setInstDias(p.diasPrevistos||"");}} style={{width:"100%",padding:16,borderRadius:14,border:"none",background:"linear-gradient(135deg,#8b5cf6,#a78bfa)",color:"#fff",fontSize:15,fontWeight:800,cursor:"pointer",boxShadow:"0 4px 16px rgba(139,92,246,.3)"}}>📅 Agendar Instalação →</button>
+              }
+            </div>}
+            {p.stage==="instalacao"&&<div>
+              <div style={{background:"var(--ppb)",borderRadius:14,padding:"14px 16px",marginBottom:10}}>
+                <div style={{fontSize:11,fontWeight:800,color:"var(--pp)",marginBottom:6}}>📅 Instalação Agendada</div>
+                <div style={{fontSize:16,fontWeight:800,color:"var(--tx)"}}>{p.dataInstalacao} <span style={{fontSize:12,color:"var(--tx3)",fontWeight:500}}>• {p.diasPrevistos||"?"} dia(s)</span></div>
+                {instPid===p.id
+                  ?<div style={{marginTop:10}}>
+                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}}>
+                      <input type="date" value={instData} onChange={e=>setInstData(e.target.value)} style={{padding:"9px",borderRadius:9,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:12,outline:"none"}}/>
+                      <input type="number" min="1" value={instDias} onChange={e=>setInstDias(e.target.value)} placeholder="Dias" style={{padding:"9px",borderRadius:9,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:12,outline:"none"}}/>
+                    </div>
+                    <button onClick={()=>{if(!instData||!instDias)return showToast("Preencha!","red");setPedidos(prev=>prev.map(x=>x.id===p.id?{...x,dataInstalacao:instData,diasPrevistos:+instDias}:x));setInstPid(null);showToast("Atualizado!");}} style={{width:"100%",padding:10,borderRadius:10,border:"none",background:"var(--pp)",color:"#fff",fontSize:13,fontWeight:800,cursor:"pointer"}}>✓ Salvar</button>
+                  </div>
+                  :<button onClick={()=>{setInstPid(p.id);setInstData(p.dataInstalacao||"");setInstDias(p.diasPrevistos||"");}} style={{fontSize:12,color:"var(--pp)",background:"none",border:"none",cursor:"pointer",fontWeight:700,padding:"4px 0",marginTop:4}}>✏ Alterar</button>
+                }
+              </div>
+              <button onClick={()=>setStage(p.id,"concluido")} style={{width:"100%",padding:16,borderRadius:14,border:"none",background:"linear-gradient(135deg,#10b981,#34d399)",color:"#fff",fontSize:15,fontWeight:800,cursor:"pointer",boxShadow:"0 4px 16px rgba(16,185,129,.3)"}}>✅ Marcar como Concluído</button>
+            </div>}
+            {p.stage==="concluido"&&<div style={{background:"var(--gnb)",borderRadius:14,padding:"16px",textAlign:"center"}}>
+              <div style={{fontSize:40,marginBottom:4}}>🎉</div>
+              <div style={{fontSize:16,fontWeight:800,color:"var(--gn)"}}>Projeto Concluído!</div>
+              <button onClick={()=>setStage(p.id,"instalacao")} style={{fontSize:12,color:"var(--tx3)",background:"none",border:"none",cursor:"pointer",marginTop:6}}>↩ Desfazer</button>
+            </div>}
+          </div>
+          {/* AMBIENTES + MATERIAIS */}
+          {ambs.length>0&&<div style={{background:"var(--sf)",borderRadius:16,padding:"14px 16px",marginBottom:12,boxShadow:"var(--sh)"}}>
+            <div style={{fontSize:12,fontWeight:800,color:"var(--tx)",marginBottom:10,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <span>🏠 Ambientes & Materiais</span>
+              <span style={{fontSize:10,fontWeight:600,color:"var(--tx3)"}}>{lancados.length} material(is) lançado(s)</span>
+            </div>
+            {ambs.map((a,i)=>{
+              const ambMats=lancados.filter(m=>m.ambNome===a.nome);
+              return(
+                <div key={i} style={{marginBottom:10,borderRadius:12,border:"1.5px solid var(--bd)",overflow:"hidden"}}>
+                  <div style={{background:"var(--prib)",padding:"10px 14px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                    <div>
+                      <div style={{fontSize:13,fontWeight:800,color:"var(--pri)"}}>{a.nome||`Ambiente ${i+1}`}</div>
+                      {a.desc&&<div style={{fontSize:11,color:"var(--pri)",opacity:.7,marginTop:2,lineHeight:1.4}}>{a.desc.slice(0,80)}{a.desc.length>80?"...":""}</div>}
+                    </div>
+                    <button onClick={()=>{setMatModal({pedidoId:p.id,ambNome:a.nome});}} style={{padding:"8px 14px",borderRadius:10,border:"none",background:"var(--pri)",color:"#fff",fontSize:12,fontWeight:800,cursor:"pointer",flexShrink:0}}>+ Materiais</button>
+                  </div>
+                  {ambMats.length>0&&<div style={{padding:"8px 14px"}}>
+                    {ambMats.map(m=>(
+                      <div key={m.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"5px 0",borderBottom:"1px solid var(--bd)"}}>
+                        <span style={{fontSize:12,color:"var(--tx)",fontWeight:600}}>{m.nome}</span>
+                        <div style={{display:"flex",alignItems:"center",gap:8}}>
+                          <span style={{fontSize:12,fontWeight:800,color:"var(--tx3)"}}>{m.qt} {m.unidade}</span>
+                          <button onClick={()=>delMatLancMarc(p.id,m.id)} style={{background:"none",border:"none",color:"var(--rd)",cursor:"pointer",fontSize:16,padding:0}}>×</button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>}
+                  {ambMats.length===0&&<div style={{padding:"8px 14px",fontSize:11,color:"var(--tx3)",fontStyle:"italic"}}>Nenhum material lançado neste ambiente</div>}
+                </div>
+              );
+            })}
+          </div>}
+          {/* COMISSÃO */}
+          {comTotal>0&&<div style={{background:"var(--sf)",borderRadius:16,padding:"14px 16px",marginBottom:12,boxShadow:"var(--sh)"}}>
+            <div style={{fontSize:12,fontWeight:800,color:"var(--tx)",marginBottom:8}}>💰 Minha Comissão</div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:10}}>
+              <div style={{background:"var(--gnb)",borderRadius:10,padding:"10px 12px",textAlign:"center"}}>
+                <div style={{fontSize:10,fontWeight:700,color:"var(--gn)"}}>✓ Recebido</div>
+                <div style={{fontSize:16,fontWeight:800,color:"var(--gn)"}}>{R$(comPago)}</div>
+              </div>
+              <div style={{background:"var(--amb)",borderRadius:10,padding:"10px 12px",textAlign:"center"}}>
+                <div style={{fontSize:10,fontWeight:700,color:"var(--am)"}}>⏳ Pendente</div>
+                <div style={{fontSize:16,fontWeight:800,color:"var(--am)"}}>{R$(comTotal-comPago)}</div>
+              </div>
+            </div>
+            <div style={{height:8,background:"var(--bd)",borderRadius:8,overflow:"hidden"}}>
+              <div style={{height:"100%",width:`${comTotal>0?Math.round(comPago/comTotal*100):0}%`,background:"linear-gradient(90deg,var(--gn),#34d399)",transition:"width .4s"}}/>
+            </div>
+          </div>}
+          {/* ARQUIVOS */}
+          {p.arquivos?.length>0&&<div style={{background:"var(--sf)",borderRadius:16,padding:"14px 16px",boxShadow:"var(--sh)"}}>
+            <div style={{fontSize:12,fontWeight:800,color:"var(--tx)",marginBottom:10}}>📎 Anexos ({p.arquivos.length})</div>
+            {p.arquivos.map(a=>(
+              <button key={a.id} onClick={()=>dlFile(a.url,a.nome)} style={{display:"flex",alignItems:"center",gap:10,width:"100%",fontSize:13,color:"var(--bl)",fontWeight:600,background:"var(--blb)",border:"none",borderRadius:10,cursor:"pointer",padding:"10px 12px",marginBottom:6,textAlign:"left"}}>
+                <span style={{fontSize:18}}>📄</span><span style={{flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{a.nome}</span><span style={{fontWeight:800,flexShrink:0}}>⬇</span>
+              </button>
+            ))}
+          </div>}
+        </div>
+      </div>
+    );
+  }
+
   return(
     <div style={{fontFamily:"var(--ft)",background:"var(--bg)",minHeight:"100vh",maxWidth:520,margin:"0 auto",paddingBottom:"env(safe-area-inset-bottom,0px)"}}>
       <style>{CSS}</style>
 
       {/* ── HEADER ── */}
-      <div style={{background:"linear-gradient(135deg,#6366f1 0%,#8b5cf6 100%)",padding:"max(env(safe-area-inset-top),14px) 20px 20px"}}>
-        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16}}>
-          <div style={{display:"flex",alignItems:"center",gap:12}}>
-            <div style={{width:42,height:42,borderRadius:14,background:"rgba(255,255,255,.2)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22}}>🔨</div>
+      <div style={{background:"linear-gradient(135deg,#6366f1 0%,#8b5cf6 100%)",padding:"max(env(safe-area-inset-top),14px) 16px 16px",position:"sticky",top:0,zIndex:50}}>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
+          <div style={{display:"flex",alignItems:"center",gap:10}}>
+            <div style={{width:44,height:44,borderRadius:14,background:"rgba(255,255,255,.2)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:24}}>🔨</div>
             <div>
-              <div style={{color:"#fff",fontWeight:800,fontSize:17}}>Olá, {user.nome.split(" ")[0]}!</div>
+              <div style={{color:"#fff",fontWeight:800,fontSize:18,lineHeight:1.1}}>Olá, {user.nome.split(" ")[0]}!</div>
               <div style={{color:"rgba(255,255,255,.65)",fontSize:11,fontWeight:600}}>{user.nome}</div>
             </div>
           </div>
-          <div style={{display:"flex",gap:8}}>
-            <button onClick={doRefresh} disabled={refreshing} style={{background:"rgba(255,255,255,.15)",border:"none",borderRadius:10,padding:"8px 12px",color:"#fff",fontSize:12,fontWeight:700,cursor:"pointer",opacity:refreshing?.6:1}}>{refreshing?"⏳":"🔄"}</button>
+          <div style={{display:"flex",gap:6,alignItems:"center"}}>
+            <button onClick={()=>{setNotifOpen(o=>!o);if(!notifOpen)markAllRead?.(user.id);}} style={{background:"rgba(255,255,255,.15)",border:"none",borderRadius:10,width:40,height:40,color:"#fff",fontSize:18,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",position:"relative"}}>
+              🔔{marcNotifCnt>0&&<span style={{position:"absolute",top:2,right:2,background:"#ef4444",color:"#fff",borderRadius:"50%",width:15,height:15,fontSize:8,fontWeight:800,display:"flex",alignItems:"center",justifyContent:"center"}}>{marcNotifCnt>9?"9+":marcNotifCnt}</span>}
+            </button>
+            <button onClick={doRefresh} disabled={refreshing} style={{background:"rgba(255,255,255,.15)",border:"none",borderRadius:10,width:40,height:40,color:"#fff",fontSize:16,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",opacity:refreshing?.5:1}}>{refreshing?"⏳":"🔄"}</button>
             <button onClick={onLogout} style={{background:"rgba(255,255,255,.15)",border:"none",borderRadius:10,padding:"8px 14px",color:"#fff",fontSize:12,fontWeight:700,cursor:"pointer"}}>Sair</button>
           </div>
         </div>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}>
+        {!notifOpen&&<div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}>
           {kpis.map(k=>(
             <div key={k.l} style={{background:"rgba(255,255,255,.12)",borderRadius:12,padding:"10px 8px",textAlign:"center"}}>
               <div style={{fontSize:typeof k.v==="number"?22:13,fontWeight:800,color:k.c,lineHeight:1.1}}>{k.v}</div>
               <div style={{fontSize:10,color:"rgba(255,255,255,.6)",fontWeight:600,marginTop:3}}>{k.l}</div>
             </div>
           ))}
-        </div>
+        </div>}
+        {notifOpen&&(()=>{const myN=notifs.filter(n=>n.para.includes(user.id)).slice(0,20);return(
+          <div style={{maxHeight:260,overflowY:"auto"}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+              <span style={{color:"#fff",fontSize:12,fontWeight:800}}>🔔 Notificações</span>
+              <button onClick={()=>setNotifOpen(false)} style={{background:"none",border:"none",color:"rgba(255,255,255,.7)",fontSize:16,cursor:"pointer"}}>×</button>
+            </div>
+            {myN.length===0&&<div style={{color:"rgba(255,255,255,.6)",fontSize:12,padding:"8px 0",textAlign:"center"}}>Nenhuma notificação</div>}
+            {myN.map(n=><div key={n.id} style={{background:"rgba(255,255,255,.15)",borderRadius:10,padding:"8px 12px",marginBottom:6,display:"flex",gap:8}}>
+              <span style={{fontSize:16,flexShrink:0}}>{n.tipo==="corte"?"✂":n.tipo==="concluido"?"✅":n.tipo==="stage"?"🔄":"🔔"}</span>
+              <div style={{flex:1}}><div style={{fontSize:12,fontWeight:700,color:"#fff"}}>{n.titulo}</div><div style={{fontSize:11,color:"rgba(255,255,255,.7)"}}>{n.msg}</div></div>
+              <button onClick={()=>clearNotif?.(n.id)} style={{background:"none",border:"none",color:"rgba(255,255,255,.5)",cursor:"pointer",fontSize:14}}>×</button>
+            </div>)}
+          </div>
+        );})()}
       </div>
 
       {/* ── CONTEÚDO ── */}
       {nav==="pedidos"&&<>
         <div style={{display:"flex",gap:8,padding:"14px 16px 8px"}}>
-          {[["andamento","Em andamento"],["todos","Todos"],["concluido","Concluídos"]].map(([k,l])=>(
-            <button key={k} onClick={()=>setFiltro(k)} style={{flex:1,padding:"9px 0",borderRadius:20,border:"none",background:filtro===k?"var(--pri)":"var(--sf)",color:filtro===k?"#fff":"var(--tx2)",fontSize:11,fontWeight:700,cursor:"pointer",boxShadow:filtro===k?"none":"var(--sh)"}}>
+          {[["andamento","⚡ Ativos"],["todos","📋 Todos"],["concluido","✅ Concluídos"]].map(([k,l])=>(
+            <button key={k} onClick={()=>setFiltro(k)} style={{flex:1,padding:"10px 0",borderRadius:20,border:"none",background:filtro===k?"var(--pri)":"var(--sf)",color:filtro===k?"#fff":"var(--tx2)",fontSize:11,fontWeight:700,cursor:"pointer",boxShadow:filtro===k?"none":"var(--sh)"}}>
               {l}
             </button>
           ))}
         </div>
         <div style={{padding:"0 16px 110px"}}>
-          {filtrados.length===0&&<div style={{textAlign:"center",padding:"48px 24px"}}><div style={{fontSize:40,marginBottom:8}}>📋</div><div style={{fontWeight:700,fontSize:14,color:"var(--tx2)"}}>Nenhum pedido {filtro==="andamento"?"em andamento":filtro==="concluido"?"concluído":"atribuído"}</div></div>}
+          {filtrados.length===0&&<div style={{textAlign:"center",padding:"60px 24px"}}><div style={{fontSize:48,marginBottom:12}}>📋</div><div style={{fontWeight:700,fontSize:15,color:"var(--tx2)"}}>Nenhum pedido {filtro==="andamento"?"em andamento":filtro==="concluido"?"concluído":"atribuído"}</div></div>}
           {filtrados.map(p=>{
             const cli=getCli(p.clienteId);
             const stage=KCOLS.find(k=>k.id===p.stage)||KCOLS[0];
-            const exp=expandId===p.id;
+            const stageIdx=KCOLS.findIndex(k=>k.id===p.stage);
             const atrasado=p.dataEntrega&&p.stage!=="concluido"&&new Date(p.dataEntrega.split("/").reverse().join("-"))<new Date();
             const comFin=getComFin(p);
             const comTotal=comFin?.valor||p.comVal||0;
             const comPago=comFin?.valorPago||0;
             const comPct=comTotal>0?Math.round(comPago/comTotal*100):0;
+            const matCount=(p.matLanc||[]).length;
             return(
-              <div key={p.id} style={{background:"var(--sf)",borderRadius:16,marginBottom:12,boxShadow:"var(--sh)",overflow:"hidden",border:`2px solid ${exp?"var(--pri)":atrasado?"var(--rd)":"transparent"}`}}>
-                <div onClick={()=>setExpandId(exp?null:p.id)} style={{padding:"14px 16px",cursor:"pointer",userSelect:"none"}}>
-                  <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:8}}>
-                    <div style={{flex:1}}>
-                      <div style={{display:"flex",alignItems:"center",gap:7,flexWrap:"wrap",marginBottom:4}}>
-                        <span style={{fontWeight:800,fontSize:14,color:"var(--tx)"}}>{p.num}</span>
-                        <span style={{fontSize:10,padding:"3px 8px",borderRadius:10,background:stage.color+"22",color:stage.color,fontWeight:700}}>{stage.label}</span>
-                        {atrasado&&<span style={{fontSize:10,padding:"3px 8px",borderRadius:10,background:"var(--rdb)",color:"var(--rd)",fontWeight:700}}>⚠ Atrasado</span>}
-                        {p.arquivos?.length>0&&<span style={{fontSize:10,padding:"3px 7px",borderRadius:10,background:"var(--blb)",color:"var(--bl)",fontWeight:700}}>📎 {p.arquivos.length}</span>}
-                      </div>
-                      <div style={{fontSize:14,fontWeight:700,color:"var(--tx)"}}>{cli?.nome||"Cliente"}</div>
-                      {p.ambs?.length>0&&<div style={{fontSize:11,color:"var(--tx3)",marginTop:2}}>{p.ambs.map(a=>a.nome).join(" · ")}</div>}
-                      {p.dataEntrega&&<div style={{fontSize:11,color:atrasado?"var(--rd)":"var(--tx3)",marginTop:3,display:"flex",alignItems:"center",gap:4,fontWeight:atrasado?700:400}}><I.Clock/> Entrega: {p.dataEntrega}</div>}
-                      {comTotal>0&&<div style={{marginTop:6}}>
-                        <div style={{display:"flex",justifyContent:"space-between",fontSize:10,color:"var(--tx3)",marginBottom:3}}>
-                          <span>Comissão {p.comPerc}%</span>
-                          <span style={{fontWeight:700,color:comPct===100?"var(--gn)":comPago>0?"var(--am)":"var(--tx3)"}}>{comPct===100?"✓ Pago":comPago>0?`${comPct}% pago`:"Pendente"}</span>
-                        </div>
-                        <div style={{height:4,background:"var(--bd)",borderRadius:4,overflow:"hidden"}}>
-                          <div style={{height:"100%",width:`${comPct}%`,background:comPct===100?"var(--gn)":"var(--am)",borderRadius:4,transition:"width .3s"}}/>
-                        </div>
-                      </div>}
-                    </div>
-                    <div style={{color:"var(--tx3)",marginTop:2,flexShrink:0}}><I.Chev d={exp?"up":"down"}/></div>
+              <div key={p.id} onClick={()=>setPedDetalheId(p.id)}
+                style={{background:"var(--sf)",borderRadius:18,marginBottom:14,boxShadow:"var(--sh)",overflow:"hidden",border:`2px solid ${atrasado?"var(--rd)":"transparent"}`,cursor:"pointer",activeOpacity:.8,WebkitTapHighlightColor:"transparent",transition:"transform .1s,box-shadow .1s"}}>
+                {/* Barra de cor do estágio no topo */}
+                <div style={{height:4,background:`linear-gradient(90deg,${KCOLS.slice(0,stageIdx+1).map(k=>k.color).join(",") || stage.color})`}}/>
+                <div style={{padding:"14px 16px 12px"}}>
+                  {/* Linha 1: número + badges */}
+                  <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap",marginBottom:6}}>
+                    <span style={{fontSize:11,fontWeight:800,color:"var(--tx3)",letterSpacing:".5px"}}>{p.num}</span>
+                    <span style={{fontSize:11,padding:"3px 10px",borderRadius:20,background:stage.color+"22",color:stage.color,fontWeight:800}}>{stage.label}</span>
+                    {atrasado&&<span style={{fontSize:10,padding:"3px 8px",borderRadius:20,background:"var(--rdb)",color:"var(--rd)",fontWeight:800}}>⚠ Atrasado</span>}
+                    {p.arquivos?.length>0&&<span style={{fontSize:10,padding:"3px 8px",borderRadius:20,background:"var(--blb)",color:"var(--bl)",fontWeight:700}}>📎{p.arquivos.length}</span>}
+                    {matCount>0&&<span style={{fontSize:10,padding:"3px 8px",borderRadius:20,background:"var(--ppb)",color:"var(--pp)",fontWeight:700}}>📦{matCount}</span>}
                   </div>
-                </div>
-                {exp&&<div style={{borderTop:"1.5px solid var(--bd)",padding:"14px 16px",animation:"fadeIn .2s"}}>
-                  {/* ETAPA ATUAL + AÇÃO */}
-                  {p.stage==="aguardando"&&<button onClick={()=>setStage(p.id,"corte")} style={{width:"100%",padding:"14px",borderRadius:14,border:"none",background:"linear-gradient(135deg,#10b981,#34d399)",color:"#fff",fontSize:14,fontWeight:800,cursor:"pointer",marginBottom:12}}>✅ Aceitar este Pedido</button>}
-                  {p.stage==="corte"&&<div style={{marginBottom:12}}>
-                    <div style={{fontSize:12,fontWeight:700,color:"var(--am)",marginBottom:8}}>📐 Plano de Corte em andamento</div>
-                    <button onClick={()=>setStage(p.id,"montagem")} style={{width:"100%",padding:"11px",borderRadius:12,border:"none",background:"var(--bl)",color:"#fff",fontSize:13,fontWeight:700,cursor:"pointer"}}>Avançar para Montagem →</button>
+                  {/* Linha 2: nome cliente grande */}
+                  <div style={{fontSize:18,fontWeight:800,color:"var(--tx)",lineHeight:1.2,marginBottom:4}}>{cli?.nome||"Cliente"}</div>
+                  {/* Linha 3: ambientes */}
+                  {p.ambs?.length>0&&<div style={{fontSize:12,color:"var(--tx3)",marginBottom:6,lineHeight:1.4}}>{p.ambs.map(a=>a.nome).join(" · ")}</div>}
+                  {/* Linha 4: prazo */}
+                  {p.dataEntrega&&<div style={{display:"flex",alignItems:"center",gap:5,fontSize:12,color:atrasado?"var(--rd)":"var(--tx3)",fontWeight:atrasado?700:500,marginBottom:8}}>
+                    <I.Clock/><span>Entrega: <strong>{p.dataEntrega}</strong></span>
                   </div>}
-                  {p.stage==="montagem"&&<div style={{marginBottom:12}}>
-                    <div style={{fontSize:12,fontWeight:700,color:"var(--bl)",marginBottom:8}}>🔧 Montagem em andamento</div>
-                    {instPid===p.id
-                      ?<div style={{background:"var(--ppb)",borderRadius:12,padding:"12px 14px"}}>
-                        <div style={{fontSize:11,fontWeight:800,color:"var(--pp)",marginBottom:10}}>📅 Agendar Instalação</div>
-                        <label style={{fontSize:10,fontWeight:700,color:"var(--tx3)",display:"block",marginBottom:3}}>Data prevista de instalação</label>
-                        <input type="date" value={instData} onChange={e=>setInstData(e.target.value)} style={{width:"100%",padding:"8px 10px",borderRadius:8,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:12,outline:"none",marginBottom:8}}/>
-                        <label style={{fontSize:10,fontWeight:700,color:"var(--tx3)",display:"block",marginBottom:3}}>Dias previstos para finalizar</label>
-                        <input type="number" min="1" value={instDias} onChange={e=>setInstDias(e.target.value)} placeholder="Ex: 3" style={{width:"100%",padding:"8px 10px",borderRadius:8,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:12,outline:"none",marginBottom:10}}/>
-                        <div style={{display:"flex",gap:8}}>
-                          <button onClick={()=>setInstPid(null)} style={{flex:1,padding:"9px",borderRadius:10,border:"1.5px solid var(--bd)",background:"none",color:"var(--tx3)",fontSize:12,fontWeight:700,cursor:"pointer"}}>Cancelar</button>
-                          <button onClick={()=>{if(!instData||!instDias)return showToast("Preencha data e dias!","red");setStage(p.id,"instalacao",{dataInstalacao:instData,diasPrevistos:+instDias});setInstData("");setInstDias("");}} style={{flex:2,padding:"9px",borderRadius:10,border:"none",background:"var(--pp)",color:"#fff",fontSize:12,fontWeight:800,cursor:"pointer"}}>✓ Confirmar Agendamento</button>
-                        </div>
-                      </div>
-                      :<button onClick={()=>{setInstPid(p.id);setInstData(p.dataInstalacao||"");setInstDias(p.diasPrevistos||"");}} style={{width:"100%",padding:"11px",borderRadius:12,border:"none",background:"var(--pp)",color:"#fff",fontSize:13,fontWeight:700,cursor:"pointer"}}>📅 Agendar Instalação →</button>
-                    }
-                  </div>}
-                  {p.stage==="instalacao"&&<div style={{marginBottom:12}}>
-                    <div style={{background:"var(--ppb)",borderRadius:12,padding:"12px 14px",marginBottom:8}}>
-                      <div style={{fontSize:11,fontWeight:800,color:"var(--pp)",marginBottom:6}}>📅 Instalação Agendada</div>
-                      <div style={{fontSize:13,fontWeight:700,color:"var(--tx)"}}>{p.dataInstalacao||"—"} <span style={{fontSize:11,color:"var(--tx3)",fontWeight:500}}>• {p.diasPrevistos||"?"} dia(s)</span></div>
-                      <button onClick={()=>{setInstPid(p.id);setInstData(p.dataInstalacao||"");setInstDias(p.diasPrevistos||"");}} style={{fontSize:11,color:"var(--pp)",background:"none",border:"none",cursor:"pointer",marginTop:4,fontWeight:700,padding:0}}>✏ Alterar data/dias</button>
+                  {/* Pipeline visual dots */}
+                  <div style={{display:"flex",gap:4,alignItems:"center",marginBottom:comTotal>0?10:0}}>
+                    {KCOLS.map((k,i)=>(
+                      <div key={k.id} style={{flex:1,height:3,borderRadius:3,background:i<=stageIdx?k.color:"var(--bd)",transition:"background .3s"}}/>
+                    ))}
+                  </div>
+                  {/* Comissão */}
+                  {comTotal>0&&<div>
+                    <div style={{display:"flex",justifyContent:"space-between",fontSize:11,marginBottom:4}}>
+                      <span style={{color:"var(--tx3)",fontWeight:600}}>Comissão {p.comPerc}%</span>
+                      <span style={{fontWeight:800,color:comPct===100?"var(--gn)":comPago>0?"var(--am)":"var(--tx3)"}}>{comPct===100?"✓ Recebida":comPago>0?`${comPct}% pago`:"Pendente"}</span>
                     </div>
-                    {instPid===p.id&&<div style={{background:"var(--ppb)",borderRadius:12,padding:"12px 14px",marginBottom:8}}>
-                      <input type="date" value={instData} onChange={e=>setInstData(e.target.value)} style={{width:"100%",padding:"8px",borderRadius:8,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:12,outline:"none",marginBottom:6}}/>
-                      <input type="number" min="1" value={instDias} onChange={e=>setInstDias(e.target.value)} placeholder="Dias" style={{width:"100%",padding:"8px",borderRadius:8,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:12,outline:"none",marginBottom:8}}/>
-                      <button onClick={()=>{if(!instData||!instDias)return showToast("Preencha tudo!","red");setPedidos(prev=>prev.map(x=>x.id===p.id?{...x,dataInstalacao:instData,diasPrevistos:+instDias}:x));setInstPid(null);showToast("Atualizado!");}} style={{width:"100%",padding:"8px",borderRadius:10,border:"none",background:"var(--pp)",color:"#fff",fontSize:12,fontWeight:800,cursor:"pointer"}}>✓ Salvar</button>
-                    </div>}
-                    <button onClick={()=>setStage(p.id,"concluido")} style={{width:"100%",padding:"11px",borderRadius:12,border:"none",background:"linear-gradient(135deg,#10b981,#34d399)",color:"#fff",fontSize:13,fontWeight:800,cursor:"pointer"}}>✅ Marcar como Concluído</button>
+                    <div style={{height:5,background:"var(--bd)",borderRadius:5,overflow:"hidden"}}>
+                      <div style={{height:"100%",width:`${comPct}%`,background:comPct===100?"var(--gn)":"var(--am)",borderRadius:5,transition:"width .3s"}}/>
+                    </div>
                   </div>}
-                  {p.stage==="concluido"&&<div style={{background:"var(--gnb)",borderRadius:12,padding:"12px 14px",marginBottom:12,textAlign:"center"}}>
-                    <div style={{fontSize:14,fontWeight:800,color:"var(--gn)"}}>✓ Projeto Concluído</div>
-                    <button onClick={()=>setStage(p.id,"instalacao")} style={{fontSize:11,color:"var(--tx3)",background:"none",border:"none",cursor:"pointer",marginTop:4}}>Desfazer</button>
-                  </div>}
-                  {p.mats?.filter(m=>m.nome).length>0&&<div style={{background:"var(--bg)",borderRadius:12,padding:"10px 14px",marginBottom:10}}>
-                    <div style={{fontSize:13,fontWeight:800,color:"var(--tx3)",textTransform:"uppercase",letterSpacing:".5px",marginBottom:7}}>Materiais</div>
-                    {p.mats.filter(m=>m.nome).map(m=>(
-                      <div key={m.id} style={{display:"flex",justifyContent:"space-between",fontSize:12,padding:"4px 0",borderBottom:"1px solid var(--bd)",color:"var(--tx2)"}}>
-                        <span>{m.nome}</span><span style={{fontWeight:700,color:"var(--tx)"}}>{m.qtd} un</span>
-                      </div>
-                    ))}
-                  </div>}
-                  {(()=>{const meusAmbs=(p.ambs||[]).filter(a=>!a.marcId||a.marcId===user.id);return meusAmbs.length>0&&<div style={{background:"var(--prib)",borderRadius:12,padding:"10px 14px",marginBottom:10}}>
-                    <div style={{fontSize:10,fontWeight:800,color:"var(--pri)",marginBottom:6,textTransform:"uppercase",letterSpacing:".5px"}}>Meus Ambientes ({meusAmbs.length})</div>
-                    {meusAmbs.map((a,i)=><div key={i} style={{padding:"8px 0",borderBottom:"1px solid var(--bd2)"}}>
-                      <div style={{fontSize:13,fontWeight:700,color:"var(--tx)"}}>{a.nome}</div>
-                      {a.desc&&<div style={{fontSize:11,color:"var(--tx3)",marginTop:3,whiteSpace:"pre-line",lineHeight:1.6}}>{a.desc}</div>}
-                    </div>)}
-                  </div>;})()}
-                  {/* ── LANÇAMENTO DE MATERIAIS ── */}
-                  {(()=>{
-                    const ambs=p.ambs?.length>0?p.ambs:[{nome:"Geral"}];
-                    const lancados=p.matLanc||[];
-                    return(
-                      <div style={{background:"var(--bg)",borderRadius:12,border:"1.5px solid var(--bd)",padding:"12px 14px",marginBottom:10}}>
-                        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
-                          <div style={{fontSize:12,fontWeight:800,color:"var(--tx)"}}>📦 Materiais Utilizados</div>
-                          <span style={{fontSize:10,color:"var(--tx3)",fontWeight:600}}>{lancados.length} item(ns)</span>
-                        </div>
-                        {/* Botões por ambiente */}
-                        <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:10}}>
-                          {ambs.map((a,i)=>(
-                            <button key={i} onClick={()=>{setMatModal({pedidoId:p.id,ambNome:a.nome});setMatForm({materialId:"",nome:"",unidade:"",qt:1});}} style={{padding:"6px 12px",borderRadius:8,border:"1.5px solid var(--pri)",background:"var(--prib)",color:"var(--pri)",fontSize:11,fontWeight:700,cursor:"pointer"}}>+ {a.nome||"Ambiente"}</button>
-                          ))}
-                        </div>
-                        {/* Lista dos lançados */}
-                        {lancados.length>0&&(()=>{
-                          const grupos={};lancados.forEach(m=>{const k=m.ambNome||"Geral";if(!grupos[k])grupos[k]=[];grupos[k].push(m);});
-                          return Object.entries(grupos).map(([amb,items])=>(
-                            <div key={amb} style={{marginBottom:8}}>
-                              <div style={{fontSize:9,fontWeight:800,color:"var(--pri)",textTransform:"uppercase",marginBottom:4}}>📦 {amb}</div>
-                              {items.map(m=>(
-                                <div key={m.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"5px 8px",background:"var(--sf)",borderRadius:7,marginBottom:4,border:"1px solid var(--bd)"}}>
-                                  <div style={{flex:1}}>
-                                    <span style={{fontSize:12,fontWeight:700,color:"var(--tx)"}}>{m.nome}</span>
-                                    <span style={{fontSize:11,color:"var(--tx3)",marginLeft:6}}>{m.qt} {m.unidade}</span>
-                                  </div>
-                                  <button onClick={()=>delMatLancMarc(p.id,m.id)} style={{background:"none",border:"none",color:"var(--rd)",padding:2,cursor:"pointer",fontSize:16}}>×</button>
-                                </div>
-                              ))}
-                            </div>
-                          ));
-                        })()}
-                      </div>
-                    );
-                  })()}
-                  {p.arquivos?.length>0&&<div style={{background:"var(--blb)",borderRadius:12,padding:"10px 14px"}}>
-                    <div style={{fontSize:10,fontWeight:800,color:"var(--bl)",marginBottom:8}}>📎 Anexos do Projeto</div>
-                    {p.arquivos.map(a=>(
-                      <button key={a.id} onClick={()=>dlFile(a.url,a.nome)} style={{display:"flex",alignItems:"center",gap:8,width:"100%",fontSize:12,color:"var(--bl)",fontWeight:600,background:"none",border:"none",cursor:"pointer",padding:"6px 0",borderBottom:"1px solid rgba(59,130,246,.15)",textAlign:"left"}}>
-                        <I.Clip/><span style={{flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{a.nome}</span><span style={{fontSize:11,fontWeight:800,flexShrink:0}}>⬇</span>
-                      </button>
-                    ))}
-                  </div>}
-                </div>}
+                </div>
+                {/* Rodapé: ação rápida */}
+                <div style={{borderTop:"1px solid var(--bd)",padding:"10px 16px",display:"flex",alignItems:"center",justifyContent:"space-between",background:"var(--bg)"}}>
+                  <span style={{fontSize:12,color:"var(--tx3)",fontWeight:600}}>
+                    {p.stage==="aguardando"?"Toque para aceitar o pedido":
+                     p.stage==="concluido"?"Projeto concluído ✓":
+                     "Toque para ver detalhes e avançar"}
+                  </span>
+                  <span style={{fontSize:18,color:"var(--pri)"}}>›</span>
+                </div>
               </div>
             );
           })}
@@ -1877,15 +1987,16 @@ function MarceneiroApp({user,pedidos,setPedidos,clientes,financeiro,showToast,on
       {nav==="cortes"&&<div style={{padding:"0 16px 110px"}}><PgCortes/></div>}
 
       {/* ── BOTTOM NAV ── */}
-      <div style={{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:520,background:"var(--sf)",borderTop:"1.5px solid var(--bd)",display:"flex",zIndex:100,paddingBottom:"env(safe-area-inset-bottom,0px)"}}>
+      <div style={{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:520,background:"var(--sf)",borderTop:"1.5px solid var(--bd)",display:"flex",zIndex:100,paddingBottom:"env(safe-area-inset-bottom,0px)",boxShadow:"0 -4px 20px rgba(0,0,0,.08)"}}>
         {[
           {k:"pedidos",l:"Pedidos",icon:"🔨"},
           {k:"comissoes",l:"Comissões",icon:"💰"},
-          {k:"cortes",l:"Cortes",icon:"✂"},
+          {k:"cortes",l:"Cortes",icon:"✂️"},
         ].map(t=>(
-          <button key={t.k} onClick={()=>setNav(t.k)} style={{flex:1,padding:"12px 8px 10px",border:"none",background:"none",display:"flex",flexDirection:"column",alignItems:"center",gap:3,cursor:"pointer",borderTop:`2.5px solid ${nav===t.k?"var(--pri)":"transparent"}`,transition:"border-color .15s"}}>
-            <span style={{fontSize:20,lineHeight:1}}>{t.icon}</span>
-            <span style={{fontSize:10,fontWeight:700,color:nav===t.k?"var(--pri)":"var(--tx3)"}}>{t.l}</span>
+          <button key={t.k} onClick={()=>setNav(t.k)} style={{flex:1,padding:"14px 8px 12px",border:"none",background:"none",display:"flex",flexDirection:"column",alignItems:"center",gap:4,cursor:"pointer",position:"relative",minHeight:64,WebkitTapHighlightColor:"transparent"}}>
+            {nav===t.k&&<div style={{position:"absolute",top:0,left:"20%",right:"20%",height:3,borderRadius:"0 0 4px 4px",background:"var(--pri)"}}/>}
+            <span style={{fontSize:24,lineHeight:1}}>{t.icon}</span>
+            <span style={{fontSize:11,fontWeight:nav===t.k?800:600,color:nav===t.k?"var(--pri)":"var(--tx3)"}}>{t.l}</span>
           </button>
         ))}
       </div>
@@ -1894,7 +2005,7 @@ function MarceneiroApp({user,pedidos,setPedidos,clientes,financeiro,showToast,on
   );
 }
 
-function CortadorApp({user,ordensCort,setOrdensCort,setPedidos,showToast,onLogout}){
+function CortadorApp({user,ordensCort,setOrdensCort,setPedidos,showToast,onLogout,notifs=[],addNotif,unreadFor,markAllRead,clearNotif}){
   const [nav,setNav]=useState("ordens");
   const [selId,setSelId]=useState(null);
   const minhasOrdens=ordensCort.filter(o=>o.cortadorId===user.id);
@@ -1908,6 +2019,12 @@ function CortadorApp({user,ordensCort,setOrdensCort,setPedidos,showToast,onLogou
       ...(status==="em_corte"?{emCorteAt:now}:{}),
       ...(status==="concluido"?{concluidoAt:now}:{}),
     }:o));
+    const notifPara=["admin"];if(ordem?.marcId)notifPara.push(ordem.marcId);
+    addNotif?.(notifPara,status==="em_corte"?"corte":"concluido",
+      status==="em_corte"?`⚙ Corte iniciado — ${ordem?.num||id}`:`✅ Corte concluído — ${ordem?.num||id}`,
+      status==="em_corte"?`${user.nome} iniciou o corte da ordem ${ordem?.num||""}`:
+        `${user.nome} concluiu o corte ${ordem?.num||""}. Pedido avançou para Montagem.`,
+      {ordemId:id,pedidoId:ordem?.pedidoId});
     if(ordem?.pedidoId&&setPedidos){
       if(status==="em_corte")
         setPedidos(prev=>prev.map(p=>p.id===ordem.pedidoId?{...p,stage:"corte",corteInicio:now,status:p.status==="em_espera"?"em_producao":p.status}:p));
@@ -1992,13 +2109,34 @@ function CortadorApp({user,ordensCort,setOrdensCort,setPedidos,showToast,onLogou
   return(
     <div style={{fontFamily:"var(--ft)",background:"var(--bg)",minHeight:"100vh",maxWidth:520,margin:"0 auto",paddingBottom:80}}>
       <style>{CSS}</style>
-      <div style={{background:"linear-gradient(135deg,#0ea5e9,#0284c7)",padding:"16px 18px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-        <div>
-          <div style={{fontSize:16,fontWeight:800,color:"#fff"}}>\ud83e\ude9a Painel do Cortador</div>
-          <div style={{fontSize:11,color:"rgba(255,255,255,.8)",marginTop:2}}>{user.nome}</div>
-        </div>
-        <button onClick={onLogout} style={{background:"rgba(255,255,255,.15)",border:"none",borderRadius:10,padding:"8px 14px",color:"#fff",fontSize:12,fontWeight:700,cursor:"pointer"}}>Sair</button>
-      </div>
+      {(()=>{const [nOpen,setNOpen]=useState(false);const cnt=unreadFor?.(user.id)||0;const myNotifs=notifs.filter(n=>n.para.includes(user.id)).slice(0,30);
+        return(<div style={{background:"linear-gradient(135deg,#0ea5e9,#0284c7)",padding:"16px 18px",display:"flex",justifyContent:"space-between",alignItems:"center",position:"relative"}}>
+          <div>
+            <div style={{fontSize:16,fontWeight:800,color:"#fff"}}>\ud83e\ude9a Painel do Cortador</div>
+            <div style={{fontSize:11,color:"rgba(255,255,255,.8)",marginTop:2}}>{user.nome}</div>
+          </div>
+          <div style={{display:"flex",gap:8,alignItems:"center"}}>
+            <button onClick={()=>{setNOpen(o=>!o);if(!nOpen)markAllRead?.(user.id);}} style={{background:"rgba(255,255,255,.15)",border:"none",borderRadius:10,padding:"8px 12px",color:"#fff",fontSize:14,fontWeight:700,cursor:"pointer",position:"relative"}}>
+              🔔{cnt>0&&<span style={{position:"absolute",top:-4,right:-4,background:"#ef4444",color:"#fff",borderRadius:"50%",width:16,height:16,fontSize:9,fontWeight:800,display:"flex",alignItems:"center",justifyContent:"center"}}>{cnt>9?"9+":cnt}</span>}
+            </button>
+            <button onClick={onLogout} style={{background:"rgba(255,255,255,.15)",border:"none",borderRadius:10,padding:"8px 14px",color:"#fff",fontSize:12,fontWeight:700,cursor:"pointer"}}>Sair</button>
+          </div>
+          {nOpen&&<div style={{position:"absolute",top:60,right:8,width:300,maxHeight:400,overflowY:"auto",background:"var(--sf)",borderRadius:12,boxShadow:"0 8px 32px rgba(0,0,0,.2)",border:"1.5px solid var(--bd)",zIndex:200}}>
+            <div style={{padding:"10px 14px",borderBottom:"1.5px solid var(--bd)",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <span style={{fontWeight:800,fontSize:13,color:"var(--tx)"}}>Notificações</span>
+              <button onClick={()=>setNOpen(false)} style={{background:"none",border:"none",cursor:"pointer",fontSize:18,color:"var(--tx3)"}}>×</button>
+            </div>
+            {myNotifs.length===0&&<div style={{padding:20,textAlign:"center",color:"var(--tx3)",fontSize:12}}>Sem notificações</div>}
+            {myNotifs.map(n=>(
+              <div key={n.id} style={{padding:"10px 14px",borderBottom:"1px solid var(--bd)",background:n.lidos.includes(user.id)?"transparent":"rgba(14,165,233,.05)"}}>
+                <div style={{fontSize:12,fontWeight:700,color:"var(--tx)",marginBottom:2}}>{n.titulo}</div>
+                <div style={{fontSize:11,color:"var(--tx3)"}}>{n.msg}</div>
+                <div style={{fontSize:9,color:"var(--tx3)",marginTop:3}}>{n.ts?.slice(0,16).replace("T"," ")}</div>
+              </div>
+            ))}
+          </div>}
+        </div>);
+      })()}
       <div style={{padding:"14px 16px"}}>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:14}}>
           {[
@@ -2317,6 +2455,7 @@ export default function ERP(){
   const [cortadores,setCortadores]=useState(()=>LS('cortadores')||[]);
   const [ordensCort,setOrdensCort]=useState(()=>LS('ordensCort')||[]);
   const [matLib,setMatLib]=useState(()=>LS('matLib')||[]);
+  const [notifs,setNotifs]=useState(()=>LS('notifs')||[]);
   const [showComissoes,setShowComissoes]=useState(false);
   const [showComissoesVend,setShowComissoesVend]=useState(false);
   const [saldoInicial,setSaldoInicial]=useState(()=>+(LS('saldoInicial')||0));
@@ -2340,14 +2479,14 @@ export default function ERP(){
   const saveEmpresa=async e=>{setEmpresa(e);localStorage.setItem('erpEmpresa',JSON.stringify(e));setSyncStatus("syncing");const ok=await dbSet('empresa',e);setSyncStatus(ok?"ok":"error");showToast(ok?"Configurações salvas na nuvem!":"Salvo localmente (verificar conexão)","success");};
 
   // ── SUPABASE SYNC ──
-  const DB_KEYS=['clientes','orcamentos','pedidos','marceneiros','estoque','financeiro','leads','biblioteca','recebimentos','recorrentes','vendedores','cortadores','ordensCort','matLib'];
+  const DB_KEYS=['clientes','orcamentos','pedidos','marceneiros','estoque','financeiro','leads','biblioteca','recebimentos','recorrentes','vendedores','cortadores','ordensCort','matLib','notifs'];
   const syncTimers=useRef({});
   const pendingSync=useRef(new Set()); // chaves com gravações pendentes (debounce ativo)
 
   const getSnap=useCallback(()=>({
     clientes,orcamentos,pedidos,marceneiros,estoque,financeiro,
-    leads,biblioteca,recebimentos,recorrentes,vendedores,cortadores,ordensCort,matLib,
-  }),[clientes,orcamentos,pedidos,marceneiros,estoque,financeiro,leads,biblioteca,recebimentos,recorrentes,vendedores,cortadores,ordensCort,matLib]);
+    leads,biblioteca,recebimentos,recorrentes,vendedores,cortadores,ordensCort,matLib,notifs,
+  }),[clientes,orcamentos,pedidos,marceneiros,estoque,financeiro,leads,biblioteca,recebimentos,recorrentes,vendedores,cortadores,ordensCort,matLib,notifs]);
 
   const _getFinMes=(f)=>{
     const venc=f.parcelas&&f.parcelas.find(p=>p.venc)?.venc;
@@ -2426,11 +2565,11 @@ export default function ERP(){
 
   // Import: restaura estado + localStorage + Supabase
   const importBackup=useCallback(async(data)=>{
-    const keys=['clientes','orcamentos','pedidos','marceneiros','estoque','financeiro','leads','biblioteca','recebimentos','recorrentes','vendedores','cortadores','ordensCort','matLib'];
+    const keys=['clientes','orcamentos','pedidos','marceneiros','estoque','financeiro','leads','biblioteca','recebimentos','recorrentes','vendedores','cortadores','ordensCort','matLib','notifs'];
     const setters2={clientes:setClientes,orcamentos:setOrcamentos,pedidos:setPedidos,marceneiros:setMarceneiros,
       estoque:setEstoque,financeiro:setFinanceiro,leads:setLeads,biblioteca:setBiblioteca,
       recebimentos:setRecebimentos,recorrentes:setRecorrentes,vendedores:setVendedores,
-      cortadores:setCortadores,ordensCort:setOrdensCort,matLib:setMatLib};
+      cortadores:setCortadores,ordensCort:setOrdensCort,matLib:setMatLib,notifs:setNotifs};
     const entries=[];
     keys.forEach(k=>{
       if(data[k]!==undefined){
@@ -2486,7 +2625,7 @@ export default function ERP(){
       marceneiros:setMarceneiros,estoque:setEstoque,financeiro:setFinanceiro,
       leads:setLeads,biblioteca:setBiblioteca,recebimentos:setRecebimentos,
       recorrentes:setRecorrentes,vendedores:setVendedores,
-      cortadores:setCortadores,ordensCort:setOrdensCort,matLib:setMatLib};
+      cortadores:setCortadores,ordensCort:setOrdensCort,matLib:setMatLib,notifs:setNotifs};
     const toUpload=[];
     for(const k of DB_KEYS){
       // Nunca sobrescrever mudanças locais não sincronizadas (evita reverter delete/edição)
@@ -2602,6 +2741,16 @@ export default function ERP(){
   useEffect(()=>{if(dbLoaded)syncCloud('cortadores',cortadores);},[cortadores,dbLoaded]);
   useEffect(()=>{if(dbLoaded)syncCloud('ordensCort',ordensCort);},[ordensCort,dbLoaded]);
   useEffect(()=>{if(dbLoaded)syncCloud('matLib',matLib);},[matLib,dbLoaded]);
+  useEffect(()=>{if(dbLoaded)syncCloud('notifs',notifs);},[notifs,dbLoaded]);
+
+  // ── NOTIFICAÇÕES ──
+  const addNotif=useCallback((para,tipo,titulo,msg,extras={})=>{
+    const n={id:uid(),para:Array.isArray(para)?para:[para],tipo,titulo,msg,ts:new Date().toISOString(),lidos:[],...extras};
+    setNotifs(prev=>[n,...prev].slice(0,150));
+  },[]);
+  const unreadFor=useId=>notifs.filter(n=>n.para.includes(useId)&&!n.lidos.includes(useId)).length;
+  const markAllRead=useId=>setNotifs(prev=>prev.map(n=>n.para.includes(useId)&&!n.lidos.includes(useId)?{...n,lidos:[...n.lidos,useId]}:n));
+  const clearNotif=nid=>setNotifs(prev=>prev.filter(n=>n.id!==nid));
 
   // Flush antes de fechar a aba — keepalive=true garante que o request complete mesmo após unload
   useEffect(()=>{
@@ -2972,6 +3121,11 @@ export default function ERP(){
       setOrdensCort={setOrdensCort}
       setPedidos={setPedidos}
       showToast={showToast}
+      notifs={notifs}
+      addNotif={addNotif}
+      unreadFor={unreadFor}
+      markAllRead={markAllRead}
+      clearNotif={clearNotif}
       onLogout={()=>{setUser(null);localStorage.removeItem('erpUser');setLoginView({l:"",s:""});}}
     />
   );
@@ -2990,6 +3144,11 @@ export default function ERP(){
       setOrdensCort={setOrdensCort}
       cortadores={cortadores}
       matLib={matLib}
+      notifs={notifs}
+      addNotif={addNotif}
+      unreadFor={unreadFor}
+      markAllRead={markAllRead}
+      clearNotif={clearNotif}
       onLogout={()=>{setUser(null);localStorage.removeItem('erpUser');setLoginView({l:"",s:""});}}
     />
   );
@@ -5289,7 +5448,33 @@ export default function ERP(){
       <aside className="erp-sidebar" style={{width:205,minHeight:"100vh",background:"var(--cd)",borderRight:"1.5px solid var(--bd)",display:"flex",flexDirection:"column",flexShrink:0,zIndex:20,boxShadow:"2px 0 12px rgba(0,0,0,.03)"}}>
         <div className="sidebar-logo" style={{padding:"18px 16px",borderBottom:"1.5px solid var(--bd)",display:"flex",alignItems:"center",gap:10}}>
           <div style={{width:36,height:36,borderRadius:12,background:"linear-gradient(135deg,#6366f1,#8b5cf6)",display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 2px 8px rgba(99,102,241,.3)"}}><span style={{fontSize:18,filter:"brightness(10)"}}>🪵</span></div>
-          <div><span style={{fontSize:16,fontWeight:800,color:"var(--pri)",display:"block",lineHeight:1}}>ERP</span><span style={{fontSize:9,color:"var(--tx3)",fontWeight:800,letterSpacing:"1.5px",textTransform:"uppercase"}}>Marcenaria</span></div>
+          <div style={{flex:1}}><span style={{fontSize:16,fontWeight:800,color:"var(--pri)",display:"block",lineHeight:1}}>ERP</span><span style={{fontSize:9,color:"var(--tx3)",fontWeight:800,letterSpacing:"1.5px",textTransform:"uppercase"}}>Marcenaria</span></div>
+          {(()=>{const cnt=unreadFor("admin");const [open,setOpen]=useState(false);const adminNotifs=notifs.filter(n=>n.para.includes("admin")).slice(0,30);
+            return(<div style={{position:"relative"}}>
+              <button onClick={()=>{setOpen(o=>!o);if(!open)markAllRead("admin");}} style={{background:"none",border:"none",cursor:"pointer",padding:4,position:"relative",display:"flex",alignItems:"center",justifyContent:"center"}}>
+                <span style={{fontSize:20}}>🔔</span>
+                {cnt>0&&<span style={{position:"absolute",top:0,right:0,background:"var(--rd)",color:"#fff",borderRadius:"50%",width:16,height:16,fontSize:9,fontWeight:800,display:"flex",alignItems:"center",justifyContent:"center",lineHeight:1}}>{cnt>9?"9+":cnt}</span>}
+              </button>
+              {open&&<div style={{position:"fixed",top:60,left:205,width:320,maxHeight:480,overflowY:"auto",background:"var(--sf)",borderRadius:12,boxShadow:"0 8px 32px rgba(0,0,0,.18)",border:"1.5px solid var(--bd)",zIndex:200}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"12px 14px",borderBottom:"1.5px solid var(--bd)"}}>
+                  <span style={{fontWeight:800,fontSize:13,color:"var(--tx)"}}>🔔 Notificações</span>
+                  <button onClick={()=>setOpen(false)} style={{background:"none",border:"none",color:"var(--tx3)",cursor:"pointer",fontSize:18}}>×</button>
+                </div>
+                {adminNotifs.length===0&&<div style={{padding:"24px 16px",textAlign:"center",color:"var(--tx3)",fontSize:12}}>Nenhuma notificação ainda.</div>}
+                {adminNotifs.map(n=>(
+                  <div key={n.id} style={{padding:"10px 14px",borderBottom:"1px solid var(--bd)",display:"flex",gap:8,alignItems:"flex-start",background:n.lidos.includes("admin")?"transparent":"rgba(99,102,241,.05)"}}>
+                    <span style={{fontSize:18,flexShrink:0}}>{n.tipo==="material"?"📦":n.tipo==="corte"?"✂":n.tipo==="stage"?"🔄":n.tipo==="concluido"?"✅":"🔔"}</span>
+                    <div style={{flex:1,minWidth:0}}>
+                      <div style={{fontSize:12,fontWeight:700,color:"var(--tx)",marginBottom:2}}>{n.titulo}</div>
+                      <div style={{fontSize:11,color:"var(--tx3)",lineHeight:1.4}}>{n.msg}</div>
+                      <div style={{fontSize:9,color:"var(--tx3)",marginTop:3}}>{n.ts?.slice(0,16).replace("T"," ")}</div>
+                    </div>
+                    <button onClick={()=>clearNotif(n.id)} style={{background:"none",border:"none",color:"var(--tx3)",cursor:"pointer",fontSize:14,flexShrink:0}}>×</button>
+                  </div>
+                ))}
+              </div>}
+            </div>);
+          })()}
         </div>
         <nav style={{flex:1,paddingTop:6,overflowY:"auto"}}>
           {nav.map(n=>(

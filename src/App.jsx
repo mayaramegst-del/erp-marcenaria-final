@@ -4071,6 +4071,7 @@ export default function ERP(){
     const [recForm,setRecForm]=useState(null);
     const [fluxoTab,setFluxoTab]=useState("mes");
     const [editObsFin,setEditObsFin]=useState(null); // {finId, cliente, obs}
+    const [pagoDate,setPagoDate]=useState({});
     const [showStats,setShowStats]=useState(false);
     const [semSel,setSemSel]=useState(null);
     const [showFluxo,setShowFluxo]=useState(false);
@@ -4091,7 +4092,7 @@ export default function ERP(){
     };
     const comPendTotal=comEntries.reduce((s,f)=>(f.parcelas||[]).filter(p=>!p.pago).reduce((a,p)=>a+p.valor,s),0);
     // Comissões de vendedores
-    const vendComEntries=financeiro.filter(f=>f.vendedorId&&f.tipo==="pagar");
+    const vendComEntries=financeiro.filter(f=>f.tipo==="pagar"&&(f.vendedorId||(f.categoria==="Folha/Comissão"&&vendedores.some(v=>v.nome&&f.desc?.includes(v.nome)))));
     const pedsComVend=pedidos.filter(p=>p.vendedorId);
     const semLancVend=pedsComVend.filter(p=>!vendComEntries.find(f=>f.pedidoId===p.id));
     const gerarLancVend=(ped)=>{
@@ -4516,13 +4517,13 @@ export default function ERP(){
                         <option value="pix">PIX</option><option value="ted">TED</option><option value="dinheiro">Dinheiro</option><option value="cheque">Cheque</option>
                       </select>
                     </div>
-                    <div style={{display:"flex",justifyContent:"center"}}>
+                    <div style={{display:"flex",flexDirection:"column",gap:3,alignItems:"stretch"}}>
                       {p.pago
                         ?<div style={{textAlign:"center"}}>
                             <div style={{fontSize:9,color:"var(--gn)",fontWeight:800}}>✓{isoToBR(p.dataPago)}</div>
                             <button onClick={()=>{setFinanceiro(ff=>ff.map(x=>x.id===f.id?{...x,valorPago:Math.max(0,(x.valorPago||0)-p.valor),parcelas:x.parcelas.map((q,qi)=>qi===pi?{...q,pago:false,dataPago:""}:q)}:x));showToast("Reaberto");}} style={{padding:"2px 6px",borderRadius:4,background:"none",border:"1px solid var(--rd)",color:"var(--rd)",fontSize:9,cursor:"pointer"}}>↩</button>
                           </div>
-                        :<button onClick={()=>{setFinanceiro(ff=>ff.map(x=>x.id===f.id?{...x,valorPago:(x.valorPago||0)+p.valor,parcelas:x.parcelas.map((q,qi)=>qi===pi?{...q,pago:true,dataPago:hojeISO()}:q)}:x));showToast("Pago!");}} style={{padding:"6px 10px",borderRadius:6,background:"var(--gnb)",border:"1.5px solid var(--gn)",color:"var(--gn)",fontSize:11,fontWeight:800,cursor:"pointer"}}>✓ Baixar</button>
+                        :<><div style={{fontSize:8,color:"var(--tx3)",fontWeight:700,marginBottom:1}}>DATA PAGO</div><input type="date" value={pagoDate[f.id+'_'+pi]||hojeISO()} onChange={e=>setPagoDate(prev=>({...prev,[f.id+'_'+pi]:e.target.value}))} style={{padding:"4px 5px",borderRadius:5,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:10,width:"100%",marginBottom:3}}/><button onClick={()=>{const dt=pagoDate[f.id+'_'+pi]||hojeISO();setFinanceiro(ff=>ff.map(x=>x.id===f.id?{...x,valorPago:(x.valorPago||0)+p.valor,parcelas:x.parcelas.map((q,qi)=>qi===pi?{...q,pago:true,dataPago:dt}:q)}:x));showToast("Pago!");}} style={{padding:"5px 8px",borderRadius:5,background:"var(--gnb)",border:"1.5px solid var(--gn)",color:"var(--gn)",fontSize:10,fontWeight:800,cursor:"pointer",width:"100%"}}>✓ Baixar</button></>
                       }
                     </div>
                     <button onClick={()=>setFinanceiro(ff=>ff.map(x=>x.id===f.id?{...x,parcelas:x.parcelas.filter((_,qi)=>qi!==pi)}:x))} style={{background:"none",border:"none",color:"var(--rd)",cursor:"pointer",fontSize:16,paddingBottom:4}}>×</button>
@@ -4593,13 +4594,13 @@ export default function ERP(){
                         <option value="pix">PIX</option><option value="ted">TED</option><option value="dinheiro">Dinheiro</option><option value="cheque">Cheque</option>
                       </select>
                     </div>
-                    <div style={{display:"flex",justifyContent:"center"}}>
+                    <div style={{display:"flex",flexDirection:"column",gap:3,alignItems:"stretch"}}>
                       {p.pago
                         ?<div style={{textAlign:"center"}}>
                             <div style={{fontSize:9,color:"var(--gn)",fontWeight:800}}>✓{isoToBR(p.dataPago)}</div>
                             <button onClick={()=>{setFinanceiro(ff=>ff.map(x=>x.id===f.id?{...x,valorPago:Math.max(0,(x.valorPago||0)-p.valor),parcelas:x.parcelas.map((q,qi)=>qi===pi?{...q,pago:false,dataPago:""}:q)}:x));showToast("Reaberto");}} style={{padding:"2px 6px",borderRadius:4,background:"none",border:"1px solid var(--rd)",color:"var(--rd)",fontSize:9,cursor:"pointer"}}>↩</button>
                           </div>
-                        :<button onClick={()=>{setFinanceiro(ff=>ff.map(x=>x.id===f.id?{...x,valorPago:(x.valorPago||0)+p.valor,parcelas:x.parcelas.map((q,qi)=>qi===pi?{...q,pago:true,dataPago:hojeISO()}:q)}:x));showToast("Pago!");}} style={{padding:"6px 10px",borderRadius:6,background:"var(--gnb)",border:"1.5px solid var(--gn)",color:"var(--gn)",fontSize:11,fontWeight:800,cursor:"pointer"}}>✓ Baixar</button>
+                        :<><div style={{fontSize:8,color:"var(--tx3)",fontWeight:700,marginBottom:1}}>DATA PAGO</div><input type="date" value={pagoDate[f.id+'_'+pi]||hojeISO()} onChange={e=>setPagoDate(prev=>({...prev,[f.id+'_'+pi]:e.target.value}))} style={{padding:"4px 5px",borderRadius:5,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:10,width:"100%",marginBottom:3}}/><button onClick={()=>{const dt=pagoDate[f.id+'_'+pi]||hojeISO();setFinanceiro(ff=>ff.map(x=>x.id===f.id?{...x,valorPago:(x.valorPago||0)+p.valor,parcelas:x.parcelas.map((q,qi)=>qi===pi?{...q,pago:true,dataPago:dt}:q)}:x));showToast("Pago!");}} style={{padding:"5px 8px",borderRadius:5,background:"var(--gnb)",border:"1.5px solid var(--gn)",color:"var(--gn)",fontSize:10,fontWeight:800,cursor:"pointer",width:"100%"}}>✓ Baixar</button></>
                       }
                     </div>
                     <button onClick={()=>setFinanceiro(ff=>ff.map(x=>x.id===f.id?{...x,parcelas:x.parcelas.filter((_,qi)=>qi!==pi)}:x))} style={{background:"none",border:"none",color:"var(--rd)",cursor:"pointer",fontSize:16,paddingBottom:4}}>×</button>
@@ -5138,6 +5139,7 @@ export default function ERP(){
   const PgVendedores=()=>{
     const [eV,setEV]=useState(null);
     const [expandVend,setExpandVend]=useState(null);
+    const [pagoDate,setPagoDate]=useState({});
     // Entradas financeiras de comissão por vendedor
     const vendFinEntries=v=>financeiro.filter(f=>f.vendedorId===v.id&&f.tipo==="pagar");
     const vendPedsSemLanc=v=>pedidos.filter(p=>p.vendedorId===v.id&&!financeiro.find(f=>f.pedidoId===p.id&&f.vendedorId===v.id&&f.tipo==="pagar"));

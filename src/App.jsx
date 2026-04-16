@@ -3232,7 +3232,7 @@ export default function ERP(){
 
   // ── MARCENEIRO APP (mobile) ──
   if(user?.role==="marc"&&!loginView)return(
-    <MarceneiroApp
+    <PageErrorBoundary key="marc"><MarceneiroApp
       user={user}
       pedidos={pedidos}
       setPedidos={setPedidos}
@@ -3250,7 +3250,7 @@ export default function ERP(){
       markAllRead={markAllRead}
       clearNotif={clearNotif}
       onLogout={()=>{setUser(null);localStorage.removeItem('erpUser');setLoginView({l:"",s:""});}}
-    />
+    /></PageErrorBoundary>
   );
 
   // ── LOGIN SCREEN ──

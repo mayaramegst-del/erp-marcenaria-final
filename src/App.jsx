@@ -1182,6 +1182,90 @@ function calcFita(pecas){
   return Object.values(map).sort((a,b)=>b.metros-a.metros);
 }
 
+/* ── MatLibItemComp: item de biblioteca de materiais com estado próprio ── */
+function MatLibItemComp({m,pedMats,pedidoId,ambNome,addMatLancMarc,delMatLancMarc,showToast}){
+  const jaTem=pedMats.find(x=>x.materialId===m.id);
+  const [qtLocal,setQtLocal]=useState(jaTem?.qt||1);
+  return(
+    <div style={{display:"flex",alignItems:"center",gap:8,padding:"8px 10px",borderRadius:10,border:`1.5px solid ${jaTem?"var(--pri)":"var(--bd)"}`,background:jaTem?"var(--prib)":"var(--bg)",marginBottom:6}}>
+      <div style={{flex:1}}>
+        <div style={{fontSize:12,fontWeight:700,color:"var(--tx)"}}>{m.nome}</div>
+        <div style={{fontSize:10,color:"var(--tx3)",marginTop:1}}>{m.unidade}{m.categoria&&` · ${m.categoria}`}</div>
+      </div>
+      <input type="number" value={qtLocal} min="0.01" step="0.01" onChange={e=>setQtLocal(Math.max(0.01,+e.target.value))} style={{width:52,padding:"5px 6px",borderRadius:7,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:13,fontWeight:700,textAlign:"center",outline:"none"}}/>
+      <button onClick={()=>{if(jaTem)delMatLancMarc(pedidoId,jaTem.id);addMatLancMarc(pedidoId,ambNome,{materialId:m.id,nome:m.nome,unidade:m.unidade,qt:qtLocal,precoUnit:m.preco||0});showToast(jaTem?"Atualizado!":"Material adicionado!");}} style={{padding:"6px 12px",borderRadius:8,border:"none",background:"var(--pri)",color:"#fff",fontSize:11,fontWeight:800,cursor:"pointer"}}>{jaTem?"↻":"+"}</button>
+    </div>
+  );
+}
+
+/* ── MatModalComp: modal de lançamento de materiais ── */
+function MatModalComp({matModal,setMatModal,matLib,pedidos,addMatLancMarc,delMatLancMarc,showToast}){
+  const [mCat,setMCat]=useState("");
+  const [modo,setModo]=useState("lib");
+  const [customF,setCustomF]=useState({nome:"",unidade:"un",qt:1});
+  if(!matModal)return null;
+  const libCats=[...new Set((matLib||[]).map(m=>m.categoria).filter(Boolean))];
+  const libFiltrada=(matLib||[]).filter(m=>!mCat||m.categoria===mCat);
+  const pedMats=((pedidos||[]).find(p=>p.id===matModal.pedidoId)?.matLanc||[]).filter(m=>m.ambNome===matModal.ambNome);
+  return(
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.5)",zIndex:1000,display:"flex",flexDirection:"column",justifyContent:"flex-end"}}>
+      <div style={{background:"var(--sf)",borderRadius:"18px 18px 0 0",padding:"18px 16px",maxHeight:"85vh",overflowY:"auto"}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+          <div>
+            <div style={{fontSize:15,fontWeight:800,color:"var(--tx)"}}>📦 Materiais — {matModal.ambNome}</div>
+            <div style={{fontSize:11,color:"var(--tx3)",marginTop:2}}>{pedMats.length} item(ns) lançado(s)</div>
+          </div>
+          <button onClick={()=>setMatModal(null)} style={{background:"none",border:"none",fontSize:22,color:"var(--tx3)",cursor:"pointer",lineHeight:1}}>×</button>
+        </div>
+        {pedMats.length>0&&<div style={{marginBottom:12,background:"var(--bg)",borderRadius:10,padding:"10px 12px"}}>
+          <div style={{fontSize:10,fontWeight:800,color:"var(--tx3)",textTransform:"uppercase",marginBottom:6}}>Já lançados</div>
+          {pedMats.map(m=>(
+            <div key={m.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"5px 0",borderBottom:"1px solid var(--bd)"}}>
+              <span style={{fontSize:12,color:"var(--tx)",fontWeight:600}}>{m.nome} <span style={{color:"var(--tx3)",fontWeight:400}}>× {m.qt} {m.unidade}</span></span>
+              <button onClick={()=>delMatLancMarc(matModal.pedidoId,m.id)} style={{background:"none",border:"none",color:"var(--rd)",cursor:"pointer",fontSize:16}}>×</button>
+            </div>
+          ))}
+        </div>}
+        <div style={{display:"flex",gap:6,marginBottom:12}}>
+          <button onClick={()=>setModo("lib")} style={{flex:1,padding:"8px",borderRadius:8,border:"none",background:modo==="lib"?"var(--pri)":"var(--bd2)",color:modo==="lib"?"#fff":"var(--tx2)",fontSize:12,fontWeight:700,cursor:"pointer"}}>📚 Biblioteca</button>
+          <button onClick={()=>setModo("custom")} style={{flex:1,padding:"8px",borderRadius:8,border:"none",background:modo==="custom"?"var(--am)":"var(--bd2)",color:modo==="custom"?"#fff":"var(--tx2)",fontSize:12,fontWeight:700,cursor:"pointer"}}>✏ Item Manual</button>
+        </div>
+        {modo==="lib"&&<>
+          {libCats.length>0&&<div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:10}}>
+            <button onClick={()=>setMCat("")} style={{padding:"4px 10px",borderRadius:20,border:"none",background:!mCat?"var(--pri)":"var(--bd)",color:!mCat?"#fff":"var(--tx3)",fontSize:11,fontWeight:700,cursor:"pointer"}}>Todos</button>
+            {libCats.map(c=><button key={c} onClick={()=>setMCat(c)} style={{padding:"4px 10px",borderRadius:20,border:"none",background:mCat===c?"var(--pri)":"var(--bd)",color:mCat===c?"#fff":"var(--tx3)",fontSize:11,fontWeight:700,cursor:"pointer"}}>{c}</button>)}
+          </div>}
+          {matLib.length===0
+            ?<div style={{padding:"20px",textAlign:"center",color:"var(--tx3)",fontSize:12}}>Biblioteca vazia — o administrador precisa cadastrar os materiais primeiro.</div>
+            :libFiltrada.map(m=>(
+              <MatLibItemComp key={m.id} m={m} pedMats={pedMats} pedidoId={matModal.pedidoId} ambNome={matModal.ambNome} addMatLancMarc={addMatLancMarc} delMatLancMarc={delMatLancMarc} showToast={showToast}/>
+            ))
+          }
+        </>}
+        {modo==="custom"&&<div style={{background:"var(--bg)",borderRadius:12,padding:"12px 14px"}}>
+          <div style={{fontSize:11,fontWeight:800,color:"var(--am)",marginBottom:10}}>Material não listado na biblioteca</div>
+          <div style={{marginBottom:8}}>
+            <div style={{fontSize:10,color:"var(--tx3)",fontWeight:700,marginBottom:3}}>DESCRIÇÃO</div>
+            <input value={customF.nome} onChange={e=>setCustomF(f=>({...f,nome:e.target.value}))} placeholder="Ex: Cola PU 750ml, Perfil alumínio 3m..." style={{width:"100%",padding:"8px 10px",borderRadius:8,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:12,outline:"none"}}/>
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:12}}>
+            <div>
+              <div style={{fontSize:10,color:"var(--tx3)",fontWeight:700,marginBottom:3}}>UNIDADE</div>
+              <input value={customF.unidade} onChange={e=>setCustomF(f=>({...f,unidade:e.target.value}))} placeholder="un, m², m, kg, lt..." style={{width:"100%",padding:"8px 10px",borderRadius:8,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:12,outline:"none"}}/>
+            </div>
+            <div>
+              <div style={{fontSize:10,color:"var(--tx3)",fontWeight:700,marginBottom:3}}>QUANTIDADE</div>
+              <input type="number" value={customF.qt} min="0.01" step="0.01" onChange={e=>setCustomF(f=>({...f,qt:Math.max(0.01,+e.target.value)}))} style={{width:"100%",padding:"8px 10px",borderRadius:8,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:12,outline:"none",textAlign:"center"}}/>
+            </div>
+          </div>
+          <button onClick={()=>{if(!customF.nome?.trim())return showToast("Descrição obrigatória!","red");addMatLancMarc(matModal.pedidoId,matModal.ambNome,{materialId:null,nome:customF.nome,unidade:customF.unidade,qt:customF.qt,precoUnit:0});setCustomF({nome:"",unidade:"un",qt:1});showToast("Material adicionado!");}} style={{width:"100%",padding:"12px",borderRadius:10,border:"none",background:"var(--am)",color:"#fff",fontSize:13,fontWeight:800,cursor:"pointer"}}>+ Adicionar Material</button>
+        </div>}
+        <button onClick={()=>setMatModal(null)} style={{width:"100%",marginTop:14,padding:"12px",borderRadius:10,border:"1.5px solid var(--bd)",background:"none",color:"var(--tx2)",fontSize:13,fontWeight:700,cursor:"pointer"}}>✓ Concluído</button>
+      </div>
+    </div>
+  );
+}
+
 /* ═══════════════════════════════════════════
    MARCENEIRO APP — TELA MOBILE
    ═══════════════════════════════════════════ */
@@ -1735,7 +1819,7 @@ function MarceneiroApp({user,pedidos,setPedidos,clientes,financeiro,showToast,on
             </div>
           ))}
         </div>}
-        {notifOpen&&(()=>{const myN=notifs.filter(n=>n.para.includes(user.id)).slice(0,20);return(
+        {notifOpen&&(()=>{const myN=notifs.filter(n=>Array.isArray(n.para)&&n.para.includes(user.id)).slice(0,20);return(
           <div style={{maxHeight:260,overflowY:"auto"}}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
               <span style={{color:"#fff",fontSize:12,fontWeight:800}}>🔔 Notificações</span>
@@ -1827,84 +1911,7 @@ function MarceneiroApp({user,pedidos,setPedidos,clientes,financeiro,showToast,on
       </>}
 
       {/* ── MODAL LANÇAR MATERIAL ── */}
-      {matModal&&(()=>{
-        const libCats=[...new Set(matLib.map(m=>m.categoria).filter(Boolean))];
-        const [mCat,setMCat]=useState("");
-        const libFiltrada=matLib.filter(m=>!mCat||m.categoria===mCat);
-        const [modo,setModo]=useState("lib"); // "lib" ou "custom"
-        const [customF,setCustomF]=useState({nome:"",unidade:"un",qt:1});
-        const pedMats=(pedidos.find(p=>p.id===matModal.pedidoId)?.matLanc||[]).filter(m=>m.ambNome===matModal.ambNome);
-        return(
-          <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.5)",zIndex:1000,display:"flex",flexDirection:"column",justifyContent:"flex-end"}}>
-            <div style={{background:"var(--sf)",borderRadius:"18px 18px 0 0",padding:"18px 16px",maxHeight:"85vh",overflowY:"auto"}}>
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
-                <div>
-                  <div style={{fontSize:15,fontWeight:800,color:"var(--tx)"}}>📦 Materiais — {matModal.ambNome}</div>
-                  <div style={{fontSize:11,color:"var(--tx3)",marginTop:2}}>{pedMats.length} item(ns) lançado(s)</div>
-                </div>
-                <button onClick={()=>setMatModal(null)} style={{background:"none",border:"none",fontSize:22,color:"var(--tx3)",cursor:"pointer",lineHeight:1}}>×</button>
-              </div>
-              {/* Já lançados */}
-              {pedMats.length>0&&<div style={{marginBottom:12,background:"var(--bg)",borderRadius:10,padding:"10px 12px"}}>
-                <div style={{fontSize:10,fontWeight:800,color:"var(--tx3)",textTransform:"uppercase",marginBottom:6}}>Já lançados</div>
-                {pedMats.map(m=>(
-                  <div key={m.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"5px 0",borderBottom:"1px solid var(--bd)"}}>
-                    <span style={{fontSize:12,color:"var(--tx)",fontWeight:600}}>{m.nome} <span style={{color:"var(--tx3)",fontWeight:400}}>× {m.qt} {m.unidade}</span></span>
-                    <button onClick={()=>delMatLancMarc(matModal.pedidoId,m.id)} style={{background:"none",border:"none",color:"var(--rd)",cursor:"pointer",fontSize:16}}>×</button>
-                  </div>
-                ))}
-              </div>}
-              {/* Abas */}
-              <div style={{display:"flex",gap:6,marginBottom:12}}>
-                <button onClick={()=>setModo("lib")} style={{flex:1,padding:"8px",borderRadius:8,border:"none",background:modo==="lib"?"var(--pri)":"var(--bd2)",color:modo==="lib"?"#fff":"var(--tx2)",fontSize:12,fontWeight:700,cursor:"pointer"}}>📚 Biblioteca</button>
-                <button onClick={()=>setModo("custom")} style={{flex:1,padding:"8px",borderRadius:8,border:"none",background:modo==="custom"?"var(--am)":"var(--bd2)",color:modo==="custom"?"#fff":"var(--tx2)",fontSize:12,fontWeight:700,cursor:"pointer"}}>✏ Item Manual</button>
-              </div>
-              {modo==="lib"&&<>
-                {libCats.length>0&&<div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:10}}>
-                  <button onClick={()=>setMCat("")} style={{padding:"4px 10px",borderRadius:20,border:"none",background:!mCat?"var(--pri)":"var(--bd)",color:!mCat?"#fff":"var(--tx3)",fontSize:11,fontWeight:700,cursor:"pointer"}}>Todos</button>
-                  {libCats.map(c=><button key={c} onClick={()=>setMCat(c)} style={{padding:"4px 10px",borderRadius:20,border:"none",background:mCat===c?"var(--pri)":"var(--bd)",color:mCat===c?"#fff":"var(--tx3)",fontSize:11,fontWeight:700,cursor:"pointer"}}>{c}</button>)}
-                </div>}
-                {matLib.length===0
-                  ?<div style={{padding:"20px",textAlign:"center",color:"var(--tx3)",fontSize:12}}>Biblioteca vazia — o administrador precisa cadastrar os materiais primeiro.</div>
-                  :libFiltrada.map(m=>{
-                    const jaTem=pedMats.find(x=>x.materialId===m.id);
-                    const [qtLocal,setQtLocal]=useState(jaTem?.qt||1);
-                    return(
-                      <div key={m.id} style={{display:"flex",alignItems:"center",gap:8,padding:"8px 10px",borderRadius:10,border:`1.5px solid ${jaTem?"var(--pri)":"var(--bd)"}`,background:jaTem?"var(--prib)":"var(--bg)",marginBottom:6}}>
-                        <div style={{flex:1}}>
-                          <div style={{fontSize:12,fontWeight:700,color:"var(--tx)"}}>{m.nome}</div>
-                          <div style={{fontSize:10,color:"var(--tx3)",marginTop:1}}>{m.unidade} {m.categoria&&`· ${m.categoria}`}</div>
-                        </div>
-                        <input type="number" value={qtLocal} min="0.01" step="0.01" onChange={e=>setQtLocal(Math.max(0.01,+e.target.value))} style={{width:52,padding:"5px 6px",borderRadius:7,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:13,fontWeight:700,textAlign:"center",outline:"none"}}/>
-                        <button onClick={()=>{if(jaTem){delMatLancMarc(matModal.pedidoId,jaTem.id);}addMatLancMarc(matModal.pedidoId,matModal.ambNome,{materialId:m.id,nome:m.nome,unidade:m.unidade,qt:qtLocal,precoUnit:m.preco||0});showToast(jaTem?"Atualizado!":"Material adicionado!");}} style={{padding:"6px 12px",borderRadius:8,border:"none",background:"var(--pri)",color:"#fff",fontSize:11,fontWeight:800,cursor:"pointer"}}>{jaTem?"↻":"+"}</button>
-                      </div>
-                    );
-                  })
-                }
-              </>}
-              {modo==="custom"&&<div style={{background:"var(--bg)",borderRadius:12,padding:"12px 14px"}}>
-                <div style={{fontSize:11,fontWeight:800,color:"var(--am)",marginBottom:10}}>Material não listado na biblioteca</div>
-                <div style={{marginBottom:8}}>
-                  <div style={{fontSize:10,color:"var(--tx3)",fontWeight:700,marginBottom:3}}>DESCRIÇÃO</div>
-                  <input value={customF.nome} onChange={e=>setCustomF(f=>({...f,nome:e.target.value}))} placeholder="Ex: Cola PU 750ml, Perfil alumínio 3m..." style={{width:"100%",padding:"8px 10px",borderRadius:8,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:12,outline:"none"}}/>
-                </div>
-                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:12}}>
-                  <div>
-                    <div style={{fontSize:10,color:"var(--tx3)",fontWeight:700,marginBottom:3}}>UNIDADE</div>
-                    <input value={customF.unidade} onChange={e=>setCustomF(f=>({...f,unidade:e.target.value}))} placeholder="un, m², m, kg, lt..." style={{width:"100%",padding:"8px 10px",borderRadius:8,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:12,outline:"none"}}/>
-                  </div>
-                  <div>
-                    <div style={{fontSize:10,color:"var(--tx3)",fontWeight:700,marginBottom:3}}>QUANTIDADE</div>
-                    <input type="number" value={customF.qt} min="0.01" step="0.01" onChange={e=>setCustomF(f=>({...f,qt:Math.max(0.01,+e.target.value)}))} style={{width:"100%",padding:"8px 10px",borderRadius:8,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:12,outline:"none",textAlign:"center"}}/>
-                  </div>
-                </div>
-                <button onClick={()=>{if(!customF.nome?.trim())return showToast("Descrição obrigatória!","red");addMatLancMarc(matModal.pedidoId,matModal.ambNome,{materialId:null,nome:customF.nome,unidade:customF.unidade,qt:customF.qt,precoUnit:0});setCustomF({nome:"",unidade:"un",qt:1});showToast("Material adicionado!");}} style={{width:"100%",padding:"12px",borderRadius:10,border:"none",background:"var(--am)",color:"#fff",fontSize:13,fontWeight:800,cursor:"pointer"}}>+ Adicionar Material</button>
-              </div>}
-              <button onClick={()=>setMatModal(null)} style={{width:"100%",marginTop:14,padding:"12px",borderRadius:10,border:"1.5px solid var(--bd)",background:"none",color:"var(--tx2)",fontSize:13,fontWeight:700,cursor:"pointer"}}>✓ Concluído</button>
-            </div>
-          </div>
-        );
-      })()}
+      <MatModalComp matModal={matModal} setMatModal={setMatModal} matLib={matLib} pedidos={pedidos} addMatLancMarc={addMatLancMarc} delMatLancMarc={delMatLancMarc} showToast={showToast}/>
 
       {nav==="comissoes"&&<div style={{padding:"14px 16px 110px"}}>
         {/* Barra total */}

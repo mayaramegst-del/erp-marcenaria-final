@@ -1,0 +1,666 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<title>Custo por Ambiente — Ana Paula e Silas Mariano</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Calibri','Segoe UI',Arial,sans-serif;font-size:10pt;color:#1e293b;background:#fff;padding:20px}
+  .page{max-width:960px;margin:0 auto}
+
+  .header{background:linear-gradient(135deg,#0f172a,#1e3a5f);color:#fff;padding:22px 28px;border-radius:10px;margin-bottom:20px;display:flex;justify-content:space-between;align-items:flex-start}
+  .header h1{font-size:17pt;font-weight:800;margin-bottom:4px}
+  .header p{font-size:9pt;opacity:.85;line-height:1.7}
+  .header-right{text-align:right;font-size:9pt;opacity:.85;line-height:1.9}
+
+  /* RESUMO GERAL */
+  .resumo{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:20px}
+  .rcard{background:#f1f5f9;border:1.5px solid #e2e8f0;border-radius:8px;padding:10px;text-align:center}
+  .rcard .val{font-size:16pt;font-weight:800;color:#0f172a;line-height:1}
+  .rcard .lab{font-size:7.5pt;color:#64748b;font-weight:700;margin-top:4px;text-transform:uppercase}
+
+  /* AMBIENTE CARD */
+  .amb{margin-bottom:22px;border:1.5px solid #e2e8f0;border-radius:10px;overflow:hidden;page-break-inside:avoid}
+  .amb-header{display:flex;justify-content:space-between;align-items:center;padding:10px 16px;color:#fff;font-weight:800;font-size:10.5pt}
+  .amb-num{background:rgba(255,255,255,.25);border-radius:20px;padding:2px 10px;font-size:9pt;font-weight:700}
+  .amb-body{padding:0}
+
+  /* MDF TABLE */
+  .sec-label{font-size:8pt;font-weight:800;text-transform:uppercase;letter-spacing:.5px;padding:5px 14px;border-bottom:1px solid #e2e8f0}
+  .sec-label.mdf{background:#eef2ff;color:#4338ca;border-left:3px solid #6366f1}
+  .sec-label.ferr{background:#fffbeb;color:#b45309;border-left:3px solid #f59e0b}
+
+  table{width:100%;border-collapse:collapse;font-size:9pt}
+  th{padding:5px 10px;text-align:left;font-weight:800;color:#374151;font-size:8pt;text-transform:uppercase;background:#f8fafc;border-bottom:1.5px solid #e2e8f0}
+  th.r{text-align:right}
+  td{padding:5px 10px;border-bottom:1px solid #f0f4f8;vertical-align:middle}
+  td.r{text-align:right;font-weight:700;white-space:nowrap}
+  td small{display:block;color:#64748b;font-size:7.5pt;margin-top:1px}
+  tr:last-child td{border-bottom:none}
+
+  /* TOTAIS POR AMBIENTE */
+  .tot-row{background:#f1f5f9!important;font-weight:800;font-size:9.5pt}
+  .tot-row td{padding:7px 10px!important;border-top:2px solid #cbd5e1!important}
+
+  /* TABELA RESUMO FINAL */
+  .final-table th{background:#0f172a;color:#fff;padding:7px 10px}
+  .final-table td{padding:7px 10px;border-bottom:1px solid #e2e8f0}
+  .final-table tr:nth-child(even) td{background:#f8fafc}
+  .final-table .sub td{background:#e0e7ff;font-weight:800;color:#3730a3;border-top:2px solid #818cf8}
+
+  .color-dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px;vertical-align:middle}
+
+  .footer{margin-top:20px;padding-top:10px;border-top:1.5px solid #e2e8f0;display:flex;justify-content:space-between;font-size:8pt;color:#94a3b8}
+  .btn-print{position:fixed;bottom:24px;right:24px;background:#0f172a;color:#fff;border:none;border-radius:12px;padding:14px 22px;font-size:11pt;font-weight:800;cursor:pointer;box-shadow:0 4px 20px rgba(0,0,0,.3);display:flex;align-items:center;gap:8px}
+  .btn-print:hover{background:#1e3a5f}
+  @media print{
+    body{padding:6px;font-size:9pt}
+    .no-print{display:none}
+    .amb{page-break-inside:avoid}
+    .header,.amb-header{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    .sec-label{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+<!-- HEADER -->
+<div class="header">
+  <div>
+    <h1>📐 Materiais por Ambiente</h1>
+    <p>
+      <strong>Cliente:</strong> Ana Paula e Silas Mariano<br>
+      <strong>Obra:</strong> Alameda Leônidas de Almeida Leme, Lote 6 — Residencial Monte Alegre / Piracicaba-SP<br>
+      <strong>Finalidade:</strong> Levantamento de custo por ambiente — Chapas MDF + Ferragens
+    </p>
+  </div>
+  <div class="header-right">
+    <strong>04/2026</strong><br>
+    18 ambientes<br>
+    133 chapas 15mm<br>
+    28 chapas fundo 6mm
+  </div>
+</div>
+
+<!-- RESUMO GERAL -->
+<div class="resumo">
+  <div class="rcard"><div class="val">133</div><div class="lab">Chapas 15mm</div></div>
+  <div class="rcard"><div class="val">28</div><div class="lab">Fundo 6mm</div></div>
+  <div class="rcard"><div class="val">116</div><div class="lab">Dobradiças</div></div>
+  <div class="rcard"><div class="val">57</div><div class="lab">Pares Corrediça</div></div>
+  <div class="rcard"><div class="val">75</div><div class="lab">Puxadores</div></div>
+</div>
+
+<!-- ══════════════════════════════════════ -->
+<!--  AMB 01 — HALL DE ENTRADA             -->
+<!-- ══════════════════════════════════════ -->
+<div class="amb">
+  <div class="amb-header" style="background:#6366f1">
+    <span>🚪 Ambiente 01 — Hall de Entrada · Painel Espelho</span>
+    <span class="amb-num">3 ch 15mm · 0 fd · 2 dob</span>
+  </div>
+  <div class="sec-label mdf">🪵 Chapas MDF</div>
+  <table>
+    <thead><tr><th>Material</th><th>Peças / Aplicação</th><th class="r">Ch. 15mm</th><th class="r">Fd. 6mm</th></tr></thead>
+    <tbody>
+      <tr><td><span class="color-dot" style="background:#c8a96e"></span>MDF Jequitibá 15mm</td><td>Top/base 691×40cm (×2), laterais 197×55cm (×2), 1 porta mimetizada 80×210cm, frisos 1cm<small>Painel moldura 691×277cm dividido em 3 partes iguais</small></td><td class="r">3</td><td class="r">—</td></tr>
+      <tr class="tot-row"><td colspan="2">TOTAL CHAPAS — Hall de Entrada</td><td class="r">3</td><td class="r">—</td></tr>
+    </tbody>
+  </table>
+  <div class="sec-label ferr">🔩 Ferragens</div>
+  <table>
+    <thead><tr><th>Item</th><th>Detalhe</th><th class="r">Qtd</th></tr></thead>
+    <tbody>
+      <tr><td>Dobradiças 35mm</td><td>1 porta mimetizada de giro (para dentro)</td><td class="r">2 un</td></tr>
+      <tr><td>Espelho</td><td>Retangular c/ recorte 45° nas quinas — aprox. 581×197cm</td><td class="r">1 un</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- ══════════════════════════════════════ -->
+<!--  AMB 02 — COZINHA SUPERIORES          -->
+<!-- ══════════════════════════════════════ -->
+<div class="amb">
+  <div class="amb-header" style="background:#8b5cf6">
+    <span>🍳 Ambiente 02 — Cozinha · Armários Superiores</span>
+    <span class="amb-num">8 ch 15mm · ~3 fd · 20 dob</span>
+  </div>
+  <div class="sec-label mdf">🪵 Chapas MDF</div>
+  <table>
+    <thead><tr><th>Material</th><th>Peças / Aplicação</th><th class="r">Ch. 15mm</th><th class="r">Fd. 6mm</th></tr></thead>
+    <tbody>
+      <tr><td><span class="color-dot" style="background:#c8a96e"></span>MDF Jequitibá 15mm</td><td>Faixa decorativa entre sup. e inf. (~741×50cm)<small>Tira de Jequitibá aparente na alzada frontal</small></td><td class="r">1</td><td class="r">—</td></tr>
+      <tr><td><span class="color-dot" style="background:#e8dcc8"></span>MDF Areia 15mm</td><td>Corpos, laterais, prateleiras, divisórias (~741cm × 112cm + internos)<small>~10 portas moldura provençal, vidro transparente, 2 portas embutir</small></td><td class="r">7</td><td class="r">—</td></tr>
+      <tr><td><span class="color-dot" style="background:#6b7280"></span>Fundo 6mm (compartilhado)</td><td>Fundos dos corpos superiores<small>7 chapas divididas entre sup., inf. e canto — aqui estimado ~3 ch</small></td><td class="r">—</td><td class="r">~3</td></tr>
+      <tr class="tot-row"><td colspan="2">TOTAL CHAPAS — Cozinha Superiores</td><td class="r">8</td><td class="r">~3</td></tr>
+    </tbody>
+  </table>
+  <div class="sec-label ferr">🔩 Ferragens</div>
+  <table>
+    <thead><tr><th>Item</th><th>Detalhe</th><th class="r">Qtd</th></tr></thead>
+    <tbody>
+      <tr><td>Dobradiças 35mm</td><td>~10 portas de giro com moldura provençal</td><td class="r">20 un</td></tr>
+      <tr><td>Puxadores — Alça preta</td><td>Armários superiores (parte dos ~22 un cozinha)</td><td class="r">~10 un</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- ══════════════════════════════════════ -->
+<!--  AMB 03 — COZINHA BALCÃO INFERIOR     -->
+<!-- ══════════════════════════════════════ -->
+<div class="amb">
+  <div class="amb-header" style="background:#7c3aed">
+    <span>🍳 Ambiente 03 — Cozinha · Balcão Inferior + Alzada</span>
+    <span class="amb-num">8 ch 15mm · ~3 fd · 24 dob · 5 corr</span>
+  </div>
+  <div class="sec-label mdf">🪵 Chapas MDF</div>
+  <table>
+    <thead><tr><th>Material</th><th>Peças / Aplicação</th><th class="r">Ch. 15mm</th><th class="r">Fd. 6mm</th></tr></thead>
+    <tbody>
+      <tr><td><span class="color-dot" style="background:#e8dcc8"></span>MDF Areia 15mm</td><td>Corpos, laterais, divisórias (~532×93cm + alzada 313×287cm)<small>Corrediça oculta Hettich, moldura provençal, arm. de canto 85cm</small></td><td class="r">8</td><td class="r">—</td></tr>
+      <tr><td><span class="color-dot" style="background:#6b7280"></span>Fundo 6mm (compartilhado)</td><td>Fundos dos corpos inferiores<small>Estimado ~3 ch dos 7 ch totais de cozinha</small></td><td class="r">—</td><td class="r">~3</td></tr>
+      <tr class="tot-row"><td colspan="2">TOTAL CHAPAS — Cozinha Inferior</td><td class="r">8</td><td class="r">~3</td></tr>
+    </tbody>
+  </table>
+  <div class="sec-label ferr">🔩 Ferragens</div>
+  <table>
+    <thead><tr><th>Item</th><th>Detalhe</th><th class="r">Qtd</th></tr></thead>
+    <tbody>
+      <tr><td>Dobradiças 35mm</td><td>~12 portas (balcão + alzada inferior)</td><td class="r">24 un</td></tr>
+      <tr><td>Corrediças (par) — Hettich oculta</td><td>5 gavetas corrediça oculta Hettich</td><td class="r">5 pares</td></tr>
+      <tr><td>Puxadores — Alça preta</td><td>Armários inferiores (parte dos ~22 un cozinha)</td><td class="r">~12 un</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- ══════════════════════════════════════ -->
+<!--  AMB 04 — COZINHA ILHA                -->
+<!-- ══════════════════════════════════════ -->
+<div class="amb">
+  <div class="amb-header" style="background:#6d28d9">
+    <span>🏝️ Ambiente 04 — Cozinha · Ilha</span>
+    <span class="amb-num">2 ch 15mm · — fd · — ferr</span>
+  </div>
+  <div class="sec-label mdf">🪵 Chapas MDF</div>
+  <table>
+    <thead><tr><th>Material</th><th>Peças / Aplicação</th><th class="r">Ch. 15mm</th><th class="r">Fd. 6mm</th></tr></thead>
+    <tbody>
+      <tr><td><span class="color-dot" style="background:#c8a96e"></span>MDF Jequitibá 15mm</td><td>Corpo bancada ilha 300,8cm + laterais + base + tampo<small>Bancada com cooktop embutido, 2 fruteiras vidro incolor</small></td><td class="r">2</td><td class="r">—</td></tr>
+      <tr class="tot-row"><td colspan="2">TOTAL CHAPAS — Cozinha Ilha</td><td class="r">2</td><td class="r">—</td></tr>
+    </tbody>
+  </table>
+  <div class="sec-label ferr">🔩 Ferragens / Vidros</div>
+  <table>
+    <thead><tr><th>Item</th><th>Detalhe</th><th class="r">Qtd</th></tr></thead>
+    <tbody>
+      <tr><td>Vidro incolor — Fruteiras</td><td>2 fruteiras com frente em vidro incolor</td><td class="r">2 pcs</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- ══════════════════════════════════════ -->
+<!--  AMB 05 — COZINHA ARM. CANTO         -->
+<!-- ══════════════════════════════════════ -->
+<div class="amb">
+  <div class="amb-header" style="background:#5b21b6">
+    <span>🔲 Ambiente 05 — Cozinha · Armário de Canto / Cristaleira</span>
+    <span class="amb-num">— ch 15mm · ~1 fd · 4 dob · 3 corr</span>
+  </div>
+  <div class="sec-label mdf">🪵 Chapas MDF</div>
+  <table>
+    <thead><tr><th>Material</th><th>Observação</th><th class="r">Ch. 15mm</th><th class="r">Fd. 6mm</th></tr></thead>
+    <tbody>
+      <tr><td><span class="color-dot" style="background:#6b7280"></span>Fundo 6mm (compartilhado)</td><td>Fundo do armário de canto<small>Estimado ~1 ch dos 7 ch totais de cozinha</small></td><td class="r">—</td><td class="r">~1</td></tr>
+      <tr class="tot-row"><td colspan="2">TOTAL CHAPAS — Arm. Canto / Cristaleira</td><td class="r">—</td><td class="r">~1</td></tr>
+    </tbody>
+  </table>
+  <div class="sec-label ferr">🔩 Ferragens / Sistemas</div>
+  <table>
+    <thead><tr><th>Item</th><th>Detalhe</th><th class="r">Qtd</th></tr></thead>
+    <tbody>
+      <tr><td>Dobradiças 35mm</td><td>2 portas do armário de canto cristaleira</td><td class="r">4 un</td></tr>
+      <tr><td>Corrediças (par) — Gaveta metálica AvantBox Slim FGVTN</td><td>Sistema de gavetas metálicas cristaleira</td><td class="r">3 pares</td></tr>
+      <tr><td>Despenseiro Häfele</td><td>5 prateleiras, antrácito preto — arm. de canto</td><td class="r">1 un</td></tr>
+      <tr><td>Sistema Sotello FGVTN (ou Häfele Slido)</td><td>2 portas de embutir (lava-louças e ice maker)</td><td class="r">2 jogos</td></tr>
+      <tr><td>Vidro incolor + Prateleiras vidro</td><td>2 portas + prateleiras armário cristaleira</td><td class="r">2 pcs</td></tr>
+      <tr><td>LED cristaleira (sensor abertura)</td><td>2 laterais internas</td><td class="r">1 kit</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- ══════════════════════════════════════ -->
+<!--  AMB 06 — LAVANDERIA                  -->
+<!-- ══════════════════════════════════════ -->
+<div class="amb">
+  <div class="amb-header" style="background:#0891b2">
+    <span>🧺 Ambiente 06 — Lavanderia</span>
+    <span class="amb-num">9 ch 15mm · 4 fd · 32 dob · 4 corr</span>
+  </div>
+  <div class="sec-label mdf">🪵 Chapas MDF</div>
+  <table>
+    <thead><tr><th>Material</th><th>Peças / Aplicação</th><th class="r">Ch. 15mm</th><th class="r">Fd. 6mm</th></tr></thead>
+    <tbody>
+      <tr><td><span class="color-dot" style="background:#e8dcc8"></span>MDF Areia 15mm</td><td>Arm.1 (206cm) + Arm.2 (235cm) + Arm.3 (77,8cm h=235cm) + Arm.4 (77,8cm h=210cm)<small>Corpos, laterais, prateleiras, divisórias — moldura provençal, quadro energia</small></td><td class="r">9</td><td class="r">—</td></tr>
+      <tr><td><span class="color-dot" style="background:#6b7280"></span>Fundo 6mm</td><td>Fundos dos 4 armários</td><td class="r">—</td><td class="r">4</td></tr>
+      <tr class="tot-row"><td colspan="2">TOTAL CHAPAS — Lavanderia</td><td class="r">9</td><td class="r">4</td></tr>
+    </tbody>
+  </table>
+  <div class="sec-label ferr">🔩 Ferragens</div>
+  <table>
+    <thead><tr><th>Item</th><th>Detalhe</th><th class="r">Qtd</th></tr></thead>
+    <tbody>
+      <tr><td>Dobradiças 35mm</td><td>Arm.1: 4sup+2inf | Arm.2: 4sup+2inf | Arm.3: 2 | Arm.4: 2 = 16 portas</td><td class="r">32 un</td></tr>
+      <tr><td>Corrediças (par)</td><td>Gavetas frontais Arm.1 e Arm.2</td><td class="r">4 pares</td></tr>
+      <tr><td>Puxadores — Alça preta</td><td>~16 unidades nos 4 armários</td><td class="r">16 un</td></tr>
+      <tr><td>Cabideiro Basculante Häfele 45×27cm</td><td>Arm.1 (206cm), parede lateral</td><td class="r">1 un</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- ══════════════════════════════════════ -->
+<!--  AMB 07 — CIRCULAÇÃO SUPERIOR         -->
+<!-- ══════════════════════════════════════ -->
+<div class="amb">
+  <div class="amb-header" style="background:#0369a1">
+    <span>🏛️ Ambiente 07 — Circulação Superior · Pórtico + Armário Central</span>
+    <span class="amb-num">11 ch 15mm · — fd · — dob</span>
+  </div>
+  <div class="sec-label mdf">🪵 Chapas MDF</div>
+  <table>
+    <thead><tr><th>Material</th><th>Peças / Aplicação</th><th class="r">Ch. 15mm</th><th class="r">Fd. 6mm</th></tr></thead>
+    <tbody>
+      <tr><td><span class="color-dot" style="background:#e8dcc8"></span>MDF Areia 15mm</td><td>Painel ripado 759×300cm (módulos ~40cm, cantos arredondados) + armário central 110cm + laterais<small>Pórtico em MDF, vãos arredondados, fechamento quadro energia</small></td><td class="r">11</td><td class="r">—</td></tr>
+      <tr class="tot-row"><td colspan="2">TOTAL CHAPAS — Circulação Superior</td><td class="r">11</td><td class="r">—</td></tr>
+    </tbody>
+  </table>
+  <div class="sec-label ferr">🔩 Ferragens / Iluminação</div>
+  <table>
+    <thead><tr><th>Item</th><th>Detalhe</th><th class="r">Qtd</th></tr></thead>
+    <tbody>
+      <tr><td>Puxadores — Ponto preto (cesto roupa)</td><td>Armário central circulação</td><td class="r">2 un</td></tr>
+      <tr><td>Fita LED indireta (laranja)</td><td>Pórtico / acionamento na marcenaria</td><td class="r">≈ 5m</td></tr>
+      <tr><td>Tomada embutida</td><td>1 tomada no armário central</td><td class="r">1 un</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- ══════════════════════════════════════ -->
+<!--  AMB 08 — SUÍTE HÓSPEDE              -->
+<!-- ══════════════════════════════════════ -->
+<div class="amb">
+  <div class="amb-header" style="background:#047857">
+    <span>🛏️ Ambiente 08 — Suíte Hóspede · Guarda-Roupa Completo</span>
+    <span class="amb-num">9 ch 15mm · 3 fd · 12 dob · 2 trilhos · 3 corr</span>
+  </div>
+  <div class="sec-label mdf">🪵 Chapas MDF</div>
+  <table>
+    <thead><tr><th>Material</th><th>Peças / Aplicação</th><th class="r">Ch. 15mm</th><th class="r">Fd. 6mm</th></tr></thead>
+    <tbody>
+      <tr><td><span class="color-dot" style="background:#3a3a3a"></span>MDF Grafite Trama 15mm</td><td>Ala esq. 80+174cm (h=212cm) + ala dir. 300cm (h=210cm) + painel cabeceira<small>6 portas de giro + 4 portas de correr, puxador usinado no MDF</small></td><td class="r">7</td><td class="r">—</td></tr>
+      <tr><td><span class="color-dot" style="background:#c8a96e"></span>MDF Jequitibá 15mm</td><td>Detalhes e nichos internos</td><td class="r">2</td><td class="r">—</td></tr>
+      <tr><td><span class="color-dot" style="background:#6b7280"></span>Fundo 6mm</td><td>Fundos do guarda-roupa</td><td class="r">—</td><td class="r">3</td></tr>
+      <tr class="tot-row"><td colspan="2">TOTAL CHAPAS — Suíte Hóspede</td><td class="r">9</td><td class="r">3</td></tr>
+    </tbody>
+  </table>
+  <div class="sec-label ferr">🔩 Ferragens</div>
+  <table>
+    <thead><tr><th>Item</th><th>Detalhe</th><th class="r">Qtd</th></tr></thead>
+    <tbody>
+      <tr><td>Dobradiças 35mm</td><td>6 portas de giro (ala esquerda)</td><td class="r">12 un</td></tr>
+      <tr><td>Trilhos porta de correr</td><td>4 portas de correr por trás do painel (ala direita 300cm)</td><td class="r">2 trilhos</td></tr>
+      <tr><td>Corrediças (par)</td><td>Gaveteiro com puxador cava no MDF</td><td class="r">3 pares</td></tr>
+      <tr><td>Tubo cabideiro</td><td>~2m</td><td class="r">2 m</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- ══════════════════════════════════════ -->
+<!--  AMB 09 — SUÍTE ANA LAURA RACK        -->
+<!-- ══════════════════════════════════════ -->
+<div class="amb">
+  <div class="amb-header" style="background:#b45309">
+    <span>📺 Ambiente 09 — Suíte Ana Laura · Rack Flutuante</span>
+    <span class="amb-num">2 ch 15mm · ~1 fd · 3 corr</span>
+  </div>
+  <div class="sec-label mdf">🪵 Chapas MDF</div>
+  <table>
+    <thead><tr><th>Material</th><th>Peças / Aplicação</th><th class="r">Ch. 15mm</th><th class="r">Fd. 6mm</th></tr></thead>
+    <tbody>
+      <tr><td><span class="color-dot" style="background:#3a3a3a"></span>MDF Grafite Trama 15mm</td><td>Rack flutuante 339×78cm + reforço estrutural + 3 gavetas<small>Frente passante sem puxador, tomadas atrás do móvel</small></td><td class="r">2</td><td class="r">—</td></tr>
+      <tr><td><span class="color-dot" style="background:#6b7280"></span>Fundo 6mm</td><td>Fundo do rack<small>Incluído nos 2 ch dos WCs+Racks</small></td><td class="r">—</td><td class="r">~1</td></tr>
+      <tr class="tot-row"><td colspan="2">TOTAL CHAPAS — Rack Ana Laura</td><td class="r">2</td><td class="r">~1</td></tr>
+    </tbody>
+  </table>
+  <div class="sec-label ferr">🔩 Ferragens</div>
+  <table>
+    <thead><tr><th>Item</th><th>Detalhe</th><th class="r">Qtd</th></tr></thead>
+    <tbody>
+      <tr><td>Corrediças (par)</td><td>3 gavetas ocultas no rack</td><td class="r">3 pares</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- ══════════════════════════════════════ -->
+<!--  AMB 10 — SUÍTE ANA LAURA CLOSET      -->
+<!-- ══════════════════════════════════════ -->
+<div class="amb">
+  <div class="amb-header" style="background:#d97706">
+    <span>👗 Ambiente 10 — Suíte Ana Laura · Closet</span>
+    <span class="amb-num">9 ch 15mm · 4 fd · 16 dob · 1 trilho · 8 pux</span>
+  </div>
+  <div class="sec-label mdf">🪵 Chapas MDF</div>
+  <table>
+    <thead><tr><th>Material</th><th>Peças / Aplicação</th><th class="r">Ch. 15mm</th><th class="r">Fd. 6mm</th></tr></thead>
+    <tbody>
+      <tr><td><span class="color-dot" style="background:#f5f5f5;border:1px solid #999"></span>MDF Branco Diamante Trama 15mm</td><td>Módulo 2 (213+60cm h=245cm): corpos, prateleiras, sapateira 25cm — Módulo 3 (65+123+50cm h=275cm): corpo + fundo falso + porta deslizante cofre — Módulo 4 (25+245cm h=245cm): corpo + divisórias<small>8 portas com vidro incolor e moldura, LED Elegance 1601 preto</small></td><td class="r">9</td><td class="r">—</td></tr>
+      <tr><td><span class="color-dot" style="background:#6b7280"></span>Fundo 6mm</td><td>Fundos internos módulos 2, 3 e 4 + fundo falso</td><td class="r">—</td><td class="r">4</td></tr>
+      <tr class="tot-row"><td colspan="2">TOTAL CHAPAS — Closet Ana Laura</td><td class="r">9</td><td class="r">4</td></tr>
+    </tbody>
+  </table>
+  <div class="sec-label ferr">🔩 Ferragens</div>
+  <table>
+    <thead><tr><th>Item</th><th>Detalhe</th><th class="r">Qtd</th></tr></thead>
+    <tbody>
+      <tr><td>Dobradiças 35mm</td><td>8 portas de giro com vidro incolor e moldura (módulos 2 e 3)</td><td class="r">16 un</td></tr>
+      <tr><td>Trilho porta de correr</td><td>2 portas de correr por trás (módulo 4 — 245+275cm)</td><td class="r">1 trilho</td></tr>
+      <tr><td>Puxadores — Ponto preto</td><td>8 portas do closet</td><td class="r">8 un</td></tr>
+      <tr><td>Vidro incolor — Portas</td><td>8 portas vidro incolor com moldura</td><td class="r">8 pcs</td></tr>
+      <tr><td>LED Elegance 1601 Preto</td><td>Cabideiros — acionamento na marcenaria</td><td class="r">≈ 4m</td></tr>
+      <tr><td>Tubo cabideiro</td><td>~4m</td><td class="r">4 m</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- ══════════════════════════════════════ -->
+<!--  AMB 11 — SUÍTE BELLA RACK            -->
+<!-- ══════════════════════════════════════ -->
+<div class="amb">
+  <div class="amb-header" style="background:#166534">
+    <span>📺 Ambiente 11 — Suíte Bella · Rack Flutuante</span>
+    <span class="amb-num">1 ch 15mm · ~1 fd · 4 corr</span>
+  </div>
+  <div class="sec-label mdf">🪵 Chapas MDF</div>
+  <table>
+    <thead><tr><th>Material</th><th>Peças / Aplicação</th><th class="r">Ch. 15mm</th><th class="r">Fd. 6mm</th></tr></thead>
+    <tbody>
+      <tr><td><span class="color-dot" style="background:#4a7c59"></span>MDF Relva 15mm</td><td>Rack flutuante 343×78cm + reforço + gavetas<small>Frente passante sem puxador, tomadas atrás do móvel</small></td><td class="r">1</td><td class="r">—</td></tr>
+      <tr><td><span class="color-dot" style="background:#6b7280"></span>Fundo 6mm</td><td>Fundo do rack<small>Incluído nos 2 ch dos WCs+Racks</small></td><td class="r">—</td><td class="r">~1</td></tr>
+      <tr class="tot-row"><td colspan="2">TOTAL CHAPAS — Rack Bella</td><td class="r">1</td><td class="r">~1</td></tr>
+    </tbody>
+  </table>
+  <div class="sec-label ferr">🔩 Ferragens</div>
+  <table>
+    <thead><tr><th>Item</th><th>Detalhe</th><th class="r">Qtd</th></tr></thead>
+    <tbody>
+      <tr><td>Corrediças (par)</td><td>Gavetas ocultas rack 343cm</td><td class="r">4 pares</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- ══════════════════════════════════════ -->
+<!--  AMB 12 — SUÍTE BELLA CLOSET          -->
+<!-- ══════════════════════════════════════ -->
+<div class="amb">
+  <div class="amb-header" style="background:#15803d">
+    <span>👗 Ambiente 12 — Suíte Bella · Closet</span>
+    <span class="amb-num">9 ch 15mm · 3 fd · — dob · 5 corr · 8 pux</span>
+  </div>
+  <div class="sec-label mdf">🪵 Chapas MDF</div>
+  <table>
+    <thead><tr><th>Material</th><th>Peças / Aplicação</th><th class="r">Ch. 15mm</th><th class="r">Fd. 6mm</th></tr></thead>
+    <tbody>
+      <tr><td><span class="color-dot" style="background:#e8dcc8"></span>MDF Areia 15mm</td><td>Módulo frontal 393×260cm + módulo lateral 240×260cm<small>Corpos, divisórias, prateleiras, sapateiras — sem fundo, Metalon 30×30</small></td><td class="r">9</td><td class="r">—</td></tr>
+      <tr><td><span class="color-dot" style="background:#6b7280"></span>Fundo 6mm</td><td>Divisórias internas necessitam fundo</td><td class="r">—</td><td class="r">3</td></tr>
+      <tr class="tot-row"><td colspan="2">TOTAL CHAPAS — Closet Bella</td><td class="r">9</td><td class="r">3</td></tr>
+    </tbody>
+  </table>
+  <div class="sec-label ferr">🔩 Ferragens</div>
+  <table>
+    <thead><tr><th>Item</th><th>Detalhe</th><th class="r">Qtd</th></tr></thead>
+    <tbody>
+      <tr><td>Corrediças (par)</td><td>Gavetas com frente em moldura provençal</td><td class="r">5 pares</td></tr>
+      <tr><td>Puxadores — Ponto preto</td><td>8 unidades no closet</td><td class="r">8 un</td></tr>
+      <tr><td>Metalon 30×30</td><td>Estrutura interna (sem fundo)</td><td class="r">≈ 8m</td></tr>
+      <tr><td>Tubo cabideiro</td><td>~4m</td><td class="r">4 m</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- ══════════════════════════════════════ -->
+<!--  AMB 13 — WC ANA LAURA               -->
+<!-- ══════════════════════════════════════ -->
+<div class="amb">
+  <div class="amb-header" style="background:#0e7490">
+    <span>🚿 Ambiente 13 — WC Ana Laura</span>
+    <span class="amb-num">2 ch 15mm · — fd · 2 dob · 2 corr · 2 pist</span>
+  </div>
+  <div class="sec-label mdf">🪵 Chapas MDF</div>
+  <table>
+    <thead><tr><th>Material</th><th>Peças / Aplicação</th><th class="r">Ch. 15mm</th><th class="r">Fd. 6mm</th></tr></thead>
+    <tbody>
+      <tr><td><span class="color-dot" style="background:#4a5568"></span>MDF Cinza Cobalto VEL 15mm</td><td>Gabinete 146×120cm (2 gavetas + cuba) + nicho lateral 166×45cm (prof. 30cm)<small>Puxador ponto preto, arm. sup. 100cm c/ porta espelho orgânico</small></td><td class="r">2</td><td class="r">—</td></tr>
+      <tr class="tot-row"><td colspan="2">TOTAL CHAPAS — WC Ana Laura</td><td class="r">2</td><td class="r">—</td></tr>
+    </tbody>
+  </table>
+  <div class="sec-label ferr">🔩 Ferragens</div>
+  <table>
+    <thead><tr><th>Item</th><th>Detalhe</th><th class="r">Qtd</th></tr></thead>
+    <tbody>
+      <tr><td>Dobradiças 35mm</td><td>1 porta espelho orgânico (armário superior)</td><td class="r">2 un</td></tr>
+      <tr><td>Corrediças (par)</td><td>2 gavetas no gabinete</td><td class="r">2 pares</td></tr>
+      <tr><td>Pistões (porta basculante)</td><td>Espelho orgânico — armário superior</td><td class="r">2 un</td></tr>
+      <tr><td>Puxadores — Ponto preto</td><td>2 unidades</td><td class="r">2 un</td></tr>
+      <tr><td>Espelho Orgânico com LED frontal</td><td>Formato orgânico WC Ana Laura</td><td class="r">1 un</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- ══════════════════════════════════════ -->
+<!--  AMB 14 — WC BELLA                   -->
+<!-- ══════════════════════════════════════ -->
+<div class="amb">
+  <div class="amb-header" style="background:#155e75">
+    <span>🚿 Ambiente 14 — WC Bella</span>
+    <span class="amb-num">3 ch 15mm · — fd · 4 dob · 3 corr · 2 pist</span>
+  </div>
+  <div class="sec-label mdf">🪵 Chapas MDF</div>
+  <table>
+    <thead><tr><th>Material</th><th>Peças / Aplicação</th><th class="r">Ch. 15mm</th><th class="r">Fd. 6mm</th></tr></thead>
+    <tbody>
+      <tr><td><span class="color-dot" style="background:#4a5568"></span>MDF Cinza Cobalto VEL 15mm</td><td>Gabinete 150cm (90+60)×120cm + gavetão 50cm + coluna lateral 166cm<small>Puxador ponto preto, gavetão roupa suja, nicho revestido</small></td><td class="r">3</td><td class="r">—</td></tr>
+      <tr class="tot-row"><td colspan="2">TOTAL CHAPAS — WC Bella</td><td class="r">3</td><td class="r">—</td></tr>
+    </tbody>
+  </table>
+  <div class="sec-label ferr">🔩 Ferragens</div>
+  <table>
+    <thead><tr><th>Item</th><th>Detalhe</th><th class="r">Qtd</th></tr></thead>
+    <tbody>
+      <tr><td>Dobradiças 35mm</td><td>1 porta espelho + 1 porta coluna lateral</td><td class="r">4 un</td></tr>
+      <tr><td>Corrediças (par)</td><td>2 gavetas + 1 gavetão roupa suja (h=50cm)</td><td class="r">3 pares</td></tr>
+      <tr><td>Pistões (porta basculante)</td><td>Espelho orgânico — armário superior</td><td class="r">2 un</td></tr>
+      <tr><td>Puxadores — Ponto preto</td><td>4 unidades</td><td class="r">4 un</td></tr>
+      <tr><td>Espelho Orgânico com LED frontal</td><td>Formato orgânico WC Bella</td><td class="r">1 un</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- ══════════════════════════════════════ -->
+<!--  AMB 15 — SUÍTE MASTER PAINEL         -->
+<!-- ══════════════════════════════════════ -->
+<div class="amb">
+  <div class="amb-header" style="background:#7c2d12">
+    <span>🌟 Ambiente 15 — Suíte Master · Painel Ripado + Porta Corredora</span>
+    <span class="amb-num">4 ch 15mm · — fd · 1 trilho</span>
+  </div>
+  <div class="sec-label mdf">🪵 Chapas MDF</div>
+  <table>
+    <thead><tr><th>Material</th><th>Peças / Aplicação</th><th class="r">Ch. 15mm</th><th class="r">Fd. 6mm</th></tr></thead>
+    <tbody>
+      <tr><td><span class="color-dot" style="background:#c8a96e"></span>MDF Jequitibá 15mm</td><td>Painel ripado 380×290cm: ripas verticais + suporte estrutural + painéis laterais<small>Acima do rodapé, LED acionamento na marcenaria</small></td><td class="r">4</td><td class="r">—</td></tr>
+      <tr class="tot-row"><td colspan="2">TOTAL CHAPAS — Suíte Master Painel</td><td class="r">4</td><td class="r">—</td></tr>
+    </tbody>
+  </table>
+  <div class="sec-label ferr">🔩 Ferragens / Iluminação</div>
+  <table>
+    <thead><tr><th>Item</th><th>Detalhe</th><th class="r">Qtd</th></tr></thead>
+    <tbody>
+      <tr><td>Trilho porta de correr</td><td>Porta corredora por trás do painel — batente em marcenaria</td><td class="r">1 trilho</td></tr>
+      <tr><td>Fita LED indireta</td><td>Iluminação indireta painel ripado — acionamento na marcenaria</td><td class="r">≈ 5m</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- ══════════════════════════════════════ -->
+<!--  AMB 16 — SUÍTE MASTER CLOSET MASC.  -->
+<!-- ══════════════════════════════════════ -->
+<div class="amb">
+  <div class="amb-header" style="background:#92400e">
+    <span>👔 Ambiente 16 — Suíte Master · Closet Masculino</span>
+    <span class="amb-num">15 ch 15mm · ~3 fd · — dob · 14 corr</span>
+  </div>
+  <div class="sec-label mdf">🪵 Chapas MDF</div>
+  <table>
+    <thead><tr><th>Material</th><th>Peças / Aplicação</th><th class="r">Ch. 15mm</th><th class="r">Fd. 6mm</th></tr></thead>
+    <tbody>
+      <tr><td><span class="color-dot" style="background:#e8dcc8"></span>MDF Areia 15mm</td><td>Módulo 4 (260cm) + Módulo 5 (280cm) + Módulo 6 (160cm) + Módulo 7 (160cm)<small>Prateleiras 35cm prof., sapateira sem sapata, pino oculto 3,6cm</small></td><td class="r">13</td><td class="r">—</td></tr>
+      <tr><td><span class="color-dot" style="background:#c8a96e"></span>MDF Jequitibá 15mm (detalhes)</td><td>Nichos e detalhes internos</td><td class="r">2</td><td class="r">—</td></tr>
+      <tr><td><span class="color-dot" style="background:#6b7280"></span>Fundo 6mm (compartilhado)</td><td>Fundos internos módulos<small>Estimado ~3 ch dos 5 ch totais Master Closets</small></td><td class="r">—</td><td class="r">~3</td></tr>
+      <tr class="tot-row"><td colspan="2">TOTAL CHAPAS — Closet Masculino</td><td class="r">15</td><td class="r">~3</td></tr>
+    </tbody>
+  </table>
+  <div class="sec-label ferr">🔩 Ferragens</div>
+  <table>
+    <thead><tr><th>Item</th><th>Detalhe</th><th class="r">Qtd</th></tr></thead>
+    <tbody>
+      <tr><td>Corrediças (par)</td><td>Módulos 4, 5, 6, 7 — múltiplas colunas de gavetas</td><td class="r">14 pares</td></tr>
+      <tr><td>Puxadores — Alça preta</td><td>Parte dos ~10 un Master closets</td><td class="r">~5 un</td></tr>
+      <tr><td>LED Elegance 1601 Preto</td><td>Cabideiros — acionamento na marcenaria</td><td class="r">≈ 5m</td></tr>
+      <tr><td>Tubo cabideiro</td><td>~6m</td><td class="r">6 m</td></tr>
+      <tr><td>Metalon 30×30</td><td>Estrutura interna</td><td class="r">≈ 6m</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- ══════════════════════════════════════ -->
+<!--  AMB 17 — SUÍTE MASTER CLOSET FEM.   -->
+<!-- ══════════════════════════════════════ -->
+<div class="amb">
+  <div class="amb-header" style="background:#be185d">
+    <span>👗 Ambiente 17 — Suíte Master · Closet Feminino</span>
+    <span class="amb-num">7 ch 15mm · ~2 fd · — dob · 5 corr · 5 pux</span>
+  </div>
+  <div class="sec-label mdf">🪵 Chapas MDF</div>
+  <table>
+    <thead><tr><th>Material</th><th>Peças / Aplicação</th><th class="r">Ch. 15mm</th><th class="r">Fd. 6mm</th></tr></thead>
+    <tbody>
+      <tr><td><span class="color-dot" style="background:#e8dcc8"></span>MDF Areia 15mm</td><td>Corpo closet + 5 gavetas + sapateira + calceiro deslizante<small>Cabideiros LED Elegance 1601, puxador alça preto</small></td><td class="r">7</td><td class="r">—</td></tr>
+      <tr><td><span class="color-dot" style="background:#6b7280"></span>Fundo 6mm (compartilhado)</td><td>Fundos internos<small>Estimado ~2 ch dos 5 ch totais Master Closets</small></td><td class="r">—</td><td class="r">~2</td></tr>
+      <tr class="tot-row"><td colspan="2">TOTAL CHAPAS — Closet Feminino</td><td class="r">7</td><td class="r">~2</td></tr>
+    </tbody>
+  </table>
+  <div class="sec-label ferr">🔩 Ferragens</div>
+  <table>
+    <thead><tr><th>Item</th><th>Detalhe</th><th class="r">Qtd</th></tr></thead>
+    <tbody>
+      <tr><td>Corrediças (par)</td><td>5 gavetas com moldura provençal (75+48+75cm)</td><td class="r">5 pares</td></tr>
+      <tr><td>Puxadores — Alça preta</td><td>Parte dos ~10 un Master closets</td><td class="r">~5 un</td></tr>
+      <tr><td>Espelho para armário (perfil preto)</td><td>Armário espelhado 160cm larg. × 15cm prof., 2 folhas</td><td class="r">2 folhas</td></tr>
+      <tr><td>LED Elegance 1601 Preto</td><td>Cabideiros — acionamento na marcenaria</td><td class="r">≈ 5m</td></tr>
+      <tr><td>Tubo cabideiro</td><td>~2m</td><td class="r">2 m</td></tr>
+      <tr><td>Metalon 30×30</td><td>Estrutura interna</td><td class="r">≈ 6m</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- ══════════════════════════════════════ -->
+<!--  AMB 18 — SUÍTE MASTER PENTEADEIRA   -->
+<!-- ══════════════════════════════════════ -->
+<div class="amb">
+  <div class="amb-header" style="background:#9d174d">
+    <span>💄 Ambiente 18 — Suíte Master · Penteadeira + Gaveteiro Volante</span>
+    <span class="amb-num">2 ch 15mm · — fd · 6 corr · 3 pux champ</span>
+  </div>
+  <div class="sec-label mdf">🪵 Chapas MDF</div>
+  <table>
+    <thead><tr><th>Material</th><th>Peças / Aplicação</th><th class="r">Ch. 15mm</th><th class="r">Fd. 6mm</th></tr></thead>
+    <tbody>
+      <tr><td><span class="color-dot" style="background:#e8dcc8"></span>MDF Areia 15mm</td><td>Penteadeira flutuante 190cm + gaveteiro volante 3 gavetas (4 rodízios)<small>Lateral arredondada, frente passante, puxador ponto champagne</small></td><td class="r">2</td><td class="r">—</td></tr>
+      <tr class="tot-row"><td colspan="2">TOTAL CHAPAS — Penteadeira</td><td class="r">2</td><td class="r">—</td></tr>
+    </tbody>
+  </table>
+  <div class="sec-label ferr">🔩 Ferragens</div>
+  <table>
+    <thead><tr><th>Item</th><th>Detalhe</th><th class="r">Qtd</th></tr></thead>
+    <tbody>
+      <tr><td>Corrediças (par) — Penteadeira</td><td>3 gavetas frente passante</td><td class="r">3 pares</td></tr>
+      <tr><td>Corrediças (par) — Gaveteiro Volante</td><td>3 gavetas sobre rodízios</td><td class="r">3 pares</td></tr>
+      <tr><td>Puxadores — Ponto champagne</td><td>Gaveteiro da penteadeira</td><td class="r">3 un</td></tr>
+      <tr><td>Rodízios</td><td>4 rodízios gaveteiro volante</td><td class="r">4 un</td></tr>
+      <tr><td>Tomada embutida</td><td>Tomadas atrás do móvel penteadeira</td><td class="r">2 un</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- ══════════════════════════════════════ -->
+<!--  TABELA RESUMO FINAL                  -->
+<!-- ══════════════════════════════════════ -->
+<div style="margin-top:24px;page-break-before:always">
+  <div style="background:#0f172a;color:#fff;padding:10px 16px;border-radius:8px 8px 0 0;font-weight:800;font-size:11pt">
+    📊 RESUMO GERAL — CHAPAS E FERRAGENS POR AMBIENTE
+  </div>
+  <table class="final-table" style="border:1.5px solid #e2e8f0;border-top:none">
+    <thead>
+      <tr>
+        <th style="width:30px">#</th>
+        <th>Ambiente</th>
+        <th class="r">Ch.15mm</th>
+        <th class="r">Fd.6mm</th>
+        <th class="r">Total Ch.</th>
+        <th class="r">Dob.</th>
+        <th class="r">Corr.</th>
+        <th class="r">Trilho</th>
+        <th class="r">Pux.</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td>01</td><td>Hall de Entrada — Painel Espelho</td><td class="r">3</td><td class="r">—</td><td class="r"><b>3</b></td><td class="r">2</td><td class="r">—</td><td class="r">—</td><td class="r">—</td></tr>
+      <tr><td>02</td><td>Cozinha — Superiores</td><td class="r">8</td><td class="r">~3</td><td class="r"><b>~11</b></td><td class="r">20</td><td class="r">—</td><td class="r">—</td><td class="r">~10</td></tr>
+      <tr><td>03</td><td>Cozinha — Balcão Inferior + Alzada</td><td class="r">8</td><td class="r">~3</td><td class="r"><b>~11</b></td><td class="r">24</td><td class="r">5</td><td class="r">—</td><td class="r">~12</td></tr>
+      <tr><td>04</td><td>Cozinha — Ilha</td><td class="r">2</td><td class="r">—</td><td class="r"><b>2</b></td><td class="r">—</td><td class="r">—</td><td class="r">—</td><td class="r">—</td></tr>
+      <tr><td>05</td><td>Cozinha — Arm. Canto / Cristaleira</td><td class="r">—</td><td class="r">~1</td><td class="r"><b>~1</b></td><td class="r">4</td><td class="r">3</td><td class="r">—</td><td class="r">—</td></tr>
+      <tr><td>06</td><td>Lavanderia</td><td class="r">9</td><td class="r">4</td><td class="r"><b>13</b></td><td class="r">32</td><td class="r">4</td><td class="r">—</td><td class="r">16</td></tr>
+      <tr><td>07</td><td>Circulação Superior</td><td class="r">11</td><td class="r">—</td><td class="r"><b>11</b></td><td class="r">—</td><td class="r">—</td><td class="r">—</td><td class="r">2</td></tr>
+      <tr><td>08</td><td>Suíte Hóspede — Guarda-Roupa</td><td class="r">9</td><td class="r">3</td><td class="r"><b>12</b></td><td class="r">12</td><td class="r">3</td><td class="r">2</td><td class="r">—</td></tr>
+      <tr><td>09</td><td>Suíte Ana Laura — Rack Flutuante</td><td class="r">2</td><td class="r">~1</td><td class="r"><b>~3</b></td><td class="r">—</td><td class="r">3</td><td class="r">—</td><td class="r">—</td></tr>
+      <tr><td>10</td><td>Suíte Ana Laura — Closet</td><td class="r">9</td><td class="r">4</td><td class="r"><b>13</b></td><td class="r">16</td><td class="r">—</td><td class="r">1</td><td class="r">8</td></tr>
+      <tr><td>11</td><td>Suíte Bella — Rack Flutuante</td><td class="r">1</td><td class="r">~1</td><td class="r"><b>~2</b></td><td class="r">—</td><td class="r">4</td><td class="r">—</td><td class="r">—</td></tr>
+      <tr><td>12</td><td>Suíte Bella — Closet</td><td class="r">9</td><td class="r">3</td><td class="r"><b>12</b></td><td class="r">—</td><td class="r">5</td><td class="r">—</td><td class="r">8</td></tr>
+      <tr><td>13</td><td>WC Ana Laura</td><td class="r">2</td><td class="r">—</td><td class="r"><b>2</b></td><td class="r">2</td><td class="r">2</td><td class="r">—</td><td class="r">2</td></tr>
+      <tr><td>14</td><td>WC Bella</td><td class="r">3</td><td class="r">—</td><td class="r"><b>3</b></td><td class="r">4</td><td class="r">3</td><td class="r">—</td><td class="r">4</td></tr>
+      <tr><td>15</td><td>Suíte Master — Painel Ripado</td><td class="r">4</td><td class="r">—</td><td class="r"><b>4</b></td><td class="r">—</td><td class="r">—</td><td class="r">1</td><td class="r">—</td></tr>
+      <tr><td>16</td><td>Suíte Master — Closet Masculino</td><td class="r">15</td><td class="r">~3</td><td class="r"><b>~18</b></td><td class="r">—</td><td class="r">14</td><td class="r">—</td><td class="r">~5</td></tr>
+      <tr><td>17</td><td>Suíte Master — Closet Feminino</td><td class="r">7</td><td class="r">~2</td><td class="r"><b>~9</b></td><td class="r">—</td><td class="r">5</td><td class="r">—</td><td class="r">~5</td></tr>
+      <tr><td>18</td><td>Suíte Master — Penteadeira + Gaveteiro</td><td class="r">2</td><td class="r">—</td><td class="r"><b>2</b></td><td class="r">—</td><td class="r">6</td><td class="r">—</td><td class="r">3</td></tr>
+      <tr class="sub"><td colspan="2">✅ TOTAL GERAL</td><td class="r">133</td><td class="r">28</td><td class="r">161</td><td class="r">116</td><td class="r">57</td><td class="r">4</td><td class="r">75</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<div style="margin-top:14px;background:#fefce8;border:1.5px solid #fde047;border-radius:8px;padding:11px 14px;font-size:9pt;color:#713f12">
+  <strong>⚠ Observações:</strong>
+  Os 7 ch de fundo 6mm da Cozinha foram distribuídos entre Sup. (~3), Inf. (~3) e Canto (~1) — estimativa para levantamento de custo por ambiente.
+  Os 5 ch de fundo 6mm dos Closets Master foram distribuídos entre Masculino (~3) e Feminino (~2).
+  Os 2 ch de fundo 6mm de WCs+Racks foram distribuídos entre Rack Ana Laura (~1) e Rack Bella (~1).
+  Adicionar 10% de margem de desperdício no plano de corte definitivo.
+</div>
+
+<div class="footer">
+  <span>Levantamento de custo por ambiente — Ana Paula e Silas Mariano — 04/2026</span>
+  <span>Baseado nas 23 pranchas do projeto de marcenaria</span>
+</div>
+</div>
+
+<button class="btn-print no-print" onclick="window.print()">🖨️ Salvar como PDF</button>
+</body>
+</html>

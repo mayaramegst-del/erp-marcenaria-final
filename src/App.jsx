@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo, useRef, useEffect, useLayoutEffect } from "react";
+import React, { useState, useCallback, useMemo, useRef, useEffect, useLayoutEffect } from "react";
 import { dbGet, dbGetRow, dbSet, dbSetMany } from "./supabase";
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, Legend } from "recharts";
 import html2canvas from "html2canvas";

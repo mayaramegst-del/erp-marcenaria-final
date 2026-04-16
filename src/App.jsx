@@ -2800,8 +2800,8 @@ export default function ERP(){
     const n={id:uid(),para:Array.isArray(para)?para:[para],tipo,titulo,msg,ts:new Date().toISOString(),lidos:[],...extras};
     setNotifs(prev=>[n,...prev].slice(0,150));
   },[]);
-  const unreadFor=useId=>notifs.filter(n=>n.para.includes(useId)&&!n.lidos.includes(useId)).length;
-  const markAllRead=useId=>setNotifs(prev=>prev.map(n=>n.para.includes(useId)&&!n.lidos.includes(useId)?{...n,lidos:[...n.lidos,useId]}:n));
+  const unreadFor=useId=>notifs.filter(n=>Array.isArray(n.para)&&n.para.includes(useId)&&Array.isArray(n.lidos)&&!n.lidos.includes(useId)).length;
+  const markAllRead=useId=>setNotifs(prev=>prev.map(n=>Array.isArray(n.para)&&n.para.includes(useId)&&Array.isArray(n.lidos)&&!n.lidos.includes(useId)?{...n,lidos:[...n.lidos,useId]}:n));
   const clearNotif=nid=>setNotifs(prev=>prev.filter(n=>n.id!==nid));
 
   // Flush antes de fechar a aba — keepalive=true garante que o request complete mesmo após unload
@@ -5231,7 +5231,7 @@ export default function ERP(){
           const totalPago=fins.reduce((s,f)=>s+f.valorPago,0);
           const aPagar=totalCom-totalPago;
           const isExp=expandVend===v.id;
-          return(<React.Fragment key={v.id}>
+          return(<div key={v.id}>
             <div style={{display:"grid",gridTemplateColumns:"2fr 1fr 80px 100px 100px 60px 80px",gap:6,padding:"10px 18px",borderBottom:"1.5px solid var(--bd)",alignItems:"center",fontSize:12,cursor:"pointer",background:isExp?"var(--prib)":"transparent"}} onClick={()=>setExpandVend(isExp?null:v.id)}>
               <span style={{fontWeight:700,color:"var(--tx)"}}>{v.nome}</span>
               <span style={{color:"var(--tx2)"}}>{v.tel}</span>
@@ -5306,7 +5306,7 @@ export default function ERP(){
                 </div>);
               })}
             </div>}
-          </React.Fragment>);
+          </div>);
         })}
         {vendedores.length===0&&<div style={{padding:30,textAlign:"center",color:"var(--tx3)",fontSize:12,fontWeight:600}}>Nenhum vendedor cadastrado</div>}
       </Card>

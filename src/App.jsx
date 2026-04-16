@@ -2501,6 +2501,7 @@ export default function ERP(){
   const DB_KEYS=['clientes','orcamentos','pedidos','marceneiros','estoque','financeiro','leads','biblioteca','recebimentos','recorrentes','vendedores','cortadores','ordensCort','matLib','notifs'];
   const syncTimers=useRef({});
   const pendingSync=useRef(new Set()); // chaves com gravações pendentes (debounce ativo)
+  const cloudChecked=useRef(new Set()); // chaves já verificadas contra o Supabase (proteção anti-demo)
 
   const getSnap=useCallback(()=>({
     clientes,orcamentos,pedidos,marceneiros,estoque,financeiro,
@@ -2566,6 +2567,10 @@ export default function ERP(){
   },[]);
 
   const syncCloud=(k,v)=>{
+    // Bloqueia sync se a chave ainda não foi verificada contra o Supabase.
+    // Isso impede que dados demo sobrescrevam dados reais quando o app abre
+    // em um dispositivo/browser sem localStorage (ex.: modo anônimo, novo aparelho).
+    if(!cloudChecked.current.has(k))return;
     const val=k==='financeiro'?_deduplicateFin(v):v;
     // Salva timestamp local junto com os dados
     const ts=new Date().toISOString();
@@ -2684,7 +2689,11 @@ export default function ERP(){
           toUpload.push([k, k==='financeiro'?_deduplicateFin(local):local]);
         }
         // ambos vazios → mantém estado inicial, não faz nada
+        // Marca chave como verificada — libera syncCloud para esta chave
+        cloudChecked.current.add(k);
       }catch(e){console.warn('[load] erro ao carregar',k,e);}
+      // Se dbGetRow lançou exceção, a chave NÃO entra em cloudChecked,
+      // e syncCloud fica bloqueado para ela (protege dados reais no Supabase).
     }
     try{
       const cloud=await dbGet('empresa');

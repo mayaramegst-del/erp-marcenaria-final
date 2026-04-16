@@ -3027,6 +3027,20 @@ export default function ERP(){
     if(ped) notifyMarceneiro(ped,mid);
   };
 
+  const designarVend=(pedId,vendId)=>{
+    const vend=vendedores.find(v=>v.id===vendId);if(!vend)return;
+    const ped=pedidos.find(x=>x.id===pedId);if(!ped)return;
+    const comVend=+(ped.vt*(vend.comissao/100)).toFixed(2);
+    updPed(pedId,{vendedorId:vendId});
+    setFinanceiro(prev=>{
+      const next=prev.filter(f=>!(f.pedidoId===pedId&&f.tipo==="pagar"&&f.vendedorId&&!(f.valorPago>0)));
+      const existing=next.find(f=>f.pedidoId===pedId&&f.tipo==="pagar"&&f.vendedorId===vendId);
+      if(existing)return next.map(f=>f.id===existing.id?{...f,valor:comVend,parcelas:f.parcelas.map(pa=>pa.pago?pa:{...pa,valor:comVend})}:f);
+      return[...next,{id:uid(),tipo:"pagar",desc:`Comissão Vendedor ${ped.num||''} - ${vend.nome}`,valor:comVend,valorPago:0,parcelas:[{id:uid(),valor:comVend,venc:"",pago:false,dataPago:"",formaPag:"pix"}],pedidoId:pedId,vendedorId:vendId,fornecedor:vend.nome,categoria:"Folha/Comissão",status:"aberto"}];
+    });
+    showToast(`${vend.nome} designada como vendedora!`);
+  };
+
   // Recalcula comissões por ambiente: cada marceneiro recebe % sobre os ambientes que executa
   const recalcComissoesMult=(pedId,ambs)=>{
     const ped=pedidos.find(x=>x.id===pedId);if(!ped)return;
@@ -3637,7 +3651,7 @@ export default function ERP(){
           ?<Btn v="ghost" small style={{color:"var(--rd)",border:"1px solid rgba(239,68,68,.3)"}} onClick={()=>{if(window.confirm(`Cancelar o pedido ${p.num}? Essa ação não pode ser desfeita.`)){updPed(p.id,{status:"cancelado",stage:"cancelado",marcId:null});showToast("Pedido cancelado","red");}}}><I.X/> Cancelar Pedido</Btn>
           :<div style={{display:"flex",gap:6}}><Btn v="ghost" small onClick={()=>{if(window.confirm("Reativar este pedido?"))updPed(p.id,{status:"em_espera",stage:"corte"});}}><I.Check/> Reativar</Btn><Btn v="ghost" small style={{color:"var(--rd)",border:"1px solid rgba(239,68,68,.3)"}} onClick={()=>{if(window.confirm(`Excluir permanentemente o pedido ${p.num}? Esta ação não pode ser desfeita.`)){setPedidos(prev=>prev.filter(x=>x.id!==p.id));setFinanceiro(prev=>prev.filter(f=>f.pedidoId!==p.id));setPedAtivo(null);showToast("Pedido excluído","red");}}}><I.Trash/> Excluir</Btn></div>}
       </div>}/>
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:12,marginBottom:16}}>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:12,marginBottom:16}}>
         <Card style={{padding:16}}><span style={{fontSize:10,fontWeight:800,textTransform:"uppercase",color:"var(--tx3)"}}>Valor do Pedido</span>
           <input type="number" defaultValue={p.vt} key={p.vt} onBlur={e=>{
             const novo=Math.max(0,+e.target.value||0);
@@ -3676,6 +3690,13 @@ export default function ERP(){
             <option value="">{m?"— Remover marceneiro —":"Selecionar..."}</option>
             {marceneiros.filter(x=>x.ativo).map(x=><option key={x.id} value={x.id}>{x.nome} ({x.comissao}%)</option>)}
           </select>
+        </Card>
+        <Card style={{padding:16}}>{(()=>{const vend=vendedores.find(v=>v.id===p.vendedorId);return(<><span style={{fontSize:10,fontWeight:800,textTransform:"uppercase",color:"var(--tx3)"}}>Vendedor(a)</span>
+          {vend&&<div style={{fontSize:13,fontWeight:700,color:"var(--tx)",marginTop:4,marginBottom:6}}>{vend.nome} <Badge color="pri">{vend.comissao}%</Badge>{p.vt>0&&<span style={{fontSize:10,color:"var(--tx3)",fontWeight:600,marginLeft:6}}>R$ {((p.vt*(vend.comissao/100)).toFixed(2)).replace(".",",")}</span>}</div>}
+          <select value={p.vendedorId||""} onChange={e=>{const v=e.target.value;if(v){designarVend(p.id,v);}else{updPed(p.id,{vendedorId:""});setFinanceiro(prev=>prev.filter(f=>!(f.pedidoId===p.id&&f.tipo==="pagar"&&f.vendedorId&&!(f.valorPago>0))));showToast("Vendedor removido");}}} style={{width:"100%",padding:"7px",borderRadius:8,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:12,outline:"none",marginTop:vend?2:6}}>
+            <option value="">{vend?"— Remover vendedor —":"Selecionar..."}</option>
+            {vendedores.filter(v=>v.ativo).map(v=><option key={v.id} value={v.id}>{v.nome} ({v.comissao}%)</option>)}
+          </select></>);})()}
         </Card>
         <Card style={{padding:16}}><span style={{fontSize:10,fontWeight:800,textTransform:"uppercase",color:"var(--tx3)"}}>Prazo de Entrega</span><input type="date" value={p.dataEntrega} onChange={e=>updPed(p.id,{dataEntrega:e.target.value})} style={{width:"100%",padding:"7px",borderRadius:8,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:12,outline:"none",marginTop:6}}/>{p.dataInstalacao&&<div style={{marginTop:8,padding:"8px 10px",background:"var(--ppb)",borderRadius:8}}><div style={{fontSize:9,fontWeight:800,color:"var(--pp)",textTransform:"uppercase",marginBottom:3}}>📅 Instalação (marceneiro)</div><div style={{fontSize:12,fontWeight:700,color:"var(--pp)"}}>{p.dataInstalacao} • {p.diasPrevistos||"?"} dia(s)</div></div>}</Card>
       </div>
@@ -5234,13 +5255,13 @@ export default function ERP(){
                           <option value="pix">PIX</option><option value="ted">TED</option><option value="dinheiro">Dinheiro</option><option value="cheque">Cheque</option>
                         </select>
                       </div>
-                      <div style={{display:"flex",justifyContent:"center"}}>
+                      <div style={{display:"flex",flexDirection:"column",gap:3,alignItems:"stretch"}}>
                         {p.pago
                           ?<div style={{textAlign:"center"}}>
                               <div style={{fontSize:9,color:"var(--gn)",fontWeight:800}}>✓{isoToBR(p.dataPago)}</div>
                               <button onClick={()=>{setFinanceiro(ff=>ff.map(x=>x.id===f.id?{...x,valorPago:Math.max(0,(x.valorPago||0)-p.valor),parcelas:x.parcelas.map((q,qi)=>qi===pi?{...q,pago:false,dataPago:""}:q)}:x));showToast("Reaberto");}} style={{padding:"2px 6px",borderRadius:4,background:"none",border:"1px solid var(--rd)",color:"var(--rd)",fontSize:9,cursor:"pointer"}}>↩</button>
                             </div>
-                          :<button onClick={()=>{setFinanceiro(ff=>ff.map(x=>x.id===f.id?{...x,valorPago:(x.valorPago||0)+p.valor,parcelas:x.parcelas.map((q,qi)=>qi===pi?{...q,pago:true,dataPago:hojeISO()}:q)}:x));showToast("Pago!");}} style={{padding:"6px 10px",borderRadius:6,background:"var(--gnb)",border:"1.5px solid var(--gn)",color:"var(--gn)",fontSize:11,fontWeight:800,cursor:"pointer"}}>✓ Baixar</button>
+                          :<><div style={{fontSize:8,color:"var(--tx3)",fontWeight:700,marginBottom:1}}>DATA PAGO</div><input type="date" value={pagoDate[f.id+'_'+pi]||hojeISO()} onChange={e=>setPagoDate(prev=>({...prev,[f.id+'_'+pi]:e.target.value}))} style={{padding:"4px 5px",borderRadius:5,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:10,width:"100%",marginBottom:3}}/><button onClick={()=>{const dt=pagoDate[f.id+'_'+pi]||hojeISO();setFinanceiro(ff=>ff.map(x=>x.id===f.id?{...x,valorPago:(x.valorPago||0)+p.valor,parcelas:x.parcelas.map((q,qi)=>qi===pi?{...q,pago:true,dataPago:dt}:q)}:x));showToast("Pago!");}} style={{padding:"5px 8px",borderRadius:5,background:"var(--gnb)",border:"1.5px solid var(--gn)",color:"var(--gn)",fontSize:10,fontWeight:800,cursor:"pointer",width:"100%"}}>✓ Baixar</button></>
                         }
                       </div>
                       <button onClick={()=>setFinanceiro(ff=>ff.map(x=>x.id===f.id?{...x,parcelas:x.parcelas.filter((_,qi)=>qi!==pi)}:x))} style={{background:"none",border:"none",color:"var(--rd)",cursor:"pointer",fontSize:16,paddingBottom:4}}>×</button>

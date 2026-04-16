@@ -2566,11 +2566,17 @@ export default function ERP(){
     }
   },[]);
 
+  // IDs dos registros de demonstração — nunca devem ser enviados ao Supabase
+  const DEMO_IDS=new Set(['m1','m2','cli1','cli2','e1','e2','e3','e4','e5','l1','l2','l3']);
+  const _isDemoData=(v)=>Array.isArray(v)&&v.length>0&&v.every(x=>DEMO_IDS.has(x?.id));
+
   const syncCloud=(k,v)=>{
     // Bloqueia sync se a chave ainda não foi verificada contra o Supabase.
     // Isso impede que dados demo sobrescrevam dados reais quando o app abre
     // em um dispositivo/browser sem localStorage (ex.: modo anônimo, novo aparelho).
     if(!cloudChecked.current.has(k))return;
+    // Segunda barreira: nunca enviar dados de demonstração ao Supabase
+    if(_isDemoData(v))return;
     const val=k==='financeiro'?_deduplicateFin(v):v;
     // Salva timestamp local junto com os dados
     const ts=new Date().toISOString();

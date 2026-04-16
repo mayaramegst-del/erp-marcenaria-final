@@ -2442,6 +2442,24 @@ body{font-family:'Arial',sans-serif;background:#fff;color:#1e293b;padding:0}
 // Wrapper estável: identidade fixa → React nunca desmonta ao re-renderizar o pai
 function StablePageWrapper({renderFn}){return renderFn();}
 
+// Error boundary: captura crashes de qualquer página sem derrubar o app inteiro
+class PageErrorBoundary extends React.Component{
+  constructor(p){super(p);this.state={err:null};}
+  static getDerivedStateFromError(e){return{err:e};}
+  componentDidCatch(e,i){console.error('[PageError]',e,i);}
+  render(){
+    if(this.state.err)return(
+      <div style={{padding:40,textAlign:"center"}}>
+        <div style={{fontSize:32,marginBottom:12}}>⚠️</div>
+        <div style={{fontWeight:700,color:"#ef4444",marginBottom:8}}>Erro ao carregar esta página</div>
+        <div style={{fontSize:12,color:"#64748b",marginBottom:20,maxWidth:400,margin:"0 auto 20px"}}>{this.state.err?.message}</div>
+        <button onClick={()=>this.setState({err:null})} style={{padding:"8px 20px",borderRadius:8,background:"#6366f1",color:"#fff",border:"none",cursor:"pointer",fontWeight:700}}>Tentar novamente</button>
+      </div>
+    );
+    return this.props.children;
+  }
+}
+
 export default function ERP(){
   const [user,setUser]=useState(()=>{try{const u=localStorage.getItem('erpUser');return u?JSON.parse(u):null;}catch{return null;}});
   const [loginView,setLoginView]=useState(null);
@@ -5618,7 +5636,7 @@ export default function ERP(){
       </aside>
 
       {/* MAIN */}
-      <main className="erp-main" style={{flex:1,padding:"20px 24px",minHeight:"100vh",overflowY:"auto"}}>{tab==="configuracao"?<PgConfig empresa={empresa} saveEmpresa={saveEmpresa} getBackup={getBackup} importBackup={importBackup} limparDuplicatas={limparDuplicatas}/>:tab==="financeiro"||tab==="vendedores"?<StablePageWrapper renderFn={pages[tab]}/>:<Pg/>}</main>
+      <main className="erp-main" style={{flex:1,padding:"20px 24px",minHeight:"100vh",overflowY:"auto"}}><PageErrorBoundary key={tab}>{tab==="configuracao"?<PgConfig empresa={empresa} saveEmpresa={saveEmpresa} getBackup={getBackup} importBackup={importBackup} limparDuplicatas={limparDuplicatas}/>:(tab==="financeiro"||tab==="vendedores")?<StablePageWrapper key={tab} renderFn={pages[tab]}/>:<Pg/>}</PageErrorBoundary></main>
 
       {/* MODALS */}
       {modal?.t==="editCli"&&<Modal onClose={()=>setModal(null)}><ModalEditCli d={modal.d} setModal={setModal} saveCli={saveCli}/></Modal>}

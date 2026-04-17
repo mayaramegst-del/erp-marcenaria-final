@@ -4512,10 +4512,35 @@ export default function ERP(){
                   <Btn small onClick={()=>setModal({t:"newFin",d:{fontePool:"18",fornecedorSugerido:"Léo Madeiras"}})}><I.Plus/> Pagar Fornecedor</Btn>
                 </div>
                 {pool18FinPag.length===0?<div style={{fontSize:11,color:"var(--tx3)"}}>Nenhum pagamento registrado</div>
-                :pool18FinPag.slice(0,8).map(f=>{const proxV=f.parcelas?.[0];return(<div key={f.id} style={{display:"flex",justifyContent:"space-between",padding:"6px 0",borderBottom:"1px solid var(--bd)",fontSize:12}}>
-                  <div><div style={{fontWeight:700,color:"var(--tx)"}}>{f.fornecedor||f.desc}</div><div style={{fontSize:10,color:"var(--tx3)"}}>{proxV?isoToBR(proxV.venc):""}</div></div>
-                  <div style={{textAlign:"right"}}><div style={{fontWeight:800,color:"var(--rd)"}}>{R$(f.valor)}</div><div style={{fontSize:10,color:"var(--gn)",fontWeight:600}}>pago {R$(f.valorPago)}</div></div>
-                </div>);})}
+                :pool18FinPag.map(f=>{
+                  const abertas=(f.parcelas||[]).filter(p=>!p.pago).sort((a,b)=>a.venc>b.venc?1:-1);
+                  const prox=abertas[0];
+                  const semSaldo=pool18Saldo<(prox?.valor||0);
+                  const quitado=(f.valorPago||0)>=f.valor;
+                  return(<div key={f.id} style={{borderBottom:"1px solid var(--bd)",padding:"8px 0",fontSize:12}}>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+                      <div>
+                        <div style={{fontWeight:700,color:"var(--tx)"}}>{f.fornecedor||f.desc}</div>
+                        <div style={{fontSize:10,color:"var(--tx3)",marginTop:1}}>
+                          {prox?isoToBR(prox.venc):""}
+                          {abertas.length>1?` · ${abertas.length} parcelas restantes`:""}
+                          {quitado?<span style={{color:"var(--gn)",fontWeight:700}}> ✓ Quitado</span>:""}
+                        </div>
+                      </div>
+                      <div style={{textAlign:"right"}}>
+                        <div style={{fontWeight:800,color:"var(--rd)"}}>{R$(f.valor)}</div>
+                        <div style={{fontSize:10,color:"var(--gn)",fontWeight:600}}>pago {R$(f.valorPago||0)}</div>
+                      </div>
+                    </div>
+                    {prox&&!quitado&&<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:6,background:"rgba(16,185,129,.07)",border:"1px solid rgba(16,185,129,.2)",borderRadius:8,padding:"6px 10px"}}>
+                      <div style={{fontSize:11}}>
+                        <span style={{fontWeight:700,color:"var(--tx)"}}>Próxima: {R$(prox.valor)}</span>
+                        {semSaldo&&<span style={{fontSize:10,color:"var(--am)",marginLeft:6,fontWeight:600}}>⚠ saldo insuficiente</span>}
+                      </div>
+                      <button onClick={()=>{if(semSaldo)return showToast("Saldo 18x insuficiente!","red");pagarParcela(f.id,prox.id,prox.valor,"cred_18x");}} style={{padding:"5px 14px",borderRadius:8,border:"none",background:semSaldo?"var(--bd)":"var(--gn)",color:semSaldo?"var(--tx3)":"#fff",fontSize:11,fontWeight:800,cursor:semSaldo?"not-allowed":"pointer",opacity:semSaldo?.6:1}}>✓ Pagar</button>
+                    </div>}
+                  </div>);
+                })}
               </div>
             </div>
           </div>);

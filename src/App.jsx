@@ -894,7 +894,7 @@ function ModalPDF({o,empresa,getCli,setModal,totalOrcFinal,totalOrc,totalOrcComN
       <table className="svc-table">
         <thead><tr><th>Descrição</th><th className="r" style={{width:120}}>Valor</th></tr></thead>
         <tbody>
-          {[...o.ambientes].sort((a,b)=>(a.desc||'').length-(b.desc||'').length).map((a,i)=>(
+          {[...o.ambientes].sort((a,b)=>{const ord=n=>{const s=(n||"").toLowerCase();if(/cozinha|hall|lavanderia|corredor|entrada|área de serviço/.test(s))return 0;if(/suite|suíte|quarto|closet|dorm|master|hóspede|hospede|penteadeira/.test(s))return 1;if(/banheiro|wc|lavabo|banho/.test(s))return 2;return 3;};return ord(a.nome)-ord(b.nome);}).map((a,i)=>(
             <tr key={a.id}>
               <td className="td-desc"><strong>{a.nome||`Serviço ${i+1}`}</strong>{a.desc&&<p>{a.desc}</p>}</td>
               <td className="td-val">{fmtR(a.valorTotal)}</td>

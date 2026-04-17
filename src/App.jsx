@@ -3542,35 +3542,51 @@ export default function ERP(){
           </div>
         </div>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}><h3 style={{fontSize:14,fontWeight:800,color:"var(--tx)"}}>Ambientes</h3><Btn small onClick={()=>addAmb(orc.id)}><I.Plus/> Ambiente</Btn></div>
-        {ambs.map((a,i)=>{const op=ambAberto===a.id;return(
-          <Card key={a.id} style={{marginBottom:8}}>
-            <div onClick={()=>setAmbAberto(op?null:a.id)} style={{padding:"12px 18px",display:"flex",justifyContent:"space-between",alignItems:"center",cursor:"pointer",borderBottom:op?"1.5px solid var(--bd)":"none"}}>
-              <div style={{display:"flex",alignItems:"center",gap:8}}><div style={{width:26,height:26,borderRadius:8,background:"var(--prib2)",display:"flex",alignItems:"center",justifyContent:"center",color:"var(--pri)",fontSize:11,fontWeight:800}}>{i+1}</div><span style={{fontWeight:700,fontSize:13,color:"var(--tx)"}}>{a.nome||"Sem nome"}</span></div>
-              <div style={{display:"flex",alignItems:"center",gap:10}}><span style={{fontWeight:800,fontSize:15,color:"var(--pri)",minWidth:140,textAlign:"right"}}>{R$(a.valorTotal)}</span><I.Chev d={op?"up":"down"}/></div>
-            </div>
-            {op&&<div style={{padding:16}}>
-              <Field label="Nome" value={a.nome} onChange={v=>updAmb(orc.id,a.id,{nome:v})} placeholder="Ex: Cozinha, Closet..." commitOnBlur/>
-              <Field label="Descrição" value={a.desc} onChange={v=>updAmb(orc.id,a.id,{desc:v})} placeholder="Medidas, acabamentos..." rows={2} commitOnBlur/>
-              {/* Modo: valor fixo ou por insumos */}
-              <div style={{display:"flex",gap:6,marginBottom:10}}>
-                <button onClick={()=>updAmb(orc.id,a.id,{modoFixo:false})} style={{flex:1,padding:"7px 0",borderRadius:8,border:"1.5px solid "+(a.modoFixo?"var(--bd)":"var(--pri)"),background:a.modoFixo?"transparent":"var(--prib)",color:a.modoFixo?"var(--tx3)":"var(--pri)",fontSize:11,fontWeight:700,cursor:"pointer"}}>📋 Por Insumos</button>
-                <button onClick={()=>updAmb(orc.id,a.id,{modoFixo:true})} style={{flex:1,padding:"7px 0",borderRadius:8,border:"1.5px solid "+(a.modoFixo?"var(--pri)":"var(--bd)"),background:a.modoFixo?"var(--prib)":"transparent",color:a.modoFixo?"var(--pri)":"var(--tx3)",fontSize:11,fontWeight:700,cursor:"pointer"}}>💰 Valor Direto</button>
+        {(()=>{
+          const classAmb=nome=>{const n=(nome||"").toLowerCase();if(/cozinha|hall|lavanderia|corredor|entrada|área de serviço|area de servico/.test(n))return 0;if(/suite|suíte|quarto|closet|dorm|master|hóspede|hospede|master/.test(n))return 1;if(/banheiro|wc|lavabo|banho/.test(n))return 2;return 3;};
+          const GRUPOS=[{label:"🍳 Cozinha / Hall / Lavanderia",cor:"#f59e0b"},{label:"🛏 Dormitórios / Closets",cor:"#6366f1"},{label:"🚿 Banheiros / WC",cor:"#0ea5e9"},{label:"📦 Outros",cor:"#64748b"}];
+          const agrupados=GRUPOS.map((_,gi)=>ambs.filter(a=>classAmb(a.nome)===gi));
+          let idx=0;
+          return GRUPOS.map((g,gi)=>{
+            const lista=agrupados[gi];
+            if(lista.length===0)return null;
+            return(<div key={gi} style={{marginBottom:18}}>
+              <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8,paddingBottom:4,borderBottom:`2px solid ${g.cor}22`}}>
+                <span style={{fontSize:11,fontWeight:800,color:g.cor,textTransform:"uppercase",letterSpacing:".8px"}}>{g.label}</span>
+                <span style={{fontSize:10,color:"var(--tx3)",fontWeight:600}}>({lista.length} ambiente{lista.length!==1?"s":""})</span>
+                <span style={{marginLeft:"auto",fontSize:12,fontWeight:800,color:g.cor}}>{R$(lista.reduce((s,a)=>s+(a.valorTotal||0),0))}</span>
               </div>
-              {a.modoFixo?(
-                <div style={{marginBottom:10}}>
-                  <label style={{display:"block",fontSize:13,fontWeight:800,color:"var(--tx2)",textTransform:"uppercase",letterSpacing:".5px",marginBottom:5}}>Valor do Ambiente R$</label>
-                  <input type="number" defaultValue={a.valorTotal||""} onBlur={e=>updAmb(orc.id,a.id,{valorTotal:+e.target.value,vi:+e.target.value})} step="0.01" placeholder="0,00" style={{width:"100%",minWidth:220,padding:"10px 12px",borderRadius:"var(--r)",border:"1.5px solid var(--pri)",background:"var(--sf)",color:"var(--tx)",fontSize:18,fontWeight:800,outline:"none"}}/>
-                </div>
-              ):(
-                <div style={{background:"var(--bg)",borderRadius:"var(--r)",padding:"12px 14px",border:"1.5px solid var(--bd)",display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
-                  <div style={{fontSize:12}}><span style={{color:"var(--tx3)",fontWeight:600}}>Custo: </span><span style={{fontWeight:700,color:"var(--tx2)"}}>{R$(a.vi)}</span><span style={{color:"var(--tx3)",fontWeight:600,marginLeft:4}}>× {orc.markup||MARKUP} = </span><span style={{fontWeight:800,color:"var(--pri)"}}>{R$(a.valorTotal)}</span></div>
-                  <Btn small v="secondary" onClick={()=>setInsModal(a.id)}><I.Calc/> Insumos</Btn>
-                </div>
-              )}
-              <div style={{textAlign:"right"}}><Btn v="danger" small onClick={()=>delAmb(orc.id,a.id)}><I.Trash/></Btn></div>
-            </div>}
-          </Card>
-        )})}
+              {lista.map(a=>{const i=idx++;const op=ambAberto===a.id;return(
+                <Card key={a.id} style={{marginBottom:8}}>
+                  <div onClick={()=>setAmbAberto(op?null:a.id)} style={{padding:"12px 18px",display:"flex",justifyContent:"space-between",alignItems:"center",cursor:"pointer",borderBottom:op?"1.5px solid var(--bd)":"none"}}>
+                    <div style={{display:"flex",alignItems:"center",gap:8}}><div style={{width:26,height:26,borderRadius:8,background:g.cor+"22",display:"flex",alignItems:"center",justifyContent:"center",color:g.cor,fontSize:11,fontWeight:800}}>{i+1}</div><span style={{fontWeight:700,fontSize:13,color:"var(--tx)"}}>{a.nome||"Sem nome"}</span></div>
+                    <div style={{display:"flex",alignItems:"center",gap:10}}><span style={{fontWeight:800,fontSize:15,color:"var(--pri)",minWidth:140,textAlign:"right"}}>{R$(a.valorTotal)}</span><I.Chev d={op?"up":"down"}/></div>
+                  </div>
+                  {op&&<div style={{padding:16}}>
+                    <Field label="Nome" value={a.nome} onChange={v=>updAmb(orc.id,a.id,{nome:v})} placeholder="Ex: Cozinha, Closet..." commitOnBlur/>
+                    <Field label="Descrição" value={a.desc} onChange={v=>updAmb(orc.id,a.id,{desc:v})} placeholder="Medidas, acabamentos..." rows={2} commitOnBlur/>
+                    <div style={{display:"flex",gap:6,marginBottom:10}}>
+                      <button onClick={()=>updAmb(orc.id,a.id,{modoFixo:false})} style={{flex:1,padding:"7px 0",borderRadius:8,border:"1.5px solid "+(a.modoFixo?"var(--bd)":"var(--pri)"),background:a.modoFixo?"transparent":"var(--prib)",color:a.modoFixo?"var(--tx3)":"var(--pri)",fontSize:11,fontWeight:700,cursor:"pointer"}}>📋 Por Insumos</button>
+                      <button onClick={()=>updAmb(orc.id,a.id,{modoFixo:true})} style={{flex:1,padding:"7px 0",borderRadius:8,border:"1.5px solid "+(a.modoFixo?"var(--pri)":"var(--bd)"),background:a.modoFixo?"var(--prib)":"transparent",color:a.modoFixo?"var(--pri)":"var(--tx3)",fontSize:11,fontWeight:700,cursor:"pointer"}}>💰 Valor Direto</button>
+                    </div>
+                    {a.modoFixo?(
+                      <div style={{marginBottom:10}}>
+                        <label style={{display:"block",fontSize:13,fontWeight:800,color:"var(--tx2)",textTransform:"uppercase",letterSpacing:".5px",marginBottom:5}}>Valor do Ambiente R$</label>
+                        <input type="number" defaultValue={a.valorTotal||""} onBlur={e=>updAmb(orc.id,a.id,{valorTotal:+e.target.value,vi:+e.target.value})} step="0.01" placeholder="0,00" style={{width:"100%",minWidth:220,padding:"10px 12px",borderRadius:"var(--r)",border:"1.5px solid var(--pri)",background:"var(--sf)",color:"var(--tx)",fontSize:18,fontWeight:800,outline:"none"}}/>
+                      </div>
+                    ):(
+                      <div style={{background:"var(--bg)",borderRadius:"var(--r)",padding:"12px 14px",border:"1.5px solid var(--bd)",display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+                        <div style={{fontSize:12}}><span style={{color:"var(--tx3)",fontWeight:600}}>Custo: </span><span style={{fontWeight:700,color:"var(--tx2)"}}>{R$(a.vi)}</span><span style={{color:"var(--tx3)",fontWeight:600,marginLeft:4}}>× {orc.markup||MARKUP} = </span><span style={{fontWeight:800,color:"var(--pri)"}}>{R$(a.valorTotal)}</span></div>
+                        <Btn small v="secondary" onClick={()=>setInsModal(a.id)}><I.Calc/> Insumos</Btn>
+                      </div>
+                    )}
+                    <div style={{textAlign:"right"}}><Btn v="danger" small onClick={()=>delAmb(orc.id,a.id)}><I.Trash/></Btn></div>
+                  </div>}
+                </Card>
+              );})}
+            </div>);
+          });
+        })()}
         {/* Prazo / Validade */}
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginTop:20}}>
           {[{k:"prazoEntrega",l:"Prazo de Entrega",pd:empresa.prazoExecucao||"A combinar"},{k:"validade",l:"Validade do Orçamento",pd:"30 dias"}].map(s=>(

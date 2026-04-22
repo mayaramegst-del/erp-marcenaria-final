@@ -894,7 +894,7 @@ function ModalPDF({o,empresa,getCli,setModal,totalOrcFinal,totalOrc,totalOrcComN
       <table className="svc-table">
         <thead><tr><th>Descrição</th><th className="r" style={{width:120}}>Valor</th></tr></thead>
         <tbody>
-          {[...o.ambientes].sort((a,b)=>{const ord=n=>{const s=(n||"").toLowerCase();if(/cozinha|hall|lavanderia|corredor|entrada|área de serviço/.test(s))return 0;if(/suite|suíte|quarto|closet|dorm|master|hóspede|hospede|penteadeira/.test(s))return 1;if(/banheiro|wc|lavabo|banho/.test(s))return 2;return 3;};return ord(a.nome)-ord(b.nome);}).map((a,i)=>(
+          {o.ambientes.map((a,i)=>(
             <tr key={a.id}>
               <td className="td-desc"><strong>{a.nome||`Serviço ${i+1}`}</strong>{a.desc&&<p>{a.desc}</p>}</td>
               <td className="td-val">{fmtR(a.valorTotal)}</td>
@@ -2967,6 +2967,7 @@ export default function ERP(){
   const addAmb=oid=>{const a={id:uid(),nome:"",desc:"",insumos:[],vi:0,valorTotal:0};updOrc(oid,o=>({...o,ambientes:[...o.ambientes,a]}));setAmbAberto(a.id)};
   const updAmb=(oid,aid,d)=>updOrc(oid,o=>({...o,ambientes:o.ambientes.map(a=>a.id===aid?{...a,...d}:a)}));
   const delAmb=(oid,aid)=>{updOrc(oid,o=>({...o,ambientes:o.ambientes.filter(a=>a.id!==aid)}));showToast("Removido","red")};
+  const moverAmb=(oid,aid,dir)=>updOrc(oid,o=>{const idx=o.ambientes.findIndex(a=>a.id===aid);if(idx<0)return o;const ni=idx+dir;if(ni<0||ni>=o.ambientes.length)return o;const arr=[...o.ambientes];[arr[idx],arr[ni]]=[arr[ni],arr[idx]];return{...o,ambientes:arr};});
 
   const addIns=(oid,aid)=>updOrc(oid,o=>({...o,ambientes:o.ambientes.map(a=>a.id===aid?{...a,insumos:[...a.insumos,{id:uid(),nome:"",qtd:1,vu:0}]}:a)}));
   const addInsFromEst=(oid,aid,e)=>updOrc(oid,o=>{const mk=o.markup||MARKUP;return{...o,ambientes:o.ambientes.map(a=>{if(a.id!==aid)return a;const ins=[...a.insumos,{id:uid(),nome:e.nome,qtd:1,vu:e.custo}];const vi=ins.reduce((s,i)=>s+(i.qtd*i.vu),0);return{...a,insumos:ins,vi,valorTotal:vi*mk}})};});
@@ -3544,11 +3545,18 @@ export default function ERP(){
           </div>
         </div>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}><h3 style={{fontSize:14,fontWeight:800,color:"var(--tx)"}}>Ambientes</h3><Btn small onClick={()=>addAmb(orc.id)}><I.Plus/> Ambiente</Btn></div>
-        {[...ambs].sort((a,b)=>{const ord=n=>{const s=(n||"").toLowerCase();if(/cozinha|hall|lavanderia|corredor|entrada|área de serviço/.test(s))return 0;if(/suite|suíte|quarto|closet|dorm|master|hóspede|hospede|penteadeira/.test(s))return 1;if(/banheiro|wc|lavabo|banho/.test(s))return 2;return 3;};return ord(a.nome)-ord(b.nome);}).map((a,i)=>{const op=ambAberto===a.id;return(
+        {ambs.map((a,i)=>{const op=ambAberto===a.id;return(
           <Card key={a.id} style={{marginBottom:8}}>
             <div onClick={()=>setAmbAberto(op?null:a.id)} style={{padding:"12px 18px",display:"flex",justifyContent:"space-between",alignItems:"center",cursor:"pointer",borderBottom:op?"1.5px solid var(--bd)":"none"}}>
               <div style={{display:"flex",alignItems:"center",gap:8}}><div style={{width:26,height:26,borderRadius:8,background:"var(--prib2)",display:"flex",alignItems:"center",justifyContent:"center",color:"var(--pri)",fontSize:11,fontWeight:800}}>{i+1}</div><span style={{fontWeight:700,fontSize:13,color:"var(--tx)"}}>{a.nome||"Sem nome"}</span></div>
-              <div style={{display:"flex",alignItems:"center",gap:10}}><span style={{fontWeight:800,fontSize:15,color:"var(--pri)",minWidth:140,textAlign:"right"}}>{R$(a.valorTotal)}</span><I.Chev d={op?"up":"down"}/></div>
+              <div style={{display:"flex",alignItems:"center",gap:10}}>
+                <span style={{fontWeight:800,fontSize:15,color:"var(--pri)",minWidth:140,textAlign:"right"}}>{R$(a.valorTotal)}</span>
+                <div style={{display:"flex",flexDirection:"column",gap:0}} onClick={e=>e.stopPropagation()}>
+                  <button title="Mover para cima" onClick={()=>moverAmb(orc.id,a.id,-1)} disabled={i===0} style={{background:"none",border:"none",color:i===0?"var(--bd)":"var(--tx2)",padding:"1px 4px",cursor:i===0?"default":"pointer",lineHeight:1}}><I.Chev d="up"/></button>
+                  <button title="Mover para baixo" onClick={()=>moverAmb(orc.id,a.id,1)} disabled={i===ambs.length-1} style={{background:"none",border:"none",color:i===ambs.length-1?"var(--bd)":"var(--tx2)",padding:"1px 4px",cursor:i===ambs.length-1?"default":"pointer",lineHeight:1}}><I.Chev d="down"/></button>
+                </div>
+                <I.Chev d={op?"up":"down"}/>
+              </div>
             </div>
             {op&&<div style={{padding:16}}>
               <Field label="Nome" value={a.nome} onChange={v=>updAmb(orc.id,a.id,{nome:v})} placeholder="Ex: Cozinha, Closet..." commitOnBlur/>

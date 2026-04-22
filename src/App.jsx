@@ -2904,6 +2904,8 @@ export default function ERP(){
 
   const criarOrc=cid=>{const o={id:uid(),num:`ORC-${String(orcamentos.length+1).padStart(4,"0")}`,clienteId:cid,data:hoje(),status:"rascunho",ambientes:[],garantia:empresa.garantia||GARANTIA,garantiaE:false,pagamento:empresa.pagamento||PAGAMENTO,pagamentoE:false,markup:MARKUP,desconto:0,vendedorId:"",percNF:0,especificacoes:empresa.especificacoes||ESPECIFICACOES,especificacoesE:false,validade:"30 dias",prazoEntrega:empresa.prazoExecucao||"A combinar"};setOrcamentos(p=>[...p,o]);setOrcAtivo(o.id);setTab("orcamentos");setModal(null);showToast(o.num+" criado!")};
 
+  const duplicarOrcSemDesc=oid=>{const orig=orcamentos.find(o=>o.id===oid);if(!orig)return;const novoId=uid();const novoNum=`ORC-${String(orcamentos.length+1).padStart(4,"0")}`;const novoAmbs=orig.ambientes.map(a=>({id:uid(),nome:a.nome,desc:"",insumos:[],vi:0,valorTotal:0}));const novo={...orig,id:novoId,num:novoNum,data:hoje(),status:"rascunho",ambientes:novoAmbs,desconto:0,descontoR:0};setOrcamentos(p=>[...p,novo]);setOrcAtivo(novoId);showToast(`${novoNum} criado — cópia sem descrições!`);};
+
   const importarOrcAnaPaula=()=>{
     const jaExiste=orcamentos.find(o=>{const c=clientes.find(x=>x.id===o.clienteId);return c?.nome?.toLowerCase().includes("ana paula");});
     if(jaExiste){return showToast("Orçamento Ana Paula já existe!","red");}
@@ -3668,12 +3670,15 @@ export default function ERP(){
       </div>
     )}
     return(<div style={{animation:"fadeIn .3s"}}><SH title="Orçamentos" sub={`${orcamentos.length} total`} right={<div style={{display:"flex",gap:8}}><Btn v="secondary" small onClick={importarOrcAnaPaula}>📥 Importar Ana Paula</Btn><Btn onClick={()=>setModal({t:"selCli"})}><I.Plus/> Novo</Btn></div>}/>
-      <Card><TH cols={[{l:"Nº",w:"90px"},{l:"Cliente",w:"2fr"},{l:"Data",w:"1fr"},{l:"Status",w:"90px"},{l:"Valor",w:"110px"},{l:"",w:"60px"}]}/>
-      {orcamentos.map(o=>{const c=getCli(o.clienteId);return(<div key={o.id} onClick={()=>setOrcAtivo(o.id)} className="hr" style={{display:"grid",gridTemplateColumns:"90px 2fr 1fr 90px 110px 60px",gap:6,padding:"10px 18px",borderBottom:"1.5px solid var(--bd)",alignItems:"center",cursor:"pointer",fontSize:12}}>
+      <Card><TH cols={[{l:"Nº",w:"90px"},{l:"Cliente",w:"2fr"},{l:"Data",w:"1fr"},{l:"Status",w:"90px"},{l:"Valor",w:"110px"},{l:"",w:"90px"}]}/>
+      {orcamentos.map(o=>{const c=getCli(o.clienteId);return(<div key={o.id} onClick={()=>setOrcAtivo(o.id)} className="hr" style={{display:"grid",gridTemplateColumns:"90px 2fr 1fr 90px 110px 90px",gap:6,padding:"10px 18px",borderBottom:"1.5px solid var(--bd)",alignItems:"center",cursor:"pointer",fontSize:12}}>
         <span style={{fontWeight:800,color:"var(--pri)"}}>{o.num}</span><span style={{color:"var(--tx)",fontWeight:600}}>{c?.nome}</span><span style={{color:"var(--tx3)"}}>{o.data}</span>
         <Badge color={o.status==="aprovado"?"green":o.status==="rejeitado"?"red":"pri"}>{o.status}</Badge>
         <span style={{fontWeight:700,color:"var(--tx)"}}>{R$(totalOrcFinal(o))}</span>
-        <button onClick={e=>{e.stopPropagation();setOrcamentos(p=>p.filter(x=>x.id!==o.id));showToast("Removido","red")}} style={{background:"none",border:"none",color:"var(--rd)",padding:3}}><I.Trash/></button>
+        <div style={{display:"flex",gap:2}}>
+          <button title="Duplicar sem descrições" onClick={e=>{e.stopPropagation();duplicarOrcSemDesc(o.id)}} style={{background:"none",border:"none",color:"var(--tx3)",padding:3}}><I.Copy/></button>
+          <button onClick={e=>{e.stopPropagation();setOrcamentos(p=>p.filter(x=>x.id!==o.id));showToast("Removido","red")}} style={{background:"none",border:"none",color:"var(--rd)",padding:3}}><I.Trash/></button>
+        </div>
       </div>)})}{orcamentos.length===0&&<div style={{padding:30,textAlign:"center",color:"var(--tx3)",fontSize:12,fontWeight:600}}>Nenhum orçamento</div>}</Card></div>);
   };
 

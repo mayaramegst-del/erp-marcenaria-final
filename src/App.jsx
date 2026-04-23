@@ -2515,6 +2515,7 @@ export default function ERP(){
   const [editRecDraft,setEditRecDraft]=useState({cliente:"",obs:""});
   const [poolTab,setPoolTab]=useState("1012");
   const recorrentesRef=useRef(recorrentes);useEffect(()=>{recorrentesRef.current=recorrentes;},[recorrentes]);
+  const pedidosRef=useRef(pedidos);useEffect(()=>{pedidosRef.current=pedidos;},[pedidos]);
   const recGeradoRef=useRef(false);
   const EMPRESA_DEF={nome:"Marcenaria",endereco:"",telefone:"",email:"",cnpj:"",logo:"",loginAdmin:"admin",senhaAdmin:"admin123"};
   const [empresa,setEmpresa]=useState(()=>{try{const s=JSON.parse(localStorage.getItem('erpEmpresa'));return s?{...EMPRESA_DEF,...s}:EMPRESA_DEF;}catch{return EMPRESA_DEF;}});
@@ -2951,7 +2952,7 @@ export default function ERP(){
         setPedidos(pp=>pp.map(p=>p.orcId===id?{...p,vt:vtFinalNew,ambs:newAmbs}:p));
         setFinanceiro(ff=>ff.map(f=>{
           if(!f.pedidoId)return f;
-          const ped=pedidos.find(p=>p.orcId===id&&p.id===f.pedidoId);
+          const ped=pedidosRef.current.find(p=>p.orcId===id&&p.id===f.pedidoId);
           if(!ped||f.tipo!=="receber")return f;
           const ratio=ped.vt>0?vtFinalNew/ped.vt:1;
           const parcelas=f.parcelas.map(p=>p.pago?p:{...p,valor:+(p.valor*ratio).toFixed(2)});
@@ -2962,7 +2963,7 @@ export default function ERP(){
       }
       return updated;
     }));
-  },[pedidos]);
+  },[]);
 
   const addAmb=oid=>{const a={id:uid(),nome:"",desc:"",insumos:[],vi:0,valorTotal:0};updOrc(oid,o=>({...o,ambientes:[...o.ambientes,a]}));setAmbAberto(a.id)};
   const updAmb=(oid,aid,d)=>updOrc(oid,o=>({...o,ambientes:o.ambientes.map(a=>a.id===aid?{...a,...d}:a)}));
@@ -3528,9 +3529,9 @@ export default function ERP(){
               <span style={{fontSize:10,opacity:.7}}>Markup ×</span>
               <BlurInput type="number" value={orc.markup||MARKUP} onCommit={v=>updOrc(orc.id,{markup:Math.max(1,+v||MARKUP)})} step="0.1" style={{width:58,padding:"3px 6px",borderRadius:6,border:"none",background:"rgba(255,255,255,.2)",color:"#fff",fontSize:12,fontWeight:700,textAlign:"center",outline:"none"}}/>
               <span style={{fontSize:10,opacity:.7}}>Desc%</span>
-              <input type="number" value={orc.desconto||0} onChange={e=>updOrc(orc.id,{desconto:Math.min(100,Math.max(0,+e.target.value||0))})} step="1" style={{width:48,padding:"3px 6px",borderRadius:6,border:"none",background:"rgba(255,255,255,.2)",color:"#fff",fontSize:12,fontWeight:700,textAlign:"center",outline:"none"}}/>
+              <BlurInput type="number" value={orc.desconto||0} onCommit={v=>updOrc(orc.id,{desconto:Math.min(100,Math.max(0,+v||0))})} step="1" style={{width:48,padding:"3px 6px",borderRadius:6,border:"none",background:"rgba(255,255,255,.2)",color:"#fff",fontSize:12,fontWeight:700,textAlign:"center",outline:"none"}}/>
               <span style={{fontSize:10,opacity:.7}}>Desc R$</span>
-              <input type="number" value={orc.descontoR||0} onChange={e=>updOrc(orc.id,{descontoR:Math.max(0,+e.target.value||0)})} step="0.01" style={{width:72,padding:"3px 6px",borderRadius:6,border:"none",background:"rgba(255,255,255,.2)",color:"#fff",fontSize:12,fontWeight:700,textAlign:"center",outline:"none"}}/>
+              <BlurInput type="number" value={orc.descontoR||0} onCommit={v=>updOrc(orc.id,{descontoR:Math.max(0,+v||0)})} step="0.01" style={{width:72,padding:"3px 6px",borderRadius:6,border:"none",background:"rgba(255,255,255,.2)",color:"#fff",fontSize:12,fontWeight:700,textAlign:"center",outline:"none"}}/>
               <span style={{fontSize:10,opacity:.7}}>NF%</span>
               <BlurInput type="number" value={orc.percNF||0} onCommit={v=>updOrc(orc.id,{percNF:Math.min(100,Math.max(0,+v||0))})} step="0.1" style={{width:48,padding:"3px 6px",borderRadius:6,border:"none",background:"rgba(255,255,255,.2)",color:"#fff",fontSize:12,fontWeight:700,textAlign:"center",outline:"none"}}/>
             </div>

@@ -4438,7 +4438,8 @@ export default function ERP(){
         {/* Conteúdo Pool 10x/12x */}
         {poolTab==="1012"&&(()=>{
           const mesAtual=new Date().toISOString().slice(0,7);
-          const proxParc=pool1012Parc.filter(p=>!p.pago&&p.venc&&p.venc.startsWith(mesAtual)).sort((a,b)=>a.venc>b.venc?1:-1);
+          const parcMes=pool1012Parc.filter(p=>p.venc&&p.venc.startsWith(mesAtual)).sort((a,b)=>a.pago===b.pago?(a.venc>b.venc?1:-1):a.pago?1:-1);
+          const parcPagasAnt=pool1012Parc.filter(p=>p.pago&&(!p.venc||!p.venc.startsWith(mesAtual))).sort((a,b)=>normDate(b.dataPago)>normDate(a.dataPago)?1:-1);
           return(<div style={{padding:16}}>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:10,marginBottom:14}}>
               <div style={{background:"var(--gnb)",borderRadius:"var(--r)",padding:"12px 14px",border:"1px solid var(--gn)33"}}>
@@ -4465,12 +4466,21 @@ export default function ERP(){
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
               <div>
                 <div style={{fontSize:10,fontWeight:800,color:"var(--bl)",textTransform:"uppercase",marginBottom:8}}>📅 Parcelas do mês — {new Date().toLocaleString("pt-BR",{month:"long",year:"numeric"})}</div>
-                {proxParc.length===0?<div style={{fontSize:11,color:"var(--tx3)"}}>Nenhuma parcela neste mês</div>
-                :proxParc.map((p,i)=><div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 0",borderBottom:"1px solid var(--bd)",fontSize:12,gap:8}}>
-                  <div style={{flex:1}}><div style={{fontWeight:700,color:"var(--tx)"}}>{p.desc}</div><div style={{fontSize:10,color:"var(--tx3)"}}>{isoToBR(p.venc)} · {FORMAS_LAB[p.formaPag]||p.formaPag}</div></div>
-                  <span style={{fontWeight:800,color:"var(--bl)",whiteSpace:"nowrap"}}>{R$(p.valor)}</span>
-                  <button onClick={()=>{baixarParc(p);showToast("Parcela baixada!");}} style={{padding:"4px 10px",borderRadius:6,background:"var(--gnb)",border:"1.5px solid var(--gn)",color:"var(--gn)",fontSize:11,fontWeight:800,cursor:"pointer",whiteSpace:"nowrap"}}>✓ Baixar</button>
+                {parcMes.length===0?<div style={{fontSize:11,color:"var(--tx3)"}}>Nenhuma parcela neste mês</div>
+                :parcMes.map((p,i)=><div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 0",borderBottom:"1px solid var(--bd)",fontSize:12,gap:8,opacity:p.pago?.85:1}}>
+                  <div style={{flex:1}}><div style={{fontWeight:700,color:"var(--tx)"}}>{p.desc}</div><div style={{fontSize:10,color:"var(--tx3)"}}>{isoToBR(p.venc)} · {FORMAS_LAB[p.formaPag]||p.formaPag}{p.pago&&p.dataPago?` · recebido ${isoToBR(normDate(p.dataPago))}`:""}</div></div>
+                  <span style={{fontWeight:800,color:p.pago?"var(--gn)":"var(--bl)",whiteSpace:"nowrap"}}>{R$(p.valor)}</span>
+                  {p.pago?<span style={{padding:"4px 10px",borderRadius:6,background:"var(--gnb)",border:"1.5px solid var(--gn)",color:"var(--gn)",fontSize:11,fontWeight:800,whiteSpace:"nowrap"}}>✓ Pago</span>
+                  :<button onClick={()=>{baixarParc(p);showToast("Parcela baixada!");}} style={{padding:"4px 10px",borderRadius:6,background:"var(--gnb)",border:"1.5px solid var(--gn)",color:"var(--gn)",fontSize:11,fontWeight:800,cursor:"pointer",whiteSpace:"nowrap"}}>✓ Baixar</button>}
                 </div>)}
+                {parcPagasAnt.length>0&&<>
+                  <div style={{fontSize:10,fontWeight:800,color:"var(--tx3)",textTransform:"uppercase",marginTop:14,marginBottom:6}}>📋 Recebidos em meses anteriores</div>
+                  {parcPagasAnt.map((p,i)=><div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"5px 0",borderBottom:"1px solid var(--bd)",fontSize:12,gap:8,opacity:.75}}>
+                    <div style={{flex:1}}><div style={{fontWeight:600,color:"var(--tx)"}}>{p.desc}</div><div style={{fontSize:10,color:"var(--tx3)"}}>{isoToBR(p.venc)} · recebido {isoToBR(normDate(p.dataPago))}</div></div>
+                    <span style={{fontWeight:800,color:"var(--gn)",whiteSpace:"nowrap"}}>{R$(p.valor)}</span>
+                    <span style={{padding:"3px 8px",borderRadius:6,background:"var(--gnb)",border:"1px solid var(--gn)",color:"var(--gn)",fontSize:10,fontWeight:700,whiteSpace:"nowrap"}}>✓ Pago</span>
+                  </div>)}
+                </>}
               </div>
               <div>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
@@ -4489,7 +4499,8 @@ export default function ERP(){
         {/* Conteúdo Pool 18x */}
         {poolTab==="18"&&(()=>{
           const mesAtual=new Date().toISOString().slice(0,7);
-          const proxParc18=pool18Parc.filter(p=>!p.pago&&p.venc&&p.venc.startsWith(mesAtual)).sort((a,b)=>a.venc>b.venc?1:-1);
+          const parcMes18=pool18Parc.filter(p=>p.venc&&p.venc.startsWith(mesAtual)).sort((a,b)=>a.pago===b.pago?(a.venc>b.venc?1:-1):a.pago?1:-1);
+          const parcPagasAnt18=pool18Parc.filter(p=>p.pago&&(!p.venc||!p.venc.startsWith(mesAtual))).sort((a,b)=>normDate(b.dataPago)>normDate(a.dataPago)?1:-1);
           return(<div style={{padding:16}}>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:10,marginBottom:14}}>
               <div style={{background:"var(--gnb)",borderRadius:"var(--r)",padding:"12px 14px",border:"1px solid var(--gn)33"}}>
@@ -4516,12 +4527,21 @@ export default function ERP(){
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
               <div>
                 <div style={{fontSize:10,fontWeight:800,color:"var(--pp)",textTransform:"uppercase",marginBottom:8}}>📅 Parcelas do mês — {new Date().toLocaleString("pt-BR",{month:"long",year:"numeric"})}</div>
-                {proxParc18.length===0?<div style={{fontSize:11,color:"var(--tx3)"}}>Nenhuma parcela neste mês</div>
-                :proxParc18.map((p,i)=><div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 0",borderBottom:"1px solid var(--bd)",fontSize:12,gap:8}}>
-                  <div style={{flex:1}}><div style={{fontWeight:700,color:"var(--tx)"}}>{p.desc}</div><div style={{fontSize:10,color:"var(--tx3)"}}>{isoToBR(p.venc)} · {FORMAS_LAB[p.formaPag]||p.formaPag}</div></div>
-                  <span style={{fontWeight:800,color:"var(--pp)",whiteSpace:"nowrap"}}>{R$(p.valor)}</span>
-                  <button onClick={()=>{baixarParc(p);showToast("Parcela baixada!");}} style={{padding:"4px 10px",borderRadius:6,background:"var(--gnb)",border:"1.5px solid var(--gn)",color:"var(--gn)",fontSize:11,fontWeight:800,cursor:"pointer",whiteSpace:"nowrap"}}>✓ Baixar</button>
+                {parcMes18.length===0?<div style={{fontSize:11,color:"var(--tx3)"}}>Nenhuma parcela neste mês</div>
+                :parcMes18.map((p,i)=><div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 0",borderBottom:"1px solid var(--bd)",fontSize:12,gap:8,opacity:p.pago?.85:1}}>
+                  <div style={{flex:1}}><div style={{fontWeight:700,color:"var(--tx)"}}>{p.desc}</div><div style={{fontSize:10,color:"var(--tx3)"}}>{isoToBR(p.venc)} · {FORMAS_LAB[p.formaPag]||p.formaPag}{p.pago&&p.dataPago?` · recebido ${isoToBR(normDate(p.dataPago))}`:""}</div></div>
+                  <span style={{fontWeight:800,color:p.pago?"var(--gn)":"var(--pp)",whiteSpace:"nowrap"}}>{R$(p.valor)}</span>
+                  {p.pago?<span style={{padding:"4px 10px",borderRadius:6,background:"var(--gnb)",border:"1.5px solid var(--gn)",color:"var(--gn)",fontSize:11,fontWeight:800,whiteSpace:"nowrap"}}>✓ Pago</span>
+                  :<button onClick={()=>{baixarParc(p);showToast("Parcela baixada!");}} style={{padding:"4px 10px",borderRadius:6,background:"var(--gnb)",border:"1.5px solid var(--gn)",color:"var(--gn)",fontSize:11,fontWeight:800,cursor:"pointer",whiteSpace:"nowrap"}}>✓ Baixar</button>}
                 </div>)}
+                {parcPagasAnt18.length>0&&<>
+                  <div style={{fontSize:10,fontWeight:800,color:"var(--tx3)",textTransform:"uppercase",marginTop:14,marginBottom:6}}>📋 Recebidos em meses anteriores</div>
+                  {parcPagasAnt18.map((p,i)=><div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"5px 0",borderBottom:"1px solid var(--bd)",fontSize:12,gap:8,opacity:.75}}>
+                    <div style={{flex:1}}><div style={{fontWeight:600,color:"var(--tx)"}}>{p.desc}</div><div style={{fontSize:10,color:"var(--tx3)"}}>{isoToBR(p.venc)} · recebido {isoToBR(normDate(p.dataPago))}</div></div>
+                    <span style={{fontWeight:800,color:"var(--gn)",whiteSpace:"nowrap"}}>{R$(p.valor)}</span>
+                    <span style={{padding:"3px 8px",borderRadius:6,background:"var(--gnb)",border:"1px solid var(--gn)",color:"var(--gn)",fontSize:10,fontWeight:700,whiteSpace:"nowrap"}}>✓ Pago</span>
+                  </div>)}
+                </>}
               </div>
               <div>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>

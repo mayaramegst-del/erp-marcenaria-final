@@ -54,7 +54,10 @@ const isoToBR=d=>{if(!d)return"";const p=d.split("-");return p.length===3?`${p[2
 const MARKUP=3.2;
 const CATS={pagar:["Aluguel","Folha/Comissão","Fornecedores","Marketing","Manutenção","Impostos","Utilidades","Outros"],receber:["Venda Móveis","Serviços","Outros"]};
 const getEmpresaCats=()=>{try{const e=JSON.parse(localStorage.getItem('erpEmpresa'));return{pagar:(e?.cats?.pagar?.length?e.cats.pagar:CATS.pagar),receber:(e?.cats?.receber?.length?e.cats.receber:CATS.receber)};}catch{return CATS;}};
-const GARANTIA=`Garantia de 12 meses contra defeitos de fabricação.\nNão cobre: mau uso, umidade excessiva, modificações por terceiros.\nAjustes dentro da garantia sem custo adicional.`;
+const GARANTIA=`Ferragens: A garantia de 1 (um) ano\nMadeira MDF: A garantia de 3 (três) anos`;
+const GARANTIA_OS=`Ferragens: A garantia de 1 (um) ano cobre defeitos de fabricação e vícios ocultos nas ferragens utilizadas nos móveis, como dobradiças, corrediças e puxadores.\n\nMadeira MDF: A garantia de 3 (três) anos cobre defeitos de fabricação na madeira MDF, incluindo deformações ou outros vícios estruturais.\n\nA garantia não cobre danos causados por mau uso, condições ambientais inadequadas, ou alterações feitas por terceiros sem a autorização da CONTRATADA.`;
+const MESES_PT=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+const mesVigente=()=>{const d=new Date();return`${MESES_PT[d.getMonth()]}/${String(d.getFullYear()).slice(2)}`;};
 const PAGAMENTO=`• 50% na aprovação\n• 30% início fabricação\n• 20% na entrega\n\nPIX (3% desc.), Transf., Boleto, Cartão até 10x.\nValidade: 15 dias.`;
 const ESPECIFICACOES=`Material: MDF 15mm com revestimento melamínico BP.\nFerros: Puxadores e corrediças Blum ou equivalente.\nAcabamento: Faca BP padrão, borda PVC 0,4mm colada a quente.\nMontagem: Inclusa no valor do projeto.`;
 const KCOLS=[{id:"aguardando",label:"Aguardando Aceite",color:"#94a3b8"},{id:"corte",label:"Plano de Corte",color:"#f59e0b"},{id:"montagem",label:"Montagem",color:"#3b82f6"},{id:"instalacao",label:"Instalação",color:"#8b5cf6"},{id:"concluido",label:"Concluído",color:"#10b981"}];
@@ -2934,7 +2937,7 @@ export default function ERP(){
     ];
     const oid=uid();
     const num=`ORC-${String(orcamentos.length+1).padStart(4,"0")}`;
-    const o={id:oid,num,clienteId:cliId,data:hoje(),status:"rascunho",ambientes:ambs,garantia:empresa.garantia||GARANTIA,garantiaE:false,pagamento:empresa.pagamento||PAGAMENTO,pagamentoE:false,markup:MARKUP,desconto:0,vendedorId:"",percNF:0,especificacoes:empresa.especificacoes||ESPECIFICACOES,especificacoesE:false,validade:"30 dias",prazoEntrega:empresa.prazoExecucao||"A combinar"};
+    const o={id:oid,num,clienteId:cliId,data:hoje(),status:"rascunho",ambientes:ambs,garantia:empresa.garantia||GARANTIA,garantiaE:false,pagamento:empresa.pagamento||PAGAMENTO,pagamentoE:false,markup:MARKUP,desconto:0,vendedorId:"",percNF:0,especificacoes:empresa.especificacoes||ESPECIFICACOES,especificacoesE:false,validade:mesVigente(),prazoEntrega:empresa.prazoExecucao||"A combinar"};
     setOrcamentos(p=>[...p,o]);
     setOrcAtivo(oid);
     setTab("orcamentos");
@@ -3031,7 +3034,7 @@ export default function ERP(){
     const vtFinal=totalOrcFinal(orc);
     const pid=uid();
     const num=`PED-${String(pedidos.length+1).padStart(4,"0")}`;
-    const p={id:pid,num,orcId:orc.id,clienteId:orc.clienteId,data:hoje(),dataEntrega:"",status:"em_espera",marcId:"",stage:"aguardando",mats,cm,vt:vtFinal,comPerc:0,comVal:0,vendedorId:orc.vendedorId||"",percNF:orc.percNF||0,pags:[],arquivos:[],ambs:orc.ambientes.map(a=>({nome:a.nome,desc:a.desc,val:a.valorTotal})),garantia:orc.garantia,pgTermos:orc.pagamento,matLanc:[]};
+    const p={id:pid,num,orcId:orc.id,clienteId:orc.clienteId,data:hoje(),dataEntrega:"",status:"em_espera",marcId:"",stage:"aguardando",mats,cm,vt:vtFinal,comPerc:0,comVal:0,vendedorId:orc.vendedorId||"",percNF:orc.percNF||0,pags:[],arquivos:[],ambs:orc.ambientes.map(a=>({nome:a.nome,desc:a.desc,val:a.valorTotal})),garantia:GARANTIA_OS,pgTermos:orc.pagamento,matLanc:[]};
     setPedidos(prev=>prev.some(x=>x.orcId===orc.id)?prev:[...prev,p]);
     updOrc(orc.id,{status:"aprovado"});
     // Gera entradas financeiras (fora do setPedidos — nunca chamar setState dentro de setState)
@@ -3583,7 +3586,7 @@ export default function ERP(){
         )})}
         {/* Prazo / Validade */}
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginTop:20}}>
-          {[{k:"prazoEntrega",l:"Prazo de Entrega",pd:empresa.prazoExecucao||"A combinar"},{k:"validade",l:"Validade do Orçamento",pd:"30 dias"}].map(s=>(
+          {[{k:"prazoEntrega",l:"Prazo de Entrega",pd:empresa.prazoExecucao||"A combinar"},{k:"validade",l:"Validade do Orçamento",pd:mesVigente()}].map(s=>(
             <Card key={s.k} style={{padding:16}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
                 <h4 style={{fontSize:11,fontWeight:800,color:"var(--tx)",textTransform:"uppercase",letterSpacing:".3px"}}>{s.l}</h4>

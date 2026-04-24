@@ -5409,7 +5409,17 @@ export default function ERP(){
   // RECEBIMENTOS PARCELADOS
   const PgRecebimentos=()=>{
     const updRec=(id,fn)=>setRecebimentos(prev=>prev.map(r=>r.id===id?fn(r):r));
-    const updParc=(rid,pid,d)=>updRec(rid,r=>({...r,parcelas:r.parcelas.map(p=>p.id===pid?{...p,...d}:p)}));
+    const addMes=(iso,n)=>{if(!iso)return"";const dt=new Date(iso+"T12:00:00");dt.setMonth(dt.getMonth()+n);return dt.toISOString().slice(0,10);};
+    const updParc=(rid,pid,d)=>updRec(rid,r=>{
+      const idx=r.parcelas.findIndex(p=>p.id===pid);
+      let parcelas=r.parcelas.map(p=>p.id===pid?{...p,...d}:p);
+      if(d.venc!==undefined&&idx>=0){
+        for(let i=idx+1;i<parcelas.length;i++){
+          if(!parcelas[i].pago) parcelas[i]={...parcelas[i],venc:addMes(d.venc,i-idx)};
+        }
+      }
+      return{...r,parcelas};
+    });
     const addParc=(rid)=>updRec(rid,r=>({...r,parcelas:[...r.parcelas,{id:uid(),num:r.parcelas.length+1,valor:0,venc:"",pago:false,dataPago:"",formaPag:""}]}));
     const delParc=(rid,pid)=>updRec(rid,r=>{const ps=r.parcelas.filter(p=>p.id!==pid).map((p,i)=>({...p,num:i+1}));return{...r,parcelas:ps};});
     const redistribuir=(rid)=>updRec(rid,r=>{if(!r.parcelas.length)return r;const vp=+(r.valorTotal/r.parcelas.length).toFixed(2);return{...r,parcelas:r.parcelas.map(p=>({...p,valor:vp}))};});

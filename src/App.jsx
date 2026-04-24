@@ -5420,9 +5420,24 @@ export default function ERP(){
       }
       return{...r,parcelas};
     });
-    const addParc=(rid)=>updRec(rid,r=>({...r,parcelas:[...r.parcelas,{id:uid(),num:r.parcelas.length+1,valor:0,venc:"",pago:false,dataPago:"",formaPag:""}]}));
+    const addParc=(rid)=>updRec(rid,r=>{
+      const lastDated=[...r.parcelas].reverse().find(p=>p.venc);
+      const novaVenc=lastDated?addMes(lastDated.venc,1):"";
+      return{...r,parcelas:[...r.parcelas,{id:uid(),num:r.parcelas.length+1,valor:0,venc:novaVenc,pago:false,dataPago:"",formaPag:""}]};
+    });
     const delParc=(rid,pid)=>updRec(rid,r=>{const ps=r.parcelas.filter(p=>p.id!==pid).map((p,i)=>({...p,num:i+1}));return{...r,parcelas:ps};});
     const redistribuir=(rid)=>updRec(rid,r=>{if(!r.parcelas.length)return r;const vp=+(r.valorTotal/r.parcelas.length).toFixed(2);return{...r,parcelas:r.parcelas.map(p=>({...p,valor:vp}))};});
+    const preencherDatas=(rid)=>updRec(rid,r=>{
+      let lastIdx=-1;
+      r.parcelas.forEach((p,i)=>{if(p.venc)lastIdx=i;});
+      if(lastIdx<0)return r;
+      const base=r.parcelas[lastIdx].venc;
+      const parcelas=r.parcelas.map((p,i)=>{
+        if(i<=lastIdx||p.pago||p.venc)return p;
+        return{...p,venc:addMes(base,i-lastIdx)};
+      });
+      return{...r,parcelas};
+    });
     const totalGeral=recebimentos.reduce((s,r)=>s+r.valorTotal,0);
     const totalPago=recebimentos.reduce((s,r)=>s+r.parcelas.filter(p=>p.pago).reduce((ss,p)=>ss+p.valor,0),0);
     const vencAtrasado=p=>p.venc&&p.venc<hojeISO()&&!p.pago;
@@ -5595,6 +5610,7 @@ export default function ERP(){
               <div style={{display:"flex",gap:6}}>
                 <Btn v="ghost" small onClick={()=>addParc(r.id)}><I.Plus/> Parcela</Btn>
                 <Btn v="ghost" small onClick={()=>redistribuir(r.id)}>⚖ Redistribuir</Btn>
+                <Btn v="ghost" small onClick={()=>{preencherDatas(r.id);showToast("Datas preenchidas!");}}>📅 Preencher datas</Btn>
               </div>
               <div style={{display:"flex",gap:8,alignItems:"center"}}>
                 <span style={{fontSize:11,color:"var(--tx3)",fontWeight:700}}>Total R$:</span>

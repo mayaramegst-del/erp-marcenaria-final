@@ -58,6 +58,7 @@ const GARANTIA=`Ferragens: A garantia de 1 (um) ano\nMadeira MDF: A garantia de 
 const GARANTIA_OS=`Ferragens: A garantia de 1 (um) ano cobre defeitos de fabricação e vícios ocultos nas ferragens utilizadas nos móveis, como dobradiças, corrediças e puxadores.\n\nMadeira MDF: A garantia de 3 (três) anos cobre defeitos de fabricação na madeira MDF, incluindo deformações ou outros vícios estruturais.\n\nA garantia não cobre danos causados por mau uso, condições ambientais inadequadas, ou alterações feitas por terceiros sem a autorização da CONTRATADA.`;
 const MESES_PT=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 const mesVigente=()=>{const d=new Date();return`${MESES_PT[d.getMonth()]}/${String(d.getFullYear()).slice(2)}`;};
+const addMes=(iso,n)=>{if(!iso)return"";const dt=new Date(iso+"T12:00:00");dt.setMonth(dt.getMonth()+n);return dt.toISOString().slice(0,10);};
 const PAGAMENTO=`• 50% na aprovação\n• 30% início fabricação\n• 20% na entrega\n\nPIX (3% desc.), Transf., Boleto, Cartão até 10x.\nValidade: 15 dias.`;
 const ESPECIFICACOES=`Material: MDF 15mm com revestimento melamínico BP.\nFerros: Puxadores e corrediças Blum ou equivalente.\nAcabamento: Faca BP padrão, borda PVC 0,4mm colada a quente.\nMontagem: Inclusa no valor do projeto.`;
 const KCOLS=[{id:"aguardando",label:"Aguardando Aceite",color:"#94a3b8"},{id:"corte",label:"Plano de Corte",color:"#f59e0b"},{id:"montagem",label:"Montagem",color:"#3b82f6"},{id:"instalacao",label:"Instalação",color:"#8b5cf6"},{id:"concluido",label:"Concluído",color:"#10b981"}];
@@ -3117,7 +3118,12 @@ export default function ERP(){
   };
 
   const addParcela=(finId)=>{
-    setFinanceiro(prev=>prev.map(f=>f.id===finId?{...f,parcelas:[...f.parcelas,{id:uid(),valor:0,venc:"",pago:false,dataPago:""}]}:f));
+    setFinanceiro(prev=>prev.map(f=>{
+      if(f.id!==finId)return f;
+      const lastDated=[...f.parcelas].reverse().find(p=>p.venc);
+      const novaVenc=lastDated?addMes(lastDated.venc,1):"";
+      return{...f,parcelas:[...f.parcelas,{id:uid(),valor:0,venc:novaVenc,pago:false,dataPago:""}]};
+    }));
   };
 
   const editParcela=(finId,parId,data)=>{
@@ -3127,6 +3133,46 @@ export default function ERP(){
       const valorPago=parcelas.filter(p=>p.pago).reduce((s,p)=>s+p.valor,0);
       const status=valorPago>=f.valor?"pago":valorPago>0?"parcial":"aberto";
       return{...f,parcelas,valorPago,status};
+    }));
+  };
+
+  const editParcelaVenc=(finId,parId,vencVal)=>{
+    setFinanceiro(prev=>prev.map(f=>{
+      if(f.id!==finId)return f;
+      const idx=f.parcelas.findIndex(p=>p.id===parId);
+      let parcelas=f.parcelas.map(p=>p.id===parId?{...p,venc:vencVal}:p);
+      if(vencVal&&idx>=0){
+        for(let i=idx+1;i<parcelas.length;i++){
+          if(!parcelas[i].pago&&!parcelas[i].venc)parcelas[i]={...parcelas[i],venc:addMes(vencVal,i-idx)};
+        }
+      }
+      const valorPago=parcelas.filter(p=>p.pago).reduce((s,p)=>s+p.valor,0);
+      const status=valorPago>=f.valor?"pago":valorPago>0?"parcial":"aberto";
+      return{...f,parcelas,valorPago,status};
+    }));
+  };
+
+  const redistribuirFin=(finId)=>{
+    setFinanceiro(prev=>prev.map(f=>{
+      if(f.id!==finId||!f.parcelas.length)return f;
+      const vp=+(f.valor/f.parcelas.length).toFixed(2);
+      const parcelas=f.parcelas.map(p=>p.pago?p:{...p,valor:vp});
+      return{...f,parcelas};
+    }));
+  };
+
+  const preencherDatasFin=(finId)=>{
+    setFinanceiro(prev=>prev.map(f=>{
+      if(f.id!==finId)return f;
+      let lastIdx=-1;
+      f.parcelas.forEach((p,i)=>{if(p.venc)lastIdx=i;});
+      if(lastIdx<0)return f;
+      const base=f.parcelas[lastIdx].venc;
+      const parcelas=f.parcelas.map((p,i)=>{
+        if(i<=lastIdx||p.pago||p.venc)return p;
+        return{...p,venc:addMes(base,i-lastIdx)};
+      });
+      return{...f,parcelas};
     }));
   };
 
@@ -3786,7 +3832,7 @@ export default function ERP(){
         </div></Card>
         <Card><CardHead title="Parcelas do Cliente" right={
           fin
-            ?<Btn v="ghost" small onClick={()=>addParcela(fin.id)}><I.Plus/> Parcela</Btn>
+            ?<div style={{display:"flex",gap:6}}><Btn v="ghost" small onClick={()=>addParcela(fin.id)}><I.Plus/> Parcela</Btn><Btn v="ghost" small onClick={()=>redistribuirFin(fin.id)}>⚖ Redistribuir</Btn><Btn v="ghost" small onClick={()=>{preencherDatasFin(fin.id);showToast("Datas preenchidas!");}}>📅 Preencher datas</Btn></div>
             :<Btn small onClick={()=>{
               const finId=uid();
               const paId=uid();
@@ -3813,7 +3859,7 @@ export default function ERP(){
                 <input type="number" defaultValue={pa.valor||""} key={pa.id+"_v"} onBlur={e=>editParcela(fin.id,pa.id,{valor:+e.target.value})} step="0.01" placeholder="0,00" style={{...(pa.pago?inpGN:inpST),width:"100%",fontWeight:700}}/>
               </div>
               <div><label style={{fontSize:9,fontWeight:800,color:pa.pago?"var(--gn)":"var(--tx3)",display:"block",marginBottom:2,textTransform:"uppercase"}}>{pa.pago?"Data Pago":"Vencimento"}</label>
-                <input type="date" value={(pa.pago?pa.dataPago:pa.venc)||""} onChange={e=>editParcela(fin.id,pa.id,pa.pago?{dataPago:e.target.value}:{venc:e.target.value})} style={{...(pa.pago?inpGN:inpST),width:"100%"}}/>
+                <input type="date" value={(pa.pago?pa.dataPago:pa.venc)||""} onChange={e=>pa.pago?editParcela(fin.id,pa.id,{dataPago:e.target.value}):editParcelaVenc(fin.id,pa.id,e.target.value)} style={{...(pa.pago?inpGN:inpST),width:"100%"}}/>
               </div>
               <div><label style={{fontSize:9,fontWeight:800,color:pa.pago?"var(--gn)":"var(--tx3)",display:"block",marginBottom:2,textTransform:"uppercase"}}>Forma Pag.</label>
                 <select value={pa.formaPag||""} onChange={e=>editParcela(fin.id,pa.id,{formaPag:e.target.value})} style={{...(pa.pago?inpGN:inpST),width:"100%"}}>
@@ -5409,7 +5455,6 @@ export default function ERP(){
   // RECEBIMENTOS PARCELADOS
   const PgRecebimentos=()=>{
     const updRec=(id,fn)=>setRecebimentos(prev=>prev.map(r=>r.id===id?fn(r):r));
-    const addMes=(iso,n)=>{if(!iso)return"";const dt=new Date(iso+"T12:00:00");dt.setMonth(dt.getMonth()+n);return dt.toISOString().slice(0,10);};
     const updParc=(rid,pid,d)=>updRec(rid,r=>{
       const idx=r.parcelas.findIndex(p=>p.id===pid);
       let parcelas=r.parcelas.map(p=>p.id===pid?{...p,...d}:p);

@@ -2486,6 +2486,8 @@ export default function ERP(){
   const [pedAtivo,setPedAtivo]=useState(null);
   const [ambAberto,setAmbAberto]=useState(null);
   const [insModal,setInsModal]=useState(null);
+  const [bibCustoOvr,setBibCustoOvr]=useState({});
+  useEffect(()=>setBibCustoOvr({}),[insModal]);
 
   // ── DATA STORE ──
   const [clientes,setClientes]=useState(()=>LS('clientes')||DEMO_CLIENTES);
@@ -3670,10 +3672,20 @@ export default function ERP(){
         {insModal&&orc.ambientes.find(a=>a.id===insModal)&&(()=>{
           const amb=orc.ambientes.find(a=>a.id===insModal);
           const getBibQty=b=>amb.insumos.find(i=>i.bibId===b.id||(!i.bibId&&i.nome===b.nome))?.qtd||0;
+          const getBibCusto=b=>{
+            const ins=amb.insumos.find(i=>i.bibId===b.id||(!i.bibId&&i.nome===b.nome));
+            return bibCustoOvr[b.id]??ins?.vu??(b.preco??b.custo??0);
+          };
           const setBibQty=(b,raw)=>{
             const q=Math.max(0,+raw||0);
-            const custo=b.preco??b.custo??0;
+            const custo=getBibCusto(b);
             updOrc(orc.id,o=>{const mk=o.markup||MARKUP;return{...o,ambientes:o.ambientes.map(a=>{if(a.id!==amb.id)return a;let ins=a.insumos.filter(i=>!(i.bibId===b.id||(!i.bibId&&i.nome===b.nome)));if(q>0)ins=[...ins,{id:uid(),nome:b.nome,qtd:q,vu:custo,bibId:b.id}];const vi=ins.reduce((s,i)=>s+i.qtd*i.vu,0);return{...a,insumos:ins,vi,valorTotal:vi*mk};})};});
+          };
+          const setBibCusto=(b,raw)=>{
+            const custo=Math.max(0,+raw||0);
+            setBibCustoOvr(prev=>({...prev,[b.id]:custo}));
+            const q=getBibQty(b);
+            if(q>0)updOrc(orc.id,o=>{const mk=o.markup||MARKUP;return{...o,ambientes:o.ambientes.map(a=>{if(a.id!==amb.id)return a;const ins=a.insumos.map(i=>(i.bibId===b.id||(!i.bibId&&i.nome===b.nome))?{...i,vu:custo}:i);const vi=ins.reduce((s,i)=>s+i.qtd*i.vu,0);return{...a,insumos:ins,vi,valorTotal:vi*mk};})};});
           };
           const manualIns=amb.insumos.filter(i=>!i.bibId);
           return(
@@ -3688,14 +3700,14 @@ export default function ERP(){
               {matLib.length===0
                 ?<div style={{padding:"12px 14px",background:"var(--amb)",borderRadius:"var(--r)",border:"1.5px dashed var(--bd)",fontSize:12,color:"var(--tx3)",marginBottom:14}}>Biblioteca vazia — cadastre materiais na aba <strong>Estoque → Biblioteca de Materiais</strong> primeiro.</div>
                 :<div style={{border:"1.5px solid var(--bd)",borderRadius:"var(--r)",overflow:"hidden",marginBottom:14}}>
-                  <div style={{display:"grid",gridTemplateColumns:"2fr 55px 100px 80px 90px",background:"var(--bg)",padding:"7px 12px",borderBottom:"1.5px solid var(--bd)"}}>
-                    {["Insumo","Un.","Custo un.","Qtd","Subtotal"].map(h=><span key={h} style={{fontSize:9,fontWeight:800,textTransform:"uppercase",letterSpacing:".6px",color:"var(--tx3)"}}>{h}</span>)}
+                  <div style={{display:"grid",gridTemplateColumns:"2fr 55px 110px 80px 90px",background:"var(--bg)",padding:"7px 12px",borderBottom:"1.5px solid var(--bd)"}}>
+                    {["Insumo","Un.","Custo un. ✏","Qtd","Subtotal"].map(h=><span key={h} style={{fontSize:9,fontWeight:800,textTransform:"uppercase",letterSpacing:".6px",color:h.includes("✏")?"var(--pri)":"var(--tx3)"}}>{h}</span>)}
                   </div>
-                  {matLib.map(b=>{const q=getBibQty(b);const custo=b.preco??b.custo??0;return(
-                    <div key={b.id} style={{display:"grid",gridTemplateColumns:"2fr 55px 100px 80px 90px",padding:"8px 12px",borderBottom:"1px solid var(--bd)",alignItems:"center",background:q>0?"var(--prib)":"transparent",transition:"background .15s"}}>
+                  {matLib.map(b=>{const q=getBibQty(b);const custo=getBibCusto(b);const editado=bibCustoOvr[b.id]!==undefined||(amb.insumos.find(i=>i.bibId===b.id)?.vu!==(b.preco??b.custo??0));return(
+                    <div key={b.id} style={{display:"grid",gridTemplateColumns:"2fr 55px 110px 80px 90px",padding:"8px 12px",borderBottom:"1px solid var(--bd)",alignItems:"center",background:q>0?"var(--prib)":"transparent",transition:"background .15s"}}>
                       <span style={{fontSize:12,fontWeight:q>0?700:500,color:q>0?"var(--pri)":"var(--tx)"}}>{b.nome}</span>
                       <span style={{fontSize:11,color:"var(--tx3)"}}>{b.unidade||b.un||"—"}</span>
-                      <span style={{fontSize:11,color:"var(--tx2)"}}>{R$(custo)}</span>
+                      <BlurInput type="number" value={custo} onCommit={v=>setBibCusto(b,v)} step="0.01" style={{width:"100%",padding:"5px 6px",borderRadius:7,border:`1.5px solid ${editado?"var(--am)":"var(--bd)"}`,background:editado?"var(--amb)":"var(--sf)",color:"var(--tx)",fontSize:12,fontWeight:editado?700:400,outline:"none",textAlign:"right"}}/>
                       <BlurInput type="number" value={q||""} onCommit={v=>setBibQty(b,v)} placeholder="0" style={{width:"100%",padding:"5px 6px",borderRadius:7,border:`1.5px solid ${q>0?"var(--pri)":"var(--bd)"}`,background:"var(--sf)",color:"var(--tx)",fontSize:13,fontWeight:q>0?700:400,outline:"none",textAlign:"center"}}/>
                       <span style={{fontSize:12,fontWeight:700,color:q>0?"var(--pri)":"var(--tx3)",textAlign:"right",paddingRight:4}}>{q>0?R$(q*custo):"—"}</span>
                     </div>

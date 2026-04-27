@@ -2520,7 +2520,7 @@ export default function ERP(){
   const [poolTab,setPoolTab]=useState("1012");
   const recorrentesRef=useRef(recorrentes);useEffect(()=>{recorrentesRef.current=recorrentes;},[recorrentes]);
   const pedidosRef=useRef(pedidos);useEffect(()=>{pedidosRef.current=pedidos;},[pedidos]);
-  const recGeradoRef=useRef(false);
+  const recGeradoRef=useRef(false); // mantido por compatibilidade, não usado como lock
   const EMPRESA_DEF={nome:"Marcenaria",endereco:"",telefone:"",email:"",cnpj:"",logo:"",loginAdmin:"admin",senhaAdmin:"admin123"};
   const [empresa,setEmpresa]=useState(()=>{try{const s=JSON.parse(localStorage.getItem('erpEmpresa'));return s?{...EMPRESA_DEF,...s}:EMPRESA_DEF;}catch{return EMPRESA_DEF;}});
 
@@ -2879,19 +2879,27 @@ export default function ERP(){
   // eslint-disable-next-line react-hooks/exhaustive-deps
   },[dbLoaded]);
 
-  // Auto-gerar contas recorrentes no mês atual
-  // Lock de sessão (recGeradoRef) + guard por dados: nunca gera duas vezes
+  // Auto-gerar contas recorrentes — verifica últimos 3 meses + atual para recuperar meses perdidos
   useEffect(()=>{
-    if(!dbLoaded||recGeradoRef.current)return;
-    recGeradoRef.current=true;
-    const mes=hojeISO().slice(0,7);
+    if(!dbLoaded)return;
     const recs=recorrentesRef.current.filter(r=>r.ativo);
     if(!recs.length)return;
+    // Monta lista de meses: 2 anteriores + atual
+    const meses=[];
+    for(let i=2;i>=0;i--){
+      const d=new Date(hojeISO()+"T12:00:00");
+      d.setMonth(d.getMonth()-i);
+      meses.push(d.toISOString().slice(0,7));
+    }
     setFinanceiro(prev=>{
-      // Verifica existência usando _getFinMes para cobrir casos com venc=undefined
-      const novas=recs.filter(r=>
-        !prev.some(f=>f.recorrenteId===r.id&&_getFinMes(f)===mes)
-      ).map(r=>({id:uid(),tipo:r.tipo||"pagar",desc:`${r.desc} ${mes}`,valor:r.valor,valorPago:0,parcelas:[{id:uid(),valor:r.valor,venc:`${mes}-${String(r.dia||1).padStart(2,"0")}`,pago:false,dataPago:""}],categoria:r.categoria||"Outros",recorrenteId:r.id,fornecedor:r.fornecedor||"",status:"aberto"}));
+      const novas=[];
+      meses.forEach(mes=>{
+        recs.forEach(r=>{
+          const jaExiste=prev.some(f=>f.recorrenteId===r.id&&_getFinMes(f)===mes)
+            ||novas.some(f=>f.recorrenteId===r.id&&_getFinMes(f)===mes);
+          if(!jaExiste)novas.push({id:uid(),tipo:r.tipo||"pagar",desc:`${r.desc} ${mes}`,valor:r.valor,valorPago:0,parcelas:[{id:uid(),valor:r.valor,venc:`${mes}-${String(r.dia||1).padStart(2,"0")}`,pago:false,dataPago:""}],categoria:r.categoria||"Outros",recorrenteId:r.id,fornecedor:r.fornecedor||"",status:"aberto"});
+        });
+      });
       if(!novas.length)return prev;
       setTimeout(()=>showToast(`${novas.length} conta(s) recorrente(s) gerada(s)!`),200);
       return[...prev,...novas];

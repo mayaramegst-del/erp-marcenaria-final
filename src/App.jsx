@@ -678,7 +678,7 @@ function ModalPDF({o,empresa,getCli,setModal,totalOrcFinal,totalOrc,totalOrcComN
   const zoneRef=useRef(null);
   const fmtR=v=>"R$ "+(v||0).toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2});
   const validadeTxt=o.validade||(()=>{const m=(o.pagamento||"").match(/validade[:\s]+([^\n.]+)/i);return m?m[1].trim():"30 dias";})();
-  const prazoTxt=(o.prazoEntrega&&o.prazoEntrega!=="A combinar")?o.prazoEntrega:(empresa.prazoExecucao||"A combinar");
+  const prazoTxt=(o.prazoCustom&&o.prazoEntrega)?o.prazoEntrega:(empresa.prazoExecucao||"A combinar");
   const tema=PDF_TEMAS[empresa.pdfTema]||PDF_TEMAS.classico;
   const layout=empresa.pdfLayout||"tradicional";
   const D=tema.dark, A=tema.acc, AL=tema.accLight;
@@ -3640,12 +3640,12 @@ export default function ERP(){
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
                 <h4 style={{fontSize:11,fontWeight:800,color:"var(--tx)",textTransform:"uppercase",letterSpacing:".3px"}}>{s.l}</h4>
                 {orc[s.k+"E"]
-                  ?<Btn small onClick={()=>updOrc(orc.id,{[s.k+"E"]:false})}><I.Check/></Btn>
+                  ?<Btn small onClick={()=>updOrc(orc.id,{[s.k+"E"]:false,...(s.k==="prazoEntrega"?{prazoCustom:true}:{})})}><I.Check/></Btn>
                   :<Btn v="ghost" small onClick={()=>updOrc(orc.id,{[s.k+"E"]:true})}><I.Edit/></Btn>}
               </div>
               {orc[s.k+"E"]
-                ?<Field value={(orc[s.k]&&orc[s.k]!=="A combinar")?orc[s.k]:s.pd} onChange={v=>updOrc(orc.id,{[s.k]:v})} placeholder={s.pd} commitOnBlur/>
-                :<div style={{fontSize:13,fontWeight:700,color:"var(--pri)"}}>{(orc[s.k]&&orc[s.k]!=="A combinar")?orc[s.k]:s.pd}</div>}
+                ?<Field value={s.k==="prazoEntrega"?(orc.prazoCustom?orc[s.k]:s.pd):orc[s.k]||s.pd} onChange={v=>updOrc(orc.id,{[s.k]:v})} placeholder={s.pd} commitOnBlur/>
+                :<div style={{fontSize:13,fontWeight:700,color:"var(--pri)"}}>{s.k==="prazoEntrega"?(orc.prazoCustom&&orc[s.k]?orc[s.k]:s.pd):(orc[s.k]||s.pd)}</div>}
             </Card>
           ))}
         </div>

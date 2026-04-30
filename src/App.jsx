@@ -3644,8 +3644,8 @@ export default function ERP(){
                   :<Btn v="ghost" small onClick={()=>updOrc(orc.id,{[s.k+"E"]:true})}><I.Edit/></Btn>}
               </div>
               {orc[s.k+"E"]
-                ?<Field value={orc[s.k]||s.pd} onChange={v=>updOrc(orc.id,{[s.k]:v})} placeholder={s.pd} commitOnBlur/>
-                :<div style={{fontSize:13,fontWeight:700,color:"var(--pri)"}}>{orc[s.k]||s.pd}</div>}
+                ?<Field value={(orc[s.k]&&orc[s.k]!=="A combinar")?orc[s.k]:s.pd} onChange={v=>updOrc(orc.id,{[s.k]:v})} placeholder={s.pd} commitOnBlur/>
+                :<div style={{fontSize:13,fontWeight:700,color:"var(--pri)"}}>{(orc[s.k]&&orc[s.k]!=="A combinar")?orc[s.k]:s.pd}</div>}
             </Card>
           ))}
         </div>

@@ -678,7 +678,7 @@ function ModalPDF({o,empresa,getCli,setModal,totalOrcFinal,totalOrc,totalOrcComN
   const zoneRef=useRef(null);
   const fmtR=v=>"R$ "+(v||0).toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2});
   const validadeTxt=o.validade||(()=>{const m=(o.pagamento||"").match(/validade[:\s]+([^\n.]+)/i);return m?m[1].trim():"30 dias";})();
-  const prazoTxt=o.prazoEntrega||empresa.prazoExecucao||"A combinar";
+  const prazoTxt=(o.prazoEntrega&&o.prazoEntrega!=="A combinar")?o.prazoEntrega:(empresa.prazoExecucao||"A combinar");
   const tema=PDF_TEMAS[empresa.pdfTema]||PDF_TEMAS.classico;
   const layout=empresa.pdfLayout||"tradicional";
   const D=tema.dark, A=tema.acc, AL=tema.accLight;
@@ -2881,18 +2881,12 @@ export default function ERP(){
   // eslint-disable-next-line react-hooks/exhaustive-deps
   },[dbLoaded]);
 
-  // Auto-gerar contas recorrentes — verifica últimos 3 meses + atual para recuperar meses perdidos
+  // Auto-gerar contas recorrentes — apenas o mês atual
   useEffect(()=>{
     if(!dbLoaded)return;
     const recs=recorrentesRef.current.filter(r=>r.ativo);
     if(!recs.length)return;
-    // Monta lista de meses: 2 anteriores + atual
-    const meses=[];
-    for(let i=2;i>=0;i--){
-      const d=new Date(hojeISO()+"T12:00:00");
-      d.setMonth(d.getMonth()-i);
-      meses.push(d.toISOString().slice(0,7));
-    }
+    const meses=[hojeISO().slice(0,7)];
     setFinanceiro(prev=>{
       const novas=[];
       meses.forEach(mes=>{
@@ -2948,7 +2942,7 @@ export default function ERP(){
     ];
     const oid=uid();
     const num=`ORC-${String(orcamentos.length+1).padStart(4,"0")}`;
-    const o={id:oid,num,clienteId:cliId,data:hoje(),status:"rascunho",ambientes:ambs,garantia:empresa.garantia||GARANTIA,garantiaE:false,pagamento:empresa.pagamento||PAGAMENTO,pagamentoE:false,markup:MARKUP,desconto:0,vendedorId:"",percNF:0,especificacoes:empresa.especificacoes||ESPECIFICACOES,especificacoesE:false,validade:mesVigente(),prazoEntrega:empresa.prazoExecucao||"A combinar"};
+    const o={id:oid,num,clienteId:cliId,data:hoje(),status:"rascunho",ambientes:ambs,garantia:empresa.garantia||GARANTIA,garantiaE:false,pagamento:empresa.pagamento||PAGAMENTO,pagamentoE:false,markup:MARKUP,desconto:0,vendedorId:"",percNF:0,especificacoes:empresa.especificacoes||ESPECIFICACOES,especificacoesE:false,validade:mesVigente(),prazoEntrega:empresa.prazoExecucao||""};
     setOrcamentos(p=>[...p,o]);
     setOrcAtivo(oid);
     setTab("orcamentos");
@@ -4325,9 +4319,9 @@ export default function ERP(){
     const saidoMes=parPagoMesPag.reduce((s,p)=>s+p.valor,0);
     const esteMesRec=recebidoMes+parMesRec.reduce((s,p)=>s+p.valor,0);
     const esteMesPag=saidoMes+parMesPag.reduce((s,p)=>s+p.valor,0);
-    // VENCIDOS
-    const parVencRec=parcelasFluxo.filter(p=>!p.pago&&p.venc&&p.venc<hj&&p.tipo==="receber");
-    const parVencPag=parcelasFluxo.filter(p=>!p.pago&&p.venc&&p.venc<hj&&p.tipo==="pagar");
+    // VENCIDOS — apenas do mês vigente
+    const parVencRec=parcelasFluxo.filter(p=>!p.pago&&p.venc&&p.venc<hj&&p.venc.startsWith(mesAtual)&&p.tipo==="receber");
+    const parVencPag=parcelasFluxo.filter(p=>!p.pago&&p.venc&&p.venc<hj&&p.venc.startsWith(mesAtual)&&p.tipo==="pagar");
     const vencidoRec=parVencRec.reduce((s,p)=>s+p.valor,0);
     const vencidoPag=parVencPag.reduce((s,p)=>s+p.valor,0);
     // TOTAIS — excluir recebimentos de cartão (pool) do saldo do caixa

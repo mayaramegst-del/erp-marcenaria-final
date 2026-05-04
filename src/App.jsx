@@ -987,10 +987,174 @@ function ModalPDF({o,empresa,getCli,setModal,totalOrcFinal,totalOrc,totalOrcComN
     <div className="sec-title">Serviços</div>
   </>;
 
+  const cssContrato=`
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{background:#fff}
+    .ct-page{font-family:'Georgia','Times New Roman',serif;background:#fff;color:#1a1a1a;font-size:12pt;line-height:1.75;padding:44px 52px;max-width:800px;margin:0 auto}
+    .ct-hdr{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px double #1a1a1a;padding-bottom:18px;margin-bottom:22px}
+    .ct-logo{max-height:72px;max-width:160px;object-fit:contain}
+    .ct-emp-nome{font-size:15pt;font-weight:700;color:#1a1a1a;margin-bottom:2px;font-family:'Calibri','Segoe UI',sans-serif}
+    .ct-emp-info{font-size:9pt;color:#555;line-height:1.8;font-family:'Calibri','Segoe UI',sans-serif}
+    .ct-titulo-bloco{text-align:center;margin:20px 0 18px;border-bottom:1px solid #ccc;padding-bottom:16px}
+    .ct-titulo{font-size:15pt;font-weight:800;text-transform:uppercase;letter-spacing:2px;display:block;color:#1a1a1a}
+    .ct-subtitulo{font-size:10.5pt;color:#555;display:block;margin-top:5px;font-style:italic}
+    .ct-num{font-size:9.5pt;color:#777;display:block;margin-top:4px;font-family:'Calibri','Segoe UI',sans-serif}
+    .ct-partes{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin:18px 0;background:#f8f8f8;padding:16px 20px;border:1px solid #ddd;border-radius:2px}
+    .ct-parte-label{font-size:7.5pt;font-weight:800;text-transform:uppercase;letter-spacing:2px;color:#999;margin-bottom:6px;font-family:'Calibri','Segoe UI',sans-serif}
+    .ct-parte-nome{font-size:13pt;font-weight:700;color:#111;margin-bottom:3px}
+    .ct-parte-info{font-size:9.5pt;color:#555;line-height:1.8;font-family:'Calibri','Segoe UI',sans-serif}
+    .ct-intro{font-size:11.5pt;color:#333;text-align:justify;margin:14px 0 18px;line-height:1.8}
+    .ct-clausula{margin:18px 0;break-inside:avoid;page-break-inside:avoid}
+    .ct-clausula-titulo{font-size:11.5pt;font-weight:800;text-transform:uppercase;color:#1a1a1a;margin-bottom:8px;letter-spacing:.5px;font-family:'Calibri','Segoe UI',sans-serif}
+    .ct-clausula-corpo{font-size:11.5pt;color:#333;text-align:justify;white-space:pre-line;line-height:1.8}
+    .ct-paragrafo{font-size:11pt;color:#444;text-align:justify;margin-top:9px;font-style:italic;line-height:1.75}
+    .ct-svc-table{width:100%;border-collapse:collapse;margin:12px 0;font-size:11pt}
+    .ct-svc-table th{font-size:8.5pt;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:#666;padding:7px 4px;border-bottom:1.5px solid #333;text-align:left;font-family:'Calibri','Segoe UI',sans-serif}
+    .ct-svc-table th.r{text-align:right}
+    .ct-svc-table td{padding:9px 4px;border-bottom:1px solid #e5e5e5;vertical-align:top;font-size:11.5pt}
+    .ct-svc-table td strong{font-size:12pt;display:block;margin-bottom:2px}
+    .ct-svc-table td.r{text-align:right;font-weight:800;white-space:nowrap}
+    .ct-svc-table td p{font-size:10.5pt;color:#555;white-space:pre-line;line-height:1.6;margin-top:3px}
+    .ct-total-linha{display:flex;justify-content:flex-end;align-items:center;gap:16px;margin-top:10px;padding-top:10px;border-top:2px solid #1a1a1a}
+    .ct-total-label{font-size:10pt;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:#555;font-family:'Calibri','Segoe UI',sans-serif}
+    .ct-total-valor{font-size:16pt;font-weight:800;color:#1a1a1a}
+    .ct-cond-box{margin-top:10px;padding:12px 16px;background:#f8f8f8;border:1px solid #ddd;border-radius:2px;font-size:11pt;color:#333;white-space:pre-line;line-height:1.8}
+    .ct-cidade-data{text-align:center;font-size:11pt;color:#555;margin:36px 0 28px;font-style:italic}
+    .ct-assinaturas{display:grid;grid-template-columns:1fr 1fr;gap:60px;break-inside:avoid;page-break-inside:avoid}
+    .ct-assinatura{text-align:center}
+    .ct-ass-espaco{height:64px}
+    .ct-ass-linha{border-top:1.5px solid #1a1a1a;padding-top:8px;margin-top:0}
+    .ct-ass-nome{font-size:11pt;font-weight:800;color:#111}
+    .ct-ass-doc{font-size:9pt;color:#666;margin-top:2px}
+    .ct-ass-role{font-size:8pt;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#999;margin-top:3px;font-family:'Calibri','Segoe UI',sans-serif}
+    .ct-rodape{text-align:center;font-size:8.5pt;color:#bbb;border-top:1px solid #e8e8e8;margin-top:32px;padding-top:12px;font-family:'Calibri','Segoe UI',sans-serif}
+  `;
+
+  const ContractBody=()=>{
+    const cidade=(empresa.endereco||"").split(/[-,]/).pop()?.trim().replace(/\s*\/.*$/,"").trim()||"";
+    const garantiaTxt=o.garantia||GARANTIA_OS;
+    const especTxt=o.especificacoes;
+    const pagTxt=o.pagamento||"A combinar";
+    let clausulaNum=1;
+    const cn=()=>{const n=clausulaNum++;return`Cláusula ${n}ª`;};
+    return(
+      <div className="ct-page">
+        <div className="ct-hdr">
+          <div>{empresa.logo?<img src={empresa.logo} className="ct-logo" alt="logo"/>:<div style={{width:120,height:56,background:"#1a1a1a",display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,fontWeight:800,color:"#fff",borderRadius:2}}>LOGO</div>}</div>
+          <div style={{textAlign:"right"}}>
+            <div className="ct-emp-nome">{empresa.nome||"Marcenaria"}</div>
+            {empresa.cnpj&&<div className="ct-emp-info">CNPJ: {empresa.cnpj}</div>}
+            {empresa.endereco&&<div className="ct-emp-info">{empresa.endereco}</div>}
+            {empresa.telefone&&<div className="ct-emp-info">{empresa.telefone}</div>}
+            {empresa.email&&<div className="ct-emp-info">{empresa.email}</div>}
+          </div>
+        </div>
+        <div className="ct-titulo-bloco">
+          <span className="ct-titulo">Contrato de Prestação de Serviços</span>
+          <span className="ct-subtitulo">Fabricação e Instalação de Móveis Planejados</span>
+          <span className="ct-num">Contrato nº {o.num} · {o.data}</span>
+        </div>
+        <div className="ct-partes">
+          <div>
+            <div className="ct-parte-label">Contratada</div>
+            <div className="ct-parte-nome">{empresa.nome||"Empresa"}</div>
+            {empresa.cnpj&&<div className="ct-parte-info">CNPJ: {empresa.cnpj}</div>}
+            {empresa.endereco&&<div className="ct-parte-info">{empresa.endereco}</div>}
+            {empresa.telefone&&<div className="ct-parte-info">{empresa.telefone}</div>}
+          </div>
+          <div>
+            <div className="ct-parte-label">Contratante</div>
+            <div className="ct-parte-nome">{c?.nome||"Cliente"}</div>
+            {c?.doc&&<div className="ct-parte-info">CPF/CNPJ: {c.doc}</div>}
+            {c?.endereco&&<div className="ct-parte-info">{c.endereco}</div>}
+            {c?.tel&&<div className="ct-parte-info">{c.tel}</div>}
+            {c?.email&&<div className="ct-parte-info">{c.email}</div>}
+          </div>
+        </div>
+        <p className="ct-intro">As partes acima qualificadas, denominadas simplesmente <strong>CONTRATADA</strong> e <strong>CONTRATANTE</strong>, celebram entre si o presente Contrato de Prestação de Serviços, que se regerá pelas cláusulas e condições a seguir:</p>
+
+        <div className="ct-clausula">
+          <div className="ct-clausula-titulo">{cn()} — Do Objeto</div>
+          <div className="ct-clausula-corpo">O presente contrato tem por objeto a fabricação, fornecimento e instalação de móveis planejados conforme especificações acordadas pelas partes, relacionados abaixo:</div>
+          <table className="ct-svc-table">
+            <thead><tr><th>Descrição do Serviço / Ambiente</th><th className="r">Valor</th></tr></thead>
+            <tbody>{o.ambientes.map((a,i)=><tr key={a.id}><td><strong>{a.nome||`Serviço ${i+1}`}</strong>{a.desc&&<p>{a.desc}</p>}</td><td className="r">{fmtR(a.valorTotal)}</td></tr>)}</tbody>
+          </table>
+          <div className="ct-total-linha">
+            <span className="ct-total-label">Valor Total do Contrato</span>
+            <span className="ct-total-valor">{fmtR(vtCliente)}</span>
+          </div>
+        </div>
+
+        <div className="ct-clausula">
+          <div className="ct-clausula-titulo">{cn()} — Do Valor e Forma de Pagamento</div>
+          <div className="ct-clausula-corpo">{`O valor global deste contrato é de ${fmtR(vtCliente)}, a ser pago conforme condições abaixo:`}</div>
+          <div className="ct-cond-box">{pagTxt}</div>
+          <p className="ct-paragrafo">Parágrafo Único: O não pagamento de qualquer parcela no prazo acordado sujeitará o CONTRATANTE à multa de 2% (dois por cento) sobre o valor em atraso, acrescida de juros de 1% (um por cento) ao mês, além de correção monetária.</p>
+        </div>
+
+        <div className="ct-clausula">
+          <div className="ct-clausula-titulo">{cn()} — Do Prazo de Execução e Entrega</div>
+          <div className="ct-clausula-corpo">{`O prazo estimado para fabricação e instalação dos móveis é de ${prazoTxt}, contados a partir da confirmação do pagamento da entrada e aprovação final do projeto pelo CONTRATANTE.\n\nParágrafo Único: O prazo poderá ser prorrogado mediante comunicação prévia ao CONTRATANTE nos casos de força maior, caso fortuito, ou em razão de alterações solicitadas pelo próprio CONTRATANTE após o início da produção.`}</div>
+        </div>
+
+        {especTxt&&<div className="ct-clausula">
+          <div className="ct-clausula-titulo">{cn()} — Das Especificações Técnicas</div>
+          <div className="ct-clausula-corpo">{especTxt}</div>
+        </div>}
+
+        <div className="ct-clausula">
+          <div className="ct-clausula-titulo">{cn()} — Da Garantia</div>
+          <div className="ct-clausula-corpo">{garantiaTxt}</div>
+          <p className="ct-paragrafo">Parágrafo Único: A garantia não abrange danos por mau uso, exposição inadequada à umidade ou calor, alterações realizadas por terceiros não autorizados, ou desgaste natural decorrente do uso cotidiano.</p>
+        </div>
+
+        <div className="ct-clausula">
+          <div className="ct-clausula-titulo">{cn()} — Das Obrigações da Contratada</div>
+          <div className="ct-clausula-corpo">{`A CONTRATADA compromete-se a:\n\nI — Executar os serviços dentro do prazo e especificações contratadas;\nII — Utilizar materiais de qualidade compatível com o padrão acordado;\nIII — Manter sigilo sobre todas as informações fornecidas pelo CONTRATANTE;\nIV — Realizar, às suas expensas, os reparos necessários durante o período de garantia;\nV — Designar equipe técnica qualificada para execução e instalação dos móveis.`}</div>
+        </div>
+
+        <div className="ct-clausula">
+          <div className="ct-clausula-titulo">{cn()} — Das Obrigações do Contratante</div>
+          <div className="ct-clausula-corpo">{`O CONTRATANTE compromete-se a:\n\nI — Efetuar os pagamentos nas datas e condições acordadas neste contrato;\nII — Disponibilizar o local para medição, produção e instalação nas datas combinadas;\nIII — Comunicar à CONTRATADA qualquer vício ou problema no prazo máximo de 30 (trinta) dias após a instalação;\nIV — Não realizar modificações nos móveis sem prévia autorização da CONTRATADA durante o período de garantia.`}</div>
+        </div>
+
+        <div className="ct-clausula">
+          <div className="ct-clausula-titulo">{cn()} — Da Rescisão</div>
+          <div className="ct-clausula-corpo">{`O presente contrato poderá ser rescindido por qualquer das partes mediante notificação por escrito com antecedência mínima de 10 (dez) dias, observando-se:\n\nI — Rescisão pelo CONTRATANTE após o início da produção: devidos os valores proporcionais aos serviços já executados, acrescidos de multa de 10% (dez por cento) sobre o saldo remanescente;\nII — Rescisão pela CONTRATADA sem justificativa legal: devolução ao CONTRATANTE dos valores pagos proporcionais aos serviços não executados.`}</div>
+        </div>
+
+        <div className="ct-clausula">
+          <div className="ct-clausula-titulo">{cn()} — Das Disposições Gerais</div>
+          <div className="ct-clausula-corpo">{`O presente instrumento representa o acordo integral entre as partes, substituindo quaisquer entendimentos ou negociações anteriores. Eventuais alterações somente terão validade se feitas por escrito e assinadas por ambas as partes.\n\nAs partes elegem o foro da Comarca de ${cidade||"domicílio da Contratada"} para dirimir quaisquer litígios oriundos deste contrato, com renúncia expressa a qualquer outro foro, por mais privilegiado que seja.`}</div>
+        </div>
+
+        <div className="ct-cidade-data">{cidade?`${cidade}, `:""}____ de __________________ de ________.</div>
+        <div className="ct-assinaturas">
+          <div className="ct-assinatura">
+            <div className="ct-ass-espaco"/>
+            <div className="ct-ass-linha"/>
+            <div className="ct-ass-nome">{empresa.nome||"Empresa"}</div>
+            {empresa.cnpj&&<div className="ct-ass-doc">CNPJ: {empresa.cnpj}</div>}
+            <div className="ct-ass-role">Contratada</div>
+          </div>
+          <div className="ct-assinatura">
+            <div className="ct-ass-espaco"/>
+            <div className="ct-ass-linha"/>
+            <div className="ct-ass-nome">{c?.nome||"Cliente"}</div>
+            {c?.doc&&<div className="ct-ass-doc">CPF/CNPJ: {c.doc}</div>}
+            <div className="ct-ass-role">Contratante</div>
+          </div>
+        </div>
+        <div className="ct-rodape">{empresa.nome}{empresa.cnpj?" · CNPJ "+empresa.cnpj:""}</div>
+      </div>
+    );
+  };
+
   return(<>
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
       <div style={{display:"flex",gap:6}}>
-        {["proposta","os"].map(t=><button key={t} onClick={()=>setTab(t)} style={{padding:"6px 16px",borderRadius:20,border:"1.5px solid "+(tab===t?"var(--pri)":"var(--bd)"),background:tab===t?"var(--prib)":"transparent",color:tab===t?"var(--pri)":"var(--tx3)",fontSize:11,fontWeight:700,cursor:"pointer"}}>{t==="proposta"?"📄 Proposta Comercial":"📋 Ordem de Serviço"}</button>)}
+        {["proposta","os","contrato"].map(t=><button key={t} onClick={()=>setTab(t)} style={{padding:"6px 16px",borderRadius:20,border:"1.5px solid "+(tab===t?"var(--pri)":"var(--bd)"),background:tab===t?"var(--prib)":"transparent",color:tab===t?"var(--pri)":"var(--tx3)",fontSize:11,fontWeight:700,cursor:"pointer"}}>{t==="proposta"?"📄 Proposta Comercial":t==="os"?"📋 Ordem de Serviço":"📜 Contrato"}</button>)}
       </div>
       <div style={{display:"flex",gap:6,alignItems:"center",flexWrap:"wrap"}}>
         <button onClick={()=>setSemTotal(v=>!v)} style={{padding:"5px 12px",borderRadius:20,border:`1.5px solid ${semTotal?"var(--am)":"var(--bd)"}`,background:semTotal?"rgba(245,158,11,.12)":"transparent",color:semTotal?"#d97706":"var(--tx3)",fontSize:11,fontWeight:700,cursor:"pointer"}}>
@@ -1003,33 +1167,32 @@ function ModalPDF({o,empresa,getCli,setModal,totalOrcFinal,totalOrc,totalOrcComN
       </div>
     </div>
     <div ref={zoneRef} style={{background:"#fff",borderRadius:8,overflow:"hidden",fontSize:11,lineHeight:1.6,maxHeight:"74vh",overflowY:"auto",border:"1.5px solid var(--bd)",boxShadow:"var(--sh2)"}}>
-      <style>{printCSS}</style>
-
-      {/* ── LAYOUT TRADICIONAL ── */}
-      {layout==="tradicional"&&<>
-        <div className="hdr">
-          <div className="logo-col"><LogoEl/></div>
-          <HdrCompany/>
-        </div>
-        <OrcBanner/><CliRow/><InfoGrid/><DocBody/>
-      </>}
-
-      {/* ── LAYOUT MODERNO ── */}
-      {layout==="moderno"&&<>
-        <div className="hdr">
-          <div className="logo-col"><LogoEl/></div>
-          <HdrCompany/>
-        </div>
-        <OrcBanner/><CliRow/><InfoGrid/><DocBody/>
-      </>}
-
-      {/* ── LAYOUT MINIMALISTA ── */}
-      {layout==="minimalista"&&<>
-        <div className="hdr">
-          <div className="logo-col"><LogoEl/></div>
-          <HdrCompany/>
-        </div>
-        <OrcBanner/><CliRow/><InfoGrid/><DocBody/>
+      {tab==="contrato"?<><style>{cssContrato}</style><ContractBody/></>:<>
+        <style>{printCSS}</style>
+        {/* ── LAYOUT TRADICIONAL ── */}
+        {layout==="tradicional"&&<>
+          <div className="hdr">
+            <div className="logo-col"><LogoEl/></div>
+            <HdrCompany/>
+          </div>
+          <OrcBanner/><CliRow/><InfoGrid/><DocBody/>
+        </>}
+        {/* ── LAYOUT MODERNO ── */}
+        {layout==="moderno"&&<>
+          <div className="hdr">
+            <div className="logo-col"><LogoEl/></div>
+            <HdrCompany/>
+          </div>
+          <OrcBanner/><CliRow/><InfoGrid/><DocBody/>
+        </>}
+        {/* ── LAYOUT MINIMALISTA ── */}
+        {layout==="minimalista"&&<>
+          <div className="hdr">
+            <div className="logo-col"><LogoEl/></div>
+            <HdrCompany/>
+          </div>
+          <OrcBanner/><CliRow/><InfoGrid/><DocBody/>
+        </>}
       </>}
     </div>
   </>);

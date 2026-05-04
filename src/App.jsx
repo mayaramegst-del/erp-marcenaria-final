@@ -4892,21 +4892,40 @@ export default function ERP(){
               const pedCom=pedidos.find(p=>p.id===f.pedidoId);
               const pago=(f.parcelas||[]).filter(p=>p.pago).reduce((s,p)=>s+p.valor,0);
               const pendente=(f.parcelas||[]).filter(p=>!p.pago).reduce((s,p)=>s+p.valor,0);
-              return(<div key={f.id} style={{borderBottom:"1px solid var(--bd)",paddingBottom:12,marginBottom:12}}>
-                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+              const pct=f.valor>0?Math.min(100,Math.round(pago/f.valor*100)):0;
+              const cliNome=getCli(pedCom?.clienteId)?.nome||pedCom?.cliente||"";
+              return(<div key={f.id} style={{borderBottom:"1px solid var(--bd)",paddingBottom:16,marginBottom:16}}>
+                {/* Cabeçalho */}
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:10}}>
                   <div>
-                    <div style={{fontSize:12,fontWeight:800,color:"var(--tx)"}}>{f.desc}{(()=>{const cliNome=getCli(pedCom?.clienteId)?.nome||pedCom?.cliente;return cliNome?<span style={{fontWeight:600,color:"var(--tx2)",marginLeft:6}}>— {cliNome}</span>:null;})()}</div>
-                    <div style={{fontSize:10,color:"var(--tx3)",display:"flex",gap:10,marginTop:2,flexWrap:"wrap"}}>
-                      <span>{marc?.nome}</span><span>Total: <b>{R$(f.valor)}</b></span>
-                      <span style={{color:"var(--gn)"}}>Pago: <b>{R$(pago)}</b></span>
-                      <span style={{color:pendente>0?"var(--rd)":"var(--tx3)"}}>Pendente: <b>{R$(pendente)}</b></span>
-                    </div>
+                    <div style={{fontSize:13,fontWeight:800,color:"var(--tx)"}}>{f.desc}</div>
+                    <div style={{fontSize:11,color:"var(--tx3)",marginTop:2}}>{marc?.nome}{cliNome&&` — ${cliNome}`}</div>
                   </div>
-                  <div style={{display:"flex",gap:6,alignItems:"center"}}>
+                  <div style={{display:"flex",gap:6,alignItems:"center",flexShrink:0,marginLeft:8}}>
                     <Badge color={pendente===0?"green":"red"}>{pendente===0?"✓ Quitado":"Pendente"}</Badge>
-                    <button onClick={()=>{if(window.confirm("Cancelar esta comissão? O lançamento será removido."))setFinanceiro(ff=>ff.filter(x=>x.id!==f.id));}} style={{padding:"3px 8px",borderRadius:5,background:"none",border:"1px solid var(--rd)",color:"var(--rd)",fontSize:10,cursor:"pointer",fontWeight:700}} title="Cancelar comissão">✕ Cancelar</button>
+                    <button onClick={()=>{if(window.confirm("Cancelar esta comissão? O lançamento será removido."))setFinanceiro(ff=>ff.filter(x=>x.id!==f.id));}} style={{padding:"3px 8px",borderRadius:5,background:"none",border:"1px solid var(--rd)",color:"var(--rd)",fontSize:10,cursor:"pointer",fontWeight:700}}>✕</button>
                   </div>
                 </div>
+                {/* Blocos de valor */}
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:8}}>
+                  <div style={{background:"var(--prib)",borderRadius:8,padding:"8px 10px",textAlign:"center"}}>
+                    <div style={{fontSize:9,color:"var(--pri)",fontWeight:700,textTransform:"uppercase",marginBottom:2}}>Total</div>
+                    <div style={{fontSize:13,fontWeight:800,color:"var(--pri)"}}>{R$(f.valor)}</div>
+                  </div>
+                  <div style={{background:"var(--gnb)",borderRadius:8,padding:"8px 10px",textAlign:"center"}}>
+                    <div style={{fontSize:9,color:"var(--gn)",fontWeight:700,textTransform:"uppercase",marginBottom:2}}>✓ Pago</div>
+                    <div style={{fontSize:13,fontWeight:800,color:"var(--gn)"}}>{R$(pago)}</div>
+                  </div>
+                  <div style={{background:pendente>0?"var(--rdb)":"var(--gnb)",borderRadius:8,padding:"8px 10px",textAlign:"center"}}>
+                    <div style={{fontSize:9,color:pendente>0?"var(--rd)":"var(--gn)",fontWeight:700,textTransform:"uppercase",marginBottom:2}}>Restante</div>
+                    <div style={{fontSize:13,fontWeight:800,color:pendente>0?"var(--rd)":"var(--gn)"}}>{R$(pendente)}</div>
+                  </div>
+                </div>
+                {/* Barra de progresso */}
+                <div style={{height:6,background:"var(--bd)",borderRadius:6,overflow:"hidden",marginBottom:10}}>
+                  <div style={{height:"100%",width:`${pct}%`,background:`linear-gradient(90deg,var(--gn),#34d399)`,borderRadius:6,transition:"width .4s"}}/>
+                </div>
+                <div style={{fontSize:10,color:"var(--tx3)",textAlign:"right",marginBottom:10,fontWeight:600}}>{pct}% pago</div>
                 {(f.parcelas||[]).length===0&&<div style={{fontSize:11,color:"var(--tx3)",fontStyle:"italic",marginBottom:6}}>Sem parcelas. Use "+ Parcela".</div>}
                 {(f.parcelas||[]).map((p,pi)=>(
                   <div key={p.id||pi} style={{display:"grid",gridTemplateColumns:"140px 100px 110px 1fr 28px",gap:6,alignItems:"flex-end",padding:"6px 0",borderBottom:"1px solid var(--bd)33"}}>

@@ -678,6 +678,7 @@ function ModalPDF({o,empresa,getCli,setModal,totalOrcFinal,totalOrc,totalOrcComN
   const ambVtDesc=a=>{if(!vtB||(!desc&&!descR))return a.valorTotal;return Math.max(0,(a.valorTotal-descR*(a.valorTotal/vtB)))*(1-desc/100);};
   const zoneRef=useRef(null);
   const fmtR=v=>"R$ "+(v||0).toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2});
+  const fmtDesc=v=>(v||0).toLocaleString("pt-BR",{minimumFractionDigits:0,maximumFractionDigits:3});
   const validadeTxt=o.validade||(()=>{const m=(o.pagamento||"").match(/validade[:\s]+([^\n.]+)/i);return m?m[1].trim():"30 dias";})();
   const prazoTxt=(o.prazoCustom&&o.prazoEntrega)?o.prazoEntrega:(empresa.prazoExecucao||"A combinar");
   const tema=PDF_TEMAS[empresa.pdfTema]||PDF_TEMAS.classico;
@@ -913,7 +914,7 @@ function ModalPDF({o,empresa,getCli,setModal,totalOrcFinal,totalOrc,totalOrcComN
       <div className="total-right">
         {(desc>0||descR>0)&&<div className="total-old">{fmtR(vtB)}</div>}
         <div className="total-val">{fmtR(vtCliente)}</div>
-        {(desc>0||descR>0)&&<div className="total-sub">{[descR>0&&`Desconto de ${fmtR(descR)}`,desc>0&&`${desc}% aplicado`].filter(Boolean).join(" + ")}</div>}
+        {(desc>0||descR>0)&&<div className="total-sub">{[descR>0&&`Desconto de ${fmtR(descR)}`,desc>0&&`${fmtDesc(desc)}% aplicado`].filter(Boolean).join(" + ")}</div>}
       </div>
     </div>}
     <div className="cond-wrap">
@@ -1089,10 +1090,10 @@ function ModalPDF({o,empresa,getCli,setModal,totalOrcFinal,totalOrc,totalOrcComN
 
         <div className="ct-clausula">
           <div className="ct-clausula-titulo">{cn()} — Do Valor e Forma de Pagamento</div>
-          <div className="ct-clausula-corpo">{(desc>0||descR>0)?`O valor original dos serviços é de ${fmtR(vtB)}, com desconto concedido de ${[descR>0&&fmtR(descR),desc>0&&`${desc}%`].filter(Boolean).join(" + ")}, totalizando o valor global deste contrato em ${fmtR(vtCliente)}, a ser pago conforme condições abaixo:`:`O valor global deste contrato é de ${fmtR(vtCliente)}, a ser pago conforme condições abaixo:`}</div>
+          <div className="ct-clausula-corpo">{(desc>0||descR>0)?`O valor original dos serviços é de ${fmtR(vtB)}, com desconto concedido de ${[descR>0&&fmtR(descR),desc>0&&`${fmtDesc(desc)}%`].filter(Boolean).join(" + ")}, totalizando o valor global deste contrato em ${fmtR(vtCliente)}, a ser pago conforme condições abaixo:`:`O valor global deste contrato é de ${fmtR(vtCliente)}, a ser pago conforme condições abaixo:`}</div>
           {(desc>0||descR>0)&&<div style={{display:"flex",alignItems:"center",gap:16,margin:"10px 0",padding:"10px 16px",background:"#f0fdf4",border:"1px solid #bbf7d0",borderRadius:2,flexWrap:"wrap"}}>
             <div style={{fontSize:"10.5pt",color:"#555"}}><span style={{textDecoration:"line-through",color:"#999"}}>{fmtR(vtB)}</span></div>
-            <div style={{fontSize:"10.5pt",color:"#16a34a",fontWeight:700}}>▼ Desconto: {[descR>0&&fmtR(descR),desc>0&&`${desc}%`].filter(Boolean).join(" + ")}</div>
+            <div style={{fontSize:"10.5pt",color:"#16a34a",fontWeight:700}}>▼ Desconto: {[descR>0&&fmtR(descR),desc>0&&`${fmtDesc(desc)}%`].filter(Boolean).join(" + ")}</div>
             <div style={{fontSize:"13pt",fontWeight:800,color:"#1a1a1a",marginLeft:"auto"}}>{fmtR(vtCliente)}</div>
           </div>}
           <div className="ct-cond-box">{pagTxt}</div>
@@ -3752,7 +3753,7 @@ export default function ERP(){
               <span style={{fontSize:10,opacity:.7}}>Markup ×</span>
               <BlurInput type="number" value={orc.markup||MARKUP} onCommit={v=>updOrc(orc.id,{markup:Math.max(1,+v||MARKUP)})} step="0.1" style={{width:58,padding:"3px 6px",borderRadius:6,border:"none",background:"rgba(255,255,255,.2)",color:"#fff",fontSize:12,fontWeight:700,textAlign:"center",outline:"none"}}/>
               <span style={{fontSize:10,opacity:.7}}>Desc%</span>
-              <BlurInput type="number" value={orc.desconto||0} onCommit={v=>updOrc(orc.id,{desconto:Math.min(100,Math.max(0,+v||0))})} step="1" style={{width:48,padding:"3px 6px",borderRadius:6,border:"none",background:"rgba(255,255,255,.2)",color:"#fff",fontSize:12,fontWeight:700,textAlign:"center",outline:"none"}}/>
+              <BlurInput type="number" value={orc.desconto||0} onCommit={v=>updOrc(orc.id,{desconto:Math.min(100,Math.max(0,+v||0))})} step="0.001" style={{width:64,padding:"3px 6px",borderRadius:6,border:"none",background:"rgba(255,255,255,.2)",color:"#fff",fontSize:12,fontWeight:700,textAlign:"center",outline:"none"}}/>
               <span style={{fontSize:10,opacity:.7}}>Desc R$</span>
               <BlurInput type="number" value={orc.descontoR||0} onCommit={v=>updOrc(orc.id,{descontoR:Math.max(0,+v||0)})} step="0.01" style={{width:72,padding:"3px 6px",borderRadius:6,border:"none",background:"rgba(255,255,255,.2)",color:"#fff",fontSize:12,fontWeight:700,textAlign:"center",outline:"none"}}/>
               <span style={{fontSize:10,opacity:.7}}>NF%</span>

@@ -385,7 +385,7 @@ function PgConfig({empresa,saveEmpresa,getBackup,importBackup,limparDuplicatas})
           <Field label="E-mail" value={f.email} onChange={v=>u("email",v)} placeholder="contato@empresa.com"/>
           <Field label="Endereço completo" value={f.endereco} onChange={v=>u("endereco",v)} placeholder="Rua, número - Cidade/UF"/>
         </div>
-        <Field label="Prazo padrão de execução (aparece nos orçamentos)" value={f.prazoExecucao||""} onChange={v=>u("prazoExecucao",v)} placeholder="Ex: 45 dias corridos"/>
+        <Field label="Prazo padrão de execução (aparece nos orçamentos)" value={f.prazoExecucao||""} onChange={v=>u("prazoExecucao",v)} placeholder="Ex: 45 dias corridos" rows={3}/>
       </Card>
       <Card style={{padding:24,marginBottom:16}}>
         <h3 style={{fontSize:18,fontWeight:800,color:"var(--tx)",marginBottom:16,textTransform:"uppercase",letterSpacing:".5px"}}>Logo da Empresa</h3>
@@ -3814,8 +3814,8 @@ export default function ERP(){
                   :<Btn v="ghost" small onClick={()=>updOrc(orc.id,{[s.k+"E"]:true})}><I.Edit/></Btn>}
               </div>
               {orc[s.k+"E"]
-                ?<Field value={s.k==="prazoEntrega"?(orc.prazoCustom?orc[s.k]:s.pd):orc[s.k]||s.pd} onChange={v=>updOrc(orc.id,{[s.k]:v})} placeholder={s.pd} commitOnBlur/>
-                :<div style={{fontSize:13,fontWeight:700,color:"var(--pri)"}}>{s.k==="prazoEntrega"?(orc.prazoCustom&&orc[s.k]?orc[s.k]:s.pd):(orc[s.k]||s.pd)}</div>}
+                ?<Field value={s.k==="prazoEntrega"?(orc.prazoCustom?orc[s.k]:s.pd):orc[s.k]||s.pd} onChange={v=>updOrc(orc.id,{[s.k]:v})} placeholder={s.pd} commitOnBlur rows={s.k==="prazoEntrega"?3:undefined}/>
+                :<div style={{fontSize:13,fontWeight:700,color:"var(--pri)",whiteSpace:s.k==="prazoEntrega"?"pre-line":undefined}}>{s.k==="prazoEntrega"?(orc.prazoCustom&&orc[s.k]?orc[s.k]:s.pd):(orc[s.k]||s.pd)}</div>}
             </Card>
           ))}
         </div>

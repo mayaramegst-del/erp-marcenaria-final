@@ -1088,7 +1088,12 @@ function ModalPDF({o,empresa,getCli,setModal,totalOrcFinal,totalOrc,totalOrcComN
 
         <div className="ct-clausula">
           <div className="ct-clausula-titulo">{cn()} — Do Valor e Forma de Pagamento</div>
-          <div className="ct-clausula-corpo">{`O valor global deste contrato é de ${fmtR(vtCliente)}, a ser pago conforme condições abaixo:`}</div>
+          <div className="ct-clausula-corpo">{(desc>0||descR>0)?`O valor original dos serviços é de ${fmtR(vtB)}, com desconto concedido de ${[descR>0&&fmtR(descR),desc>0&&`${desc}%`].filter(Boolean).join(" + ")}, totalizando o valor global deste contrato em ${fmtR(vtCliente)}, a ser pago conforme condições abaixo:`:`O valor global deste contrato é de ${fmtR(vtCliente)}, a ser pago conforme condições abaixo:`}</div>
+          {(desc>0||descR>0)&&<div style={{display:"flex",alignItems:"center",gap:16,margin:"10px 0",padding:"10px 16px",background:"#f0fdf4",border:"1px solid #bbf7d0",borderRadius:2,flexWrap:"wrap"}}>
+            <div style={{fontSize:"10.5pt",color:"#555"}}><span style={{textDecoration:"line-through",color:"#999"}}>{fmtR(vtB)}</span></div>
+            <div style={{fontSize:"10.5pt",color:"#16a34a",fontWeight:700}}>▼ Desconto: {[descR>0&&fmtR(descR),desc>0&&`${desc}%`].filter(Boolean).join(" + ")}</div>
+            <div style={{fontSize:"13pt",fontWeight:800,color:"#1a1a1a",marginLeft:"auto"}}>{fmtR(vtCliente)}</div>
+          </div>}
           <div className="ct-cond-box">{pagTxt}</div>
           <p className="ct-paragrafo">Parágrafo Único: O não pagamento de qualquer parcela no prazo acordado sujeitará o CONTRATANTE à multa de 2% (dois por cento) sobre o valor em atraso, acrescida de juros de 1% (um por cento) ao mês, além de correção monetária.</p>
         </div>

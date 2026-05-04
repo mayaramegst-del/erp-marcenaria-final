@@ -533,6 +533,7 @@ function ModalDetFin({f:fInit,financeiro,setModal,pagarParcela,editParcela,addPa
   const [payId,setPayId]=useState(null);
   const [payVal,setPayVal]=useState("");
   const [payFormaPag,setPayFormaPag]=useState("pix");
+  const [payData,setPayData]=useState(hojeISO());
   const [editMeta,setEditMeta]=useState(false);
   const [meta,setMeta]=useState({desc:f.desc,categoria:f.categoria||"Outros",fornecedor:f.fornecedor||"",valor:f.valor||0});
   const eCats=catsProp||getEmpresaCats();
@@ -620,6 +621,9 @@ function ModalDetFin({f:fInit,financeiro,setModal,pagarParcela,editParcela,addPa
             <div><label style={{fontSize:10,color:"var(--tx3)",display:"block",marginBottom:3}}>Parcela {i+1} — Valor R$</label>
               <input type="number" value={payVal} onChange={e=>setPayVal(e.target.value)} step="0.01" autoFocus style={{...inpST("var(--gn)"),width:130}}/>
             </div>
+            <div><label style={{fontSize:10,color:"var(--tx3)",display:"block",marginBottom:3}}>Data do Pagamento</label>
+              <input type="date" value={payData} onChange={e=>setPayData(e.target.value)} style={{...inpST("var(--bd)"),width:150}}/>
+            </div>
             <div><label style={{fontSize:10,color:"var(--tx3)",display:"block",marginBottom:3}}>Forma de Pagamento</label>
               <select value={payFormaPag} onChange={e=>setPayFormaPag(e.target.value)} style={{...inpST("var(--bd)"),width:150}}>
                 <option value="">Não definido</option>
@@ -627,7 +631,7 @@ function ModalDetFin({f:fInit,financeiro,setModal,pagarParcela,editParcela,addPa
               </select>
             </div>
             <div style={{display:"flex",gap:4,paddingBottom:1}}>
-              <Btn small v="success" onClick={()=>{pagarParcela(f.id,p.id,+payVal||p.valor,payFormaPag);setPayId(null);showToast("Pagamento registrado!")}}><I.Check/> Confirmar</Btn>
+              <Btn small v="success" onClick={()=>{pagarParcela(f.id,p.id,+payVal||p.valor,payFormaPag,payData);setPayId(null);showToast("Pagamento registrado!")}}><I.Check/> Confirmar</Btn>
               <Btn v="ghost" small onClick={()=>setPayId(null)}>Cancelar</Btn>
             </div>
           </div>
@@ -643,7 +647,7 @@ function ModalDetFin({f:fInit,financeiro,setModal,pagarParcela,editParcela,addPa
               {p.pago
                 ?<><Badge color="green">✓ {p.dataPago}</Badge>{p.formaPag&&<Badge color={FORMA_CLR[p.formaPag]||"pri"}>{FORMAS_LAB[p.formaPag]||p.formaPag}</Badge>}<button onClick={()=>{editParcela(f.id,p.id,{pago:false,dataPago:"",formaPag:p.formaPag||""});showToast("Estornado!")}} style={{background:"none",border:"none",color:"var(--tx3)",cursor:"pointer",fontSize:10,padding:4}}>↩</button></>
                 :<><button onClick={()=>{setEditId(p.id);setEditData({valor:p.valor,venc:p.venc||"",formaPag:p.formaPag||""});setPayId(null)}} style={{background:"none",border:"none",color:"var(--tx3)",cursor:"pointer",padding:4}}><I.Edit/></button>
-                  <Btn v="success" small onClick={()=>{setPayId(p.id);setPayVal(String(p.valor));setPayFormaPag(p.formaPag||"pix");setEditId(null)}}>$ Baixar</Btn>
+                  <Btn v="success" small onClick={()=>{setPayId(p.id);setPayVal(String(p.valor));setPayFormaPag(p.formaPag||"pix");setPayData(hojeISO());setEditId(null)}}>$ Baixar</Btn>
                   <button onClick={()=>delParcela(f.id,p.id)} style={{background:"none",border:"none",color:"var(--rd)",cursor:"pointer",padding:4}}><I.Trash/></button>
                 </>
               }
@@ -3283,10 +3287,10 @@ export default function ERP(){
     });
   };
 
-  const pagarParcela=(finId,parId,valor,formaPag="")=>{
+  const pagarParcela=(finId,parId,valor,formaPag="",dataPago="")=>{
     setFinanceiro(prev=>prev.map(f=>{
       if(f.id!==finId)return f;
-      const parcelas=f.parcelas.map(p=>p.id===parId?{...p,pago:true,dataPago:hojeISO(),valor:+valor||p.valor,formaPag}:p);
+      const parcelas=f.parcelas.map(p=>p.id===parId?{...p,pago:true,dataPago:dataPago||hojeISO(),valor:+valor||p.valor,formaPag}:p);
       const valorPago=parcelas.filter(p=>p.pago).reduce((s,p)=>s+p.valor,0);
       const status=valorPago>=f.valor?"pago":valorPago>0?"parcial":"aberto";
       return{...f,parcelas,valorPago,status};

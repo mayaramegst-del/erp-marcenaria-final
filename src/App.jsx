@@ -675,7 +675,7 @@ function ModalPDF({o,empresa,getCli,setModal,totalOrcFinal,totalOrc,totalOrcComN
   const vtBase=totalOrcFinal(o);
   const vtCliente=totalOrcComNF?totalOrcComNF(o):vtBase;
   const vtB=totalOrc(o);const desc=o.desconto||0;const descR=o.descontoR||0;
-  const ambVtDesc=a=>{if(!vtB||(!desc&&!descR))return a.valorTotal;return Math.max(0,(a.valorTotal-descR*(a.valorTotal/vtB)))*(1-desc/100);};
+  const ambVtDesc=a=>{if(!vtB)return 0;if(o.valorFinalManual>0)return o.valorFinalManual*(a.valorTotal/vtB);if(!desc&&!descR)return a.valorTotal;return Math.max(0,(a.valorTotal-descR*(a.valorTotal/vtB)))*(1-desc/100);};
   const zoneRef=useRef(null);
   const fmtR=v=>"R$ "+(v||0).toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2});
   const fmtDesc=v=>(v||0).toLocaleString("pt-BR",{minimumFractionDigits:0,maximumFractionDigits:3});
@@ -3078,7 +3078,8 @@ export default function ERP(){
   const getCli=id=>clientes.find(c=>c.id===id);
   const getMarc=id=>marceneiros.find(m=>m.id===id);
   const totalOrc=o=>(o?.ambientes||[]).reduce((s,a)=>s+(a.valorTotal||0),0);
-  const totalOrcFinal=o=>{const t=totalOrc(o);const dR=o?.descontoR||0;const dP=o?.desconto||0;return Math.max(0,t-dR)*(1-dP/100);};
+  const totalOrcFinalCalc=o=>{const t=totalOrc(o);const dR=o?.descontoR||0;const dP=o?.desconto||0;return Math.max(0,t-dR)*(1-dP/100);};
+  const totalOrcFinal=o=>o?.valorFinalManual>0?o.valorFinalManual:totalOrcFinalCalc(o);
   const totalOrcComNF=o=>{const t=totalOrcFinal(o);return t*(1+(o?.percNF||0)/100);};
 
   const saveCli=c=>{if(!c.nome?.trim())return showToast("Nome obrigatório","red");if(c.id&&clientes.find(x=>x.id===c.id)){setClientes(p=>p.map(x=>x.id===c.id?{...x,...c}:x))}else{setClientes(p=>[...p,{...c,id:uid()}])}setModal(null);showToast("Cliente salvo!")};
@@ -3758,6 +3759,11 @@ export default function ERP(){
               <BlurInput type="number" value={orc.descontoR||0} onCommit={v=>updOrc(orc.id,{descontoR:Math.max(0,+v||0)})} step="0.01" style={{width:72,padding:"3px 6px",borderRadius:6,border:"none",background:"rgba(255,255,255,.2)",color:"#fff",fontSize:12,fontWeight:700,textAlign:"center",outline:"none"}}/>
               <span style={{fontSize:10,opacity:.7}}>NF%</span>
               <BlurInput type="number" value={orc.percNF||0} onCommit={v=>updOrc(orc.id,{percNF:Math.min(100,Math.max(0,+v||0))})} step="0.1" style={{width:48,padding:"3px 6px",borderRadius:6,border:"none",background:"rgba(255,255,255,.2)",color:"#fff",fontSize:12,fontWeight:700,textAlign:"center",outline:"none"}}/>
+            </div>
+            <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap",justifyContent:"flex-end",marginTop:4}}>
+              <span style={{fontSize:10,opacity:.7}}>✏ R$ Final</span>
+              <BlurInput type="number" value={orc.valorFinalManual>0?orc.valorFinalManual:totalOrcFinalCalc(orc)} onCommit={v=>{const val=Math.max(0,+v||0);const calc=totalOrcFinalCalc(orc);updOrc(orc.id,{valorFinalManual:Math.abs(val-calc)>0.005?val:0});}} step="0.01" style={{width:100,padding:"3px 6px",borderRadius:6,border:"none",background:orc.valorFinalManual>0?"rgba(251,191,36,.5)":"rgba(255,255,255,.2)",color:"#fff",fontSize:12,fontWeight:700,textAlign:"center",outline:"none"}}/>
+              {orc.valorFinalManual>0&&<button onClick={()=>updOrc(orc.id,{valorFinalManual:0})} title="Voltar ao calculado" style={{background:"rgba(255,255,255,.25)",border:"none",color:"#fff",borderRadius:4,padding:"2px 7px",fontSize:11,cursor:"pointer",fontWeight:900,lineHeight:1}}>×</button>}
             </div>
             {vendedores.length>0&&<div style={{display:"flex",gap:8,alignItems:"center",justifyContent:"flex-end",marginTop:6}}>
               <span style={{fontSize:10,opacity:.7}}>Vendedor</span>

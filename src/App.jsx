@@ -675,6 +675,7 @@ function ModalPDF({o,empresa,getCli,setModal,totalOrcFinal,totalOrc,totalOrcComN
   const vtBase=totalOrcFinal(o);
   const vtCliente=totalOrcComNF?totalOrcComNF(o):vtBase;
   const vtB=totalOrc(o);const desc=o.desconto||0;const descR=o.descontoR||0;
+  const ambVtDesc=a=>{if(!vtB||(!desc&&!descR))return a.valorTotal;return Math.max(0,(a.valorTotal-descR*(a.valorTotal/vtB)))*(1-desc/100);};
   const zoneRef=useRef(null);
   const fmtR=v=>"R$ "+(v||0).toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2});
   const validadeTxt=o.validade||(()=>{const m=(o.pagamento||"").match(/validade[:\s]+([^\n.]+)/i);return m?m[1].trim():"30 dias";})();
@@ -901,7 +902,7 @@ function ModalPDF({o,empresa,getCli,setModal,totalOrcFinal,totalOrc,totalOrcComN
           {o.ambientes.map((a,i)=>(
             <tr key={a.id}>
               <td className="td-desc"><strong>{a.nome||`Serviço ${i+1}`}</strong>{a.desc&&<p>{a.desc}</p>}</td>
-              <td className="td-val">{fmtR(a.valorTotal)}</td>
+              <td className="td-val">{fmtR(ambVtDesc(a))}</td>
             </tr>
           ))}
         </tbody>
@@ -1078,7 +1079,7 @@ function ModalPDF({o,empresa,getCli,setModal,totalOrcFinal,totalOrc,totalOrcComN
           <div className="ct-clausula-corpo">O presente contrato tem por objeto a fabricação, fornecimento e instalação de móveis planejados conforme especificações acordadas pelas partes, relacionados abaixo:</div>
           <table className="ct-svc-table">
             <thead><tr><th>Descrição do Serviço / Ambiente</th><th className="r">Valor</th></tr></thead>
-            <tbody>{o.ambientes.map((a,i)=><tr key={a.id}><td><strong>{a.nome||`Serviço ${i+1}`}</strong>{a.desc&&<p>{a.desc}</p>}</td><td className="r">{fmtR(a.valorTotal)}</td></tr>)}</tbody>
+            <tbody>{o.ambientes.map((a,i)=><tr key={a.id}><td><strong>{a.nome||`Serviço ${i+1}`}</strong>{a.desc&&<p>{a.desc}</p>}</td><td className="r">{fmtR(ambVtDesc(a))}</td></tr>)}</tbody>
           </table>
           <div className="ct-total-linha">
             <span className="ct-total-label">Valor Total do Contrato</span>

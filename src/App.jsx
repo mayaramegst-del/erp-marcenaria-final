@@ -1129,10 +1129,12 @@ function ModalPDF({o,empresa,getCli,setModal,totalOrcFinal,totalOrc,totalOrcComN
           <div className="ct-clausula-corpo">{`O presente instrumento representa o acordo integral entre as partes, substituindo quaisquer entendimentos ou negociações anteriores. Eventuais alterações somente terão validade se feitas por escrito e assinadas por ambas as partes.\n\nAs partes elegem o foro da Comarca de ${cidade||"domicílio da Contratada"} para dirimir quaisquer litígios oriundos deste contrato, com renúncia expressa a qualquer outro foro, por mais privilegiado que seja.`}</div>
         </div>
 
-        <div className="ct-cidade-data">{cidade?`${cidade}, `:""}____ de __________________ de ________.</div>
+        <div className="ct-cidade-data">{cidade?`${cidade}, `:""}{new Date().toLocaleDateString('pt-BR',{day:'2-digit',month:'long',year:'numeric'})}.</div>
         <div className="ct-assinaturas">
           <div className="ct-assinatura">
-            <div className="ct-ass-espaco"/>
+            {empresa.logo
+              ?<div style={{height:72,display:"flex",alignItems:"center",justifyContent:"center"}}><img src={empresa.logo} style={{maxHeight:68,maxWidth:180,objectFit:"contain"}}/></div>
+              :<div className="ct-ass-espaco"/>}
             <div className="ct-ass-linha"/>
             <div className="ct-ass-nome">{empresa.nome||"Empresa"}</div>
             {empresa.cnpj&&<div className="ct-ass-doc">CNPJ: {empresa.cnpj}</div>}

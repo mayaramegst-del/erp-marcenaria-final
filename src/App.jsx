@@ -990,33 +990,33 @@ function ModalPDF({o,empresa,getCli,setModal,totalOrcFinal,totalOrc,totalOrcComN
   const cssContrato=`
     *{box-sizing:border-box;margin:0;padding:0}
     body{background:#fff}
-    .ct-page{font-family:'Georgia','Times New Roman',serif;background:#fff;color:#1a1a1a;font-size:12pt;line-height:1.75;padding:44px 52px;max-width:800px;margin:0 auto}
+    .ct-page{font-family:'Calibri','Trebuchet MS','Segoe UI',Arial,sans-serif;background:#fff;color:#1a1a1a;font-size:12pt;line-height:1.75;padding:44px 52px;max-width:800px;margin:0 auto}
     .ct-hdr{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px double #1a1a1a;padding-bottom:18px;margin-bottom:22px}
     .ct-logo{max-height:72px;max-width:160px;object-fit:contain}
-    .ct-emp-nome{font-size:15pt;font-weight:700;color:#1a1a1a;margin-bottom:2px;font-family:'Calibri','Segoe UI',sans-serif}
-    .ct-emp-info{font-size:9pt;color:#555;line-height:1.8;font-family:'Calibri','Segoe UI',sans-serif}
+    .ct-emp-nome{font-size:15pt;font-weight:700;color:#1a1a1a;margin-bottom:2px;}
+    .ct-emp-info{font-size:9pt;color:#555;line-height:1.8;}
     .ct-titulo-bloco{text-align:center;margin:20px 0 18px;border-bottom:1px solid #ccc;padding-bottom:16px}
     .ct-titulo{font-size:15pt;font-weight:800;text-transform:uppercase;letter-spacing:2px;display:block;color:#1a1a1a}
     .ct-subtitulo{font-size:10.5pt;color:#555;display:block;margin-top:5px;font-style:italic}
-    .ct-num{font-size:9.5pt;color:#777;display:block;margin-top:4px;font-family:'Calibri','Segoe UI',sans-serif}
+    .ct-num{font-size:9.5pt;color:#777;display:block;margin-top:4px;}
     .ct-partes{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin:18px 0;background:#f8f8f8;padding:16px 20px;border:1px solid #ddd;border-radius:2px}
-    .ct-parte-label{font-size:7.5pt;font-weight:800;text-transform:uppercase;letter-spacing:2px;color:#999;margin-bottom:6px;font-family:'Calibri','Segoe UI',sans-serif}
+    .ct-parte-label{font-size:7.5pt;font-weight:800;text-transform:uppercase;letter-spacing:2px;color:#999;margin-bottom:6px;}
     .ct-parte-nome{font-size:13pt;font-weight:700;color:#111;margin-bottom:3px}
-    .ct-parte-info{font-size:9.5pt;color:#555;line-height:1.8;font-family:'Calibri','Segoe UI',sans-serif}
+    .ct-parte-info{font-size:9.5pt;color:#555;line-height:1.8;}
     .ct-intro{font-size:11.5pt;color:#333;text-align:justify;margin:14px 0 18px;line-height:1.8}
     .ct-clausula{margin:18px 0;break-inside:avoid;page-break-inside:avoid}
-    .ct-clausula-titulo{font-size:11.5pt;font-weight:800;text-transform:uppercase;color:#1a1a1a;margin-bottom:8px;letter-spacing:.5px;font-family:'Calibri','Segoe UI',sans-serif}
+    .ct-clausula-titulo{font-size:11.5pt;font-weight:800;text-transform:uppercase;color:#1a1a1a;margin-bottom:8px;letter-spacing:.5px;}
     .ct-clausula-corpo{font-size:11.5pt;color:#333;text-align:justify;white-space:pre-line;line-height:1.8}
     .ct-paragrafo{font-size:11pt;color:#444;text-align:justify;margin-top:9px;font-style:italic;line-height:1.75}
     .ct-svc-table{width:100%;border-collapse:collapse;margin:12px 0;font-size:11pt}
-    .ct-svc-table th{font-size:8.5pt;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:#666;padding:7px 4px;border-bottom:1.5px solid #333;text-align:left;font-family:'Calibri','Segoe UI',sans-serif}
+    .ct-svc-table th{font-size:8.5pt;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:#666;padding:7px 4px;border-bottom:1.5px solid #333;text-align:left;}
     .ct-svc-table th.r{text-align:right}
     .ct-svc-table td{padding:9px 4px;border-bottom:1px solid #e5e5e5;vertical-align:top;font-size:11.5pt}
     .ct-svc-table td strong{font-size:12pt;display:block;margin-bottom:2px}
     .ct-svc-table td.r{text-align:right;font-weight:800;white-space:nowrap}
     .ct-svc-table td p{font-size:10.5pt;color:#555;white-space:pre-line;line-height:1.6;margin-top:3px}
     .ct-total-linha{display:flex;justify-content:flex-end;align-items:center;gap:16px;margin-top:10px;padding-top:10px;border-top:2px solid #1a1a1a}
-    .ct-total-label{font-size:10pt;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:#555;font-family:'Calibri','Segoe UI',sans-serif}
+    .ct-total-label{font-size:10pt;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:#555;}
     .ct-total-valor{font-size:16pt;font-weight:800;color:#1a1a1a}
     .ct-cond-box{margin-top:10px;padding:12px 16px;background:#f8f8f8;border:1px solid #ddd;border-radius:2px;font-size:11pt;color:#333;white-space:pre-line;line-height:1.8}
     .ct-cidade-data{text-align:center;font-size:11pt;color:#555;margin:36px 0 28px;font-style:italic}
@@ -1026,8 +1026,8 @@ function ModalPDF({o,empresa,getCli,setModal,totalOrcFinal,totalOrc,totalOrcComN
     .ct-ass-linha{border-top:1.5px solid #1a1a1a;padding-top:8px;margin-top:0}
     .ct-ass-nome{font-size:11pt;font-weight:800;color:#111}
     .ct-ass-doc{font-size:9pt;color:#666;margin-top:2px}
-    .ct-ass-role{font-size:8pt;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#999;margin-top:3px;font-family:'Calibri','Segoe UI',sans-serif}
-    .ct-rodape{text-align:center;font-size:8.5pt;color:#bbb;border-top:1px solid #e8e8e8;margin-top:32px;padding-top:12px;font-family:'Calibri','Segoe UI',sans-serif}
+    .ct-ass-role{font-size:8pt;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#999;margin-top:3px;}
+    .ct-rodape{text-align:center;font-size:8.5pt;color:#bbb;border-top:1px solid #e8e8e8;margin-top:32px;padding-top:12px;}
   `;
 
   const ContractBody=()=>{

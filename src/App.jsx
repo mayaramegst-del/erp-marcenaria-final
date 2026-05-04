@@ -4167,8 +4167,9 @@ export default function ERP(){
     const totalAprov=pedidos.filter(p=>p.status!=="cancelado"&&pMes(p.data)===pedMes).reduce((s,p)=>s+p.vt,0);
     const pct=Math.min(100,totalAprov/META*100);
     const falta=Math.max(0,META-totalAprov);
-    const list=pedidos.filter(p=>fP==="todos"||p.status===fP);
-    return(<div style={{animation:"fadeIn .3s"}}><SH title="Pedidos" sub={`${pedidos.length} total`}/>
+    const pedidosMes=pedidos.filter(p=>pMes(p.data)===pedMes);
+    const list=pedidosMes.filter(p=>fP==="todos"||p.status===fP);
+    return(<div style={{animation:"fadeIn .3s"}}><SH title="Pedidos" sub={`${pedidosMes.length} em ${nomeMesPed}`}/>
       <Card style={{padding:18,marginBottom:16,background:"linear-gradient(135deg,#0f172a,#1e293b)",border:"none"}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
           <button onClick={()=>navPedMes(-1)} style={{background:"rgba(255,255,255,.1)",border:"none",color:"#94a3b8",borderRadius:6,width:26,height:26,cursor:"pointer",fontSize:18,lineHeight:"26px",textAlign:"center"}}>‹</button>

@@ -4157,23 +4157,40 @@ export default function ERP(){
         </div>)}
       </div></Card>
     </div>)}
-    const [fP,setFP]=useState("todos");const list=pedidos.filter(p=>fP==="todos"||p.status===fP);
-    const META=200000;const totalAprov=pedidos.filter(p=>p.status!=="cancelado").reduce((s,p)=>s+p.vt,0);const pct=Math.min(100,totalAprov/META*100);const falta=Math.max(0,META-totalAprov);
+    const [fP,setFP]=useState("todos");
+    const [pedMes,setPedMes]=useState(hojeISO().slice(0,7));
+    const navPedMes=delta=>{const[y,m]=pedMes.split("-").map(Number);const d=new Date(y,m-1+delta,1);setPedMes(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`);};
+    const nomeMesPed=new Date(pedMes+"-15").toLocaleDateString("pt-BR",{month:"long",year:"numeric"});
+    const META=(empresa.metas||{})[pedMes]||0;
+    const totalAprov=pedidos.filter(p=>p.status!=="cancelado"&&(p.data||"").startsWith(pedMes)).reduce((s,p)=>s+p.vt,0);
+    const pct=META>0?Math.min(100,totalAprov/META*100):0;
+    const falta=META>0?Math.max(0,META-totalAprov):0;
+    const list=pedidos.filter(p=>fP==="todos"||p.status===fP);
     return(<div style={{animation:"fadeIn .3s"}}><SH title="Pedidos" sub={`${pedidos.length} total`}/>
       <Card style={{padding:18,marginBottom:16,background:"linear-gradient(135deg,#0f172a,#1e293b)",border:"none"}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+          <button onClick={()=>navPedMes(-1)} style={{background:"rgba(255,255,255,.15)",border:"none",color:"#fff",borderRadius:6,width:28,height:28,cursor:"pointer",fontSize:18,display:"flex",alignItems:"center",justifyContent:"center"}}>‹</button>
+          <span style={{fontSize:13,fontWeight:800,color:"#e2e8f0",textTransform:"capitalize"}}>{nomeMesPed}</span>
+          <button onClick={()=>navPedMes(1)} style={{background:"rgba(255,255,255,.15)",border:"none",color:"#fff",borderRadius:6,width:28,height:28,cursor:"pointer",fontSize:18,display:"flex",alignItems:"center",justifyContent:"center"}}>›</button>
+        </div>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:10}}>
-          <div><div style={{fontSize:10,fontWeight:800,color:"#94a3b8",textTransform:"uppercase",letterSpacing:"1px",marginBottom:4}}>Meta de Faturamento</div>
-            <div style={{fontSize:22,fontWeight:800,color:"#fff"}}>{R$(totalAprov)}<span style={{fontSize:12,color:"#94a3b8",fontWeight:600}}> / {R$(META)}</span></div>
+          <div>
+            <div style={{fontSize:10,fontWeight:800,color:"#94a3b8",textTransform:"uppercase",letterSpacing:"1px",marginBottom:4}}>Vendas do Mês</div>
+            <div style={{fontSize:22,fontWeight:800,color:"#fff",display:"flex",alignItems:"baseline",gap:4}}>
+              {R$(totalAprov)}
+              <span style={{fontSize:12,color:"#94a3b8",fontWeight:600,margin:"0 2px"}}>/</span>
+              <BlurInput type="number" value={META||""} placeholder="Meta R$" onCommit={v=>{const mm={...(empresa.metas||{}),[pedMes]:Math.max(0,+v||0)};saveEmpresa({...empresa,metas:mm});}} step="1000" style={{width:120,background:"rgba(255,255,255,.12)",border:"1px solid rgba(255,255,255,.25)",color:"#fff",borderRadius:6,padding:"2px 8px",fontSize:13,fontWeight:700,outline:"none",textAlign:"center"}}/>
+            </div>
           </div>
           <div style={{textAlign:"right"}}>
             <div style={{fontSize:10,fontWeight:800,color:"#94a3b8",textTransform:"uppercase",marginBottom:4}}>Falta</div>
-            <div style={{fontSize:18,fontWeight:800,color:falta===0?"#4ade80":"#f87171"}}>{falta===0?"✓ Meta atingida!":R$(falta)}</div>
+            <div style={{fontSize:18,fontWeight:800,color:META===0?"#94a3b8":falta===0?"#4ade80":"#f87171"}}>{META===0?"— defina a meta":falta===0?"✓ Meta atingida!":R$(falta)}</div>
           </div>
         </div>
         <div style={{background:"rgba(255,255,255,.1)",borderRadius:99,height:10,overflow:"hidden"}}>
           <div style={{width:`${pct}%`,height:"100%",background:`linear-gradient(90deg,#6366f1,${pct>=100?"#4ade80":"#8b5cf6"})`,borderRadius:99,transition:"width .5s"}}/>
         </div>
-        <div style={{marginTop:6,fontSize:10,fontWeight:700,color:"#94a3b8",textAlign:"right"}}>{pct.toFixed(1)}% da meta</div>
+        <div style={{marginTop:6,fontSize:10,fontWeight:700,color:"#94a3b8",textAlign:"right"}}>{META>0?`${pct.toFixed(1)}% da meta`:"Digite a meta no campo acima"}</div>
       </Card>
       <div style={{display:"flex",gap:6,marginBottom:14,flexWrap:"wrap"}}>{[{k:"todos",l:"Todos"},{k:"em_espera",l:"Espera"},{k:"em_producao",l:"Produção"},{k:"concluido",l:"Concluídos"},{k:"cancelado",l:"Cancelados"}].map(t=><button key={t.k} onClick={()=>setFP(t.k)} style={{padding:"6px 14px",borderRadius:20,border:"1.5px solid "+(fP===t.k?"var(--pri)":"var(--bd)"),background:fP===t.k?"var(--prib)":"transparent",color:fP===t.k?"var(--pri)":"var(--tx3)",fontSize:11,fontWeight:700}}>{t.l}</button>)}</div>
       <Card><TH cols={[{l:"Nº",w:"90px"},{l:"Cliente",w:"1.5fr"},{l:"Marc.",w:"1fr"},{l:"Status",w:"90px"},{l:"Etapa",w:"110px"},{l:"Valor",w:"100px"}]}/>

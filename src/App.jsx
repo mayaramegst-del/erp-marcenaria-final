@@ -4739,14 +4739,6 @@ export default function ERP(){
                   {p.pago?<span style={{padding:"4px 10px",borderRadius:6,background:"var(--gnb)",border:"1.5px solid var(--gn)",color:"var(--gn)",fontSize:11,fontWeight:800,whiteSpace:"nowrap"}}>✓ Pago</span>
                   :<button onClick={()=>{baixarParc(p);showToast("Parcela baixada!");}} style={{padding:"4px 10px",borderRadius:6,background:"var(--gnb)",border:"1.5px solid var(--gn)",color:"var(--gn)",fontSize:11,fontWeight:800,cursor:"pointer",whiteSpace:"nowrap"}}>✓ Baixar</button>}
                 </div>)}
-                {parcPagasAnt.length>0&&<>
-                  <div style={{fontSize:10,fontWeight:800,color:"var(--tx3)",textTransform:"uppercase",marginTop:14,marginBottom:6}}>📋 Recebidos em meses anteriores</div>
-                  {parcPagasAnt.map((p,i)=><div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"5px 0",borderBottom:"1px solid var(--bd)",fontSize:12,gap:8,opacity:.75}}>
-                    <div style={{flex:1}}><div style={{fontWeight:600,color:"var(--tx)"}}>{p.desc}</div><div style={{fontSize:10,color:"var(--tx3)"}}>{isoToBR(p.venc)} · recebido {isoToBR(normDate(p.dataPago))}</div></div>
-                    <span style={{fontWeight:800,color:"var(--gn)",whiteSpace:"nowrap"}}>{R$(p.valor)}</span>
-                    <span style={{padding:"3px 8px",borderRadius:6,background:"var(--gnb)",border:"1px solid var(--gn)",color:"var(--gn)",fontSize:10,fontWeight:700,whiteSpace:"nowrap"}}>✓ Pago</span>
-                  </div>)}
-                </>}
               </div>
               <div>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
@@ -4824,14 +4816,6 @@ export default function ERP(){
                   {p.pago?<span style={{padding:"4px 10px",borderRadius:6,background:"var(--gnb)",border:"1.5px solid var(--gn)",color:"var(--gn)",fontSize:11,fontWeight:800,whiteSpace:"nowrap"}}>✓ Pago</span>
                   :<button onClick={()=>{baixarParc(p);showToast("Parcela baixada!");}} style={{padding:"4px 10px",borderRadius:6,background:"var(--gnb)",border:"1.5px solid var(--gn)",color:"var(--gn)",fontSize:11,fontWeight:800,cursor:"pointer",whiteSpace:"nowrap"}}>✓ Baixar</button>}
                 </div>)}
-                {parcPagasAnt18.length>0&&<>
-                  <div style={{fontSize:10,fontWeight:800,color:"var(--tx3)",textTransform:"uppercase",marginTop:14,marginBottom:6}}>📋 Recebidos em meses anteriores</div>
-                  {parcPagasAnt18.map((p,i)=><div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"5px 0",borderBottom:"1px solid var(--bd)",fontSize:12,gap:8,opacity:.75}}>
-                    <div style={{flex:1}}><div style={{fontWeight:600,color:"var(--tx)"}}>{p.desc}</div><div style={{fontSize:10,color:"var(--tx3)"}}>{isoToBR(p.venc)} · recebido {isoToBR(normDate(p.dataPago))}</div></div>
-                    <span style={{fontWeight:800,color:"var(--gn)",whiteSpace:"nowrap"}}>{R$(p.valor)}</span>
-                    <span style={{padding:"3px 8px",borderRadius:6,background:"var(--gnb)",border:"1px solid var(--gn)",color:"var(--gn)",fontSize:10,fontWeight:700,whiteSpace:"nowrap"}}>✓ Pago</span>
-                  </div>)}
-                </>}
               </div>
               <div>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>

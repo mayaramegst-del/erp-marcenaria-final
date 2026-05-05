@@ -4534,6 +4534,12 @@ export default function ERP(){
     const totalRecebidoReal=parcelasFluxo.filter(p=>p.pago&&p.tipo==="receber").reduce((s,p)=>s+p.valor,0);
     const totalPagoReal=parcelasFluxo.filter(p=>p.pago&&p.tipo==="pagar").reduce((s,p)=>s+p.valor,0);
     const caixaHoje=saldoInicial+totalRecebidoReal-totalPagoReal;
+    // SALDO ANTERIOR — acumulado de todos os meses anteriores ao selecionado
+    const mesIni=mesAtual+"-01";
+    const recAntMes=parcelasFluxo.filter(p=>p.pago&&normDate(p.dataPago)<mesIni&&p.tipo==="receber").reduce((s,p)=>s+p.valor,0);
+    const pagAntMes=parcelasFluxo.filter(p=>p.pago&&normDate(p.dataPago)<mesIni&&p.tipo==="pagar").reduce((s,p)=>s+p.valor,0);
+    const saldoAnterior=saldoInicial+recAntMes-pagAntMes;
+    const saldoDoMes=saldoAnterior+recebidoMes-saidoMes;
     // PROJEÇÃO ANUAL — mês a mês do mês atual até dezembro do ano corrente
     const anoAtual=hj.slice(0,4);
     const mesAtualNum=parseInt(mesAtual.slice(5));
@@ -4616,15 +4622,20 @@ export default function ERP(){
 
       {/* ══ LINHA 1 — SALDO REAL ══ */}
       <div style={{display:"grid",gridTemplateColumns:"2fr 1fr",gap:10,marginBottom:10}}>
-        {/* Caixa do Dia */}
+        {/* Saldo do Mês com carry-over */}
         <div style={{background:"linear-gradient(135deg,#0f172a 0%,#1e293b 100%)",borderRadius:"var(--rl)",padding:"18px 22px",position:"relative",overflow:"hidden"}}>
           <div style={{position:"absolute",right:16,top:16,fontSize:32,opacity:.08}}>💰</div>
-          <div style={{fontSize:9,fontWeight:800,color:"#64748b",textTransform:"uppercase",letterSpacing:"1.5px",marginBottom:6}}>💰 Saldo em Conta — Hoje</div>
-          <div style={{fontSize:28,fontWeight:900,color:caixaHoje>=0?"#4ade80":"#f87171",letterSpacing:"-1px"}}>{R$(caixaHoje)}</div>
-          <div style={{display:"flex",gap:16,marginTop:8}}>
-            <div><div style={{fontSize:8,color:"#475569",textTransform:"uppercase",fontWeight:700}}>Abertura</div><div style={{fontSize:12,fontWeight:800,color:"#94a3b8"}}>{R$(saldoInicial)}</div></div>
-            <div><div style={{fontSize:8,color:"#22c55e",textTransform:"uppercase",fontWeight:700}}>Entrou Hoje</div><div style={{fontSize:12,fontWeight:800,color:"#4ade80"}}>{R$(recHoje)}</div></div>
-            <div><div style={{fontSize:8,color:"#ef4444",textTransform:"uppercase",fontWeight:700}}>Saiu Hoje</div><div style={{fontSize:12,fontWeight:800,color:"#f87171"}}>{R$(pagHoje)}</div></div>
+          {/* Seletor de mês */}
+          <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
+            <button onClick={()=>navFluxoMes(-1)} style={{background:"rgba(255,255,255,.1)",border:"none",color:"#94a3b8",borderRadius:6,width:24,height:24,cursor:"pointer",fontSize:14,lineHeight:"24px",textAlign:"center"}}>‹</button>
+            <span style={{fontSize:9,fontWeight:800,color:"#64748b",textTransform:"uppercase",letterSpacing:"1.5px",flex:1}}>💰 Saldo — {nomeMesFluxo}</span>
+            <button onClick={()=>navFluxoMes(1)} style={{background:"rgba(255,255,255,.1)",border:"none",color:"#94a3b8",borderRadius:6,width:24,height:24,cursor:"pointer",fontSize:14,lineHeight:"24px",textAlign:"center"}}>›</button>
+          </div>
+          <div style={{fontSize:28,fontWeight:900,color:saldoDoMes>=0?"#4ade80":"#f87171",letterSpacing:"-1px"}}>{R$(saldoDoMes)}</div>
+          <div style={{display:"flex",gap:16,marginTop:8,flexWrap:"wrap"}}>
+            <div><div style={{fontSize:8,color:"#475569",textTransform:"uppercase",fontWeight:700}}>Saldo Anterior</div><div style={{fontSize:12,fontWeight:800,color:"#94a3b8"}}>{R$(saldoAnterior)}</div></div>
+            <div><div style={{fontSize:8,color:"#22c55e",textTransform:"uppercase",fontWeight:700}}>Entrou</div><div style={{fontSize:12,fontWeight:800,color:"#4ade80"}}>{R$(recebidoMes)}</div></div>
+            <div><div style={{fontSize:8,color:"#ef4444",textTransform:"uppercase",fontWeight:700}}>Saiu</div><div style={{fontSize:12,fontWeight:800,color:"#f87171"}}>{R$(saidoMes)}</div></div>
           </div>
         </div>
         {/* Total a Pagar */}
@@ -4653,12 +4664,12 @@ export default function ERP(){
             <div style={{fontSize:9,color:"var(--tx3)",marginTop:2}}>{parSemPagoPag.length} paga{parSemPagoPag.length!==1?"s":""} · {parSemPag.length} pendente{parSemPag.length!==1?"s":""}</div>
           </div>
           <div style={{background:"var(--gnb)",borderRadius:"var(--rl)",padding:"12px 16px",border:"1px solid var(--gn)33"}}>
-            <div style={{fontSize:8,fontWeight:800,color:"var(--gn)",textTransform:"uppercase",letterSpacing:"1px",marginBottom:3}}>🗓 Este Mês — Entradas</div>
+            <div style={{fontSize:8,fontWeight:800,color:"var(--gn)",textTransform:"uppercase",letterSpacing:"1px",marginBottom:3}}>🗓 {nomeMesFluxo} — Entradas</div>
             <div style={{fontSize:18,fontWeight:800,color:"var(--gn)"}}>{R$(esteMesRec)}</div>
             <div style={{fontSize:9,color:"var(--tx3)",marginTop:2}}>{parPagoMesRec.length} recebida{parPagoMesRec.length!==1?"s":""} · {parMesRec.length} pendente{parMesRec.length!==1?"s":""}</div>
           </div>
           <div style={{background:"rgba(239,68,68,.05)",borderRadius:"var(--rl)",padding:"12px 16px",border:"1px solid rgba(239,68,68,.15)"}}>
-            <div style={{fontSize:8,fontWeight:800,color:"var(--rd)",textTransform:"uppercase",letterSpacing:"1px",marginBottom:3}}>🗓 Este Mês — Saídas</div>
+            <div style={{fontSize:8,fontWeight:800,color:"var(--rd)",textTransform:"uppercase",letterSpacing:"1px",marginBottom:3}}>🗓 {nomeMesFluxo} — Saídas</div>
             <div style={{fontSize:18,fontWeight:800,color:"var(--rd)"}}>{R$(esteMesPag)}</div>
             <div style={{fontSize:9,color:"var(--tx3)",marginTop:2}}>{parPagoMesPag.length} paga{parPagoMesPag.length!==1?"s":""} · {parMesPag.length} pendente{parMesPag.length!==1?"s":""}</div>
           </div>

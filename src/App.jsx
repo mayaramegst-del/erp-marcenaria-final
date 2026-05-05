@@ -996,7 +996,7 @@ function ModalPDF({o,empresa,getCli,setModal,totalOrcFinal,totalOrc,totalOrcComN
   const cssContrato=`
     *{box-sizing:border-box;margin:0;padding:0}
     body{background:#fff}
-    .ct-page{font-family:'Calibri','Trebuchet MS','Segoe UI',Arial,sans-serif;background:#fff;color:#1a1a1a;font-size:12pt;line-height:1.75;padding:32px 40px;max-width:800px;margin:0 auto;word-break:break-word;overflow-wrap:anywhere}
+    .ct-page{font-family:'Calibri','Trebuchet MS','Segoe UI',Arial,sans-serif;background:#fff;color:#1a1a1a;font-size:13pt;line-height:1.75;padding:32px 40px;max-width:800px;margin:0 auto;word-break:normal;overflow-wrap:break-word;hyphens:none}
     .ct-hdr{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px double #1a1a1a;padding-bottom:18px;margin-bottom:22px}
     .ct-logo{max-height:72px;max-width:160px;object-fit:contain}
     .ct-emp-nome{font-size:15pt;font-weight:700;color:#1a1a1a;margin-bottom:2px;}
@@ -1008,12 +1008,12 @@ function ModalPDF({o,empresa,getCli,setModal,totalOrcFinal,totalOrc,totalOrcComN
     .ct-partes{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin:18px 0;background:#f8f8f8;padding:16px 20px;border:1px solid #ddd;border-radius:2px;min-width:0}
     .ct-parte-label{font-size:7.5pt;font-weight:800;text-transform:uppercase;letter-spacing:2px;color:#999;margin-bottom:6px;}
     .ct-parte-nome{font-size:13pt;font-weight:700;color:#111;margin-bottom:3px}
-    .ct-parte-info{font-size:9.5pt;color:#555;line-height:1.8;}
+    .ct-parte-info{font-size:9.5pt;color:#555;line-height:1.8;word-break:normal;overflow-wrap:break-word}
     .ct-intro{font-size:11.5pt;color:#333;text-align:justify;margin:14px 0 18px;line-height:1.8}
     .ct-clausula{margin:18px 0;break-inside:avoid;page-break-inside:avoid}
     .ct-clausula-titulo{font-size:11.5pt;font-weight:800;text-transform:uppercase;color:#1a1a1a;margin-bottom:8px;letter-spacing:.5px;}
-    .ct-clausula-corpo{font-size:11.5pt;color:#333;text-align:justify;white-space:pre-line;line-height:1.8}
-    .ct-paragrafo{font-size:11pt;color:#444;text-align:justify;margin-top:9px;font-style:italic;line-height:1.75}
+    .ct-clausula-corpo{font-size:12pt;color:#333;text-align:justify;white-space:pre-line;line-height:1.8;word-break:normal;overflow-wrap:break-word;hyphens:none}
+    .ct-paragrafo{font-size:11.5pt;color:#444;text-align:justify;margin-top:9px;font-style:italic;line-height:1.75;word-break:normal;overflow-wrap:break-word;hyphens:none}
     .ct-svc-table{width:100%;border-collapse:collapse;margin:12px 0;font-size:11pt;table-layout:fixed}
     .ct-svc-table th{font-size:8.5pt;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:#666;padding:7px 4px;border-bottom:1.5px solid #333;text-align:left;}
     .ct-svc-table th.r{text-align:right}
@@ -1024,7 +1024,7 @@ function ModalPDF({o,empresa,getCli,setModal,totalOrcFinal,totalOrc,totalOrcComN
     .ct-total-linha{display:flex;justify-content:flex-end;align-items:center;gap:16px;margin-top:10px;padding-top:10px;border-top:2px solid #1a1a1a}
     .ct-total-label{font-size:10pt;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:#555;}
     .ct-total-valor{font-size:16pt;font-weight:800;color:#1a1a1a}
-    .ct-cond-box{margin-top:10px;padding:12px 16px;background:#f8f8f8;border:1px solid #ddd;border-radius:2px;font-size:11pt;color:#333;white-space:pre-line;line-height:1.8;word-break:break-word;overflow-wrap:anywhere}
+    .ct-cond-box{margin-top:10px;padding:12px 16px;background:#f8f8f8;border:1px solid #ddd;border-radius:2px;font-size:12pt;color:#333;white-space:pre-line;line-height:1.8;word-break:normal;overflow-wrap:break-word;hyphens:none}
     .ct-cidade-data{text-align:center;font-size:11pt;color:#555;margin:36px 0 28px;font-style:italic}
     .ct-assinaturas{display:grid;grid-template-columns:1fr 1fr;gap:60px;break-inside:avoid;page-break-inside:avoid}
     .ct-assinatura{text-align:center}

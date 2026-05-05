@@ -1101,12 +1101,16 @@ function ModalPDF({o,empresa,getCli,setModal,totalOrcFinal,totalOrc,totalOrcComN
             <div style={{fontSize:"13pt",fontWeight:800,color:"#1a1a1a",marginLeft:"auto"}}>{fmtR(vtCliente)}</div>
           </div>}
           <div className="ct-cond-box">{pagTxt}</div>
-          <p className="ct-paragrafo">Parágrafo Único: O não pagamento de qualquer parcela no prazo acordado sujeitará o CONTRATANTE à multa de 2% (dois por cento) sobre o valor em atraso, acrescida de juros de 1% (um por cento) ao mês, além de correção monetária.</p>
+          <p className="ct-paragrafo">§ 1º: O não pagamento de qualquer parcela no prazo acordado sujeitará o CONTRATANTE à multa de 2% (dois por cento) sobre o valor em atraso, acrescida de juros de 1% (um por cento) ao mês, além de correção monetária pelo IPCA.</p>
+          <p className="ct-paragrafo">§ 2º: O valor do contrato é fixo e irreajustável, salvo prorrogação de prazo decorrente de solicitação do próprio CONTRATANTE, hipótese em que eventual reajuste deverá ser acordado por escrito antes do início da prorrogação.</p>
         </div>
 
         <div className="ct-clausula">
           <div className="ct-clausula-titulo">{cn()} — Do Prazo de Execução e Entrega</div>
-          <div className="ct-clausula-corpo">{`O prazo estimado para fabricação e instalação dos móveis é de ${prazoTxt}, contados a partir da confirmação do pagamento da entrada e aprovação final do projeto pelo CONTRATANTE.\n\nParágrafo Único: O prazo poderá ser prorrogado mediante comunicação prévia ao CONTRATANTE nos casos de força maior, caso fortuito, ou em razão de alterações solicitadas pelo próprio CONTRATANTE após o início da produção.`}</div>
+          <div className="ct-clausula-corpo">{`O prazo estimado para fabricação e instalação dos móveis é de ${prazoTxt}, contados a partir da confirmação do pagamento da entrada e aprovação final do projeto pelo CONTRATANTE.`}</div>
+          <p className="ct-paragrafo">§ 1º: O prazo poderá ser prorrogado mediante comunicação prévia ao CONTRATANTE nos casos de força maior, caso fortuito, ou em razão de alterações solicitadas pelo próprio CONTRATANTE após o início da produção, hipótese em que eventual reajuste de valor deverá ser acordado por escrito antes da prorrogação.</p>
+          <p className="ct-paragrafo">§ 2º: O descumprimento dos prazos de entrega por parte da CONTRATADA sujeitará à multa de 0,5% (meio por cento) ao dia sobre o valor da etapa em atraso, limitada a 10% (dez por cento) do valor total do contrato, sem prejuízo de eventual rescisão.</p>
+          <p className="ct-paragrafo">§ 3º: A conclusão de cada etapa será formalizada por Termo de Aceite assinado por ambas as partes, condição necessária para a exigibilidade do pagamento correspondente. O CONTRATANTE terá o prazo de 5 (cinco) dias úteis, a contar da comunicação de conclusão, para vistoriar e comunicar por escrito eventuais não conformidades. O silêncio no prazo implicará aceite tácito da etapa.</p>
         </div>
 
         {especTxt&&<div className="ct-clausula">
@@ -1117,12 +1121,13 @@ function ModalPDF({o,empresa,getCli,setModal,totalOrcFinal,totalOrc,totalOrcComN
         <div className="ct-clausula">
           <div className="ct-clausula-titulo">{cn()} — Da Garantia</div>
           <div className="ct-clausula-corpo">{garantiaTxt}</div>
-          <p className="ct-paragrafo">Parágrafo Único: A garantia não abrange danos por mau uso, exposição inadequada à umidade ou calor, alterações realizadas por terceiros não autorizados, ou desgaste natural decorrente do uso cotidiano.</p>
+          <p className="ct-paragrafo">§ 1º: Identificado vício ou defeito coberto pela garantia, a CONTRATADA obriga-se a iniciar o atendimento em até 5 (cinco) dias úteis da comunicação formal e a concluir o reparo em até 30 (trinta) dias corridos, salvo justificativa técnica fundamentada e aceita pelo CONTRATANTE.</p>
+          <p className="ct-paragrafo">§ 2º: A garantia não abrange danos por mau uso, exposição inadequada à umidade ou calor, alterações realizadas por terceiros não autorizados, ou desgaste natural decorrente do uso cotidiano.</p>
         </div>
 
         <div className="ct-clausula">
           <div className="ct-clausula-titulo">{cn()} — Das Obrigações da Contratada</div>
-          <div className="ct-clausula-corpo">{`A CONTRATADA compromete-se a:\n\nI — Executar os serviços dentro do prazo e especificações contratadas;\nII — Utilizar materiais de qualidade compatível com o padrão acordado;\nIII — Manter sigilo sobre todas as informações fornecidas pelo CONTRATANTE;\nIV — Realizar, às suas expensas, os reparos necessários durante o período de garantia;\nV — Designar equipe técnica qualificada para execução e instalação dos móveis.`}</div>
+          <div className="ct-clausula-corpo">{`A CONTRATADA compromete-se a:\n\nI — Executar os serviços dentro do prazo e especificações contratadas;\nII — Utilizar materiais de qualidade compatível com o padrão acordado;\nIII — Manter sigilo sobre todas as informações fornecidas pelo CONTRATANTE;\nIV — Realizar, às suas expensas, os reparos necessários durante o período de garantia, observados os prazos previstos na cláusula correspondente;\nV — Designar equipe técnica qualificada para execução e instalação dos móveis;\nVI — Responder por todos os danos materiais causados ao imóvel durante a execução dos serviços, obrigando-se a reparar ou indenizar no prazo máximo de 30 (trinta) dias após a constatação do dano;\nVII — Manter o local de trabalho organizado e seguro, adotando as medidas de proteção necessárias para preservar o imóvel e seus ocupantes.`}</div>
         </div>
 
         <div className="ct-clausula">
@@ -1132,7 +1137,7 @@ function ModalPDF({o,empresa,getCli,setModal,totalOrcFinal,totalOrc,totalOrcComN
 
         <div className="ct-clausula">
           <div className="ct-clausula-titulo">{cn()} — Da Rescisão</div>
-          <div className="ct-clausula-corpo">{`O presente contrato poderá ser rescindido por qualquer das partes mediante notificação por escrito com antecedência mínima de 10 (dez) dias, observando-se:\n\nI — Rescisão pelo CONTRATANTE após o início da produção: devidos os valores proporcionais aos serviços já executados, acrescidos de multa de 10% (dez por cento) sobre o saldo remanescente;\nII — Rescisão pela CONTRATADA sem justificativa legal: devolução ao CONTRATANTE dos valores pagos proporcionais aos serviços não executados.`}</div>
+          <div className="ct-clausula-corpo">{`O presente contrato poderá ser rescindido por qualquer das partes mediante notificação por escrito com antecedência mínima de 10 (dez) dias, observando-se:\n\nI — Rescisão pelo CONTRATANTE após o início da produção: devidos os valores proporcionais aos serviços já executados, acrescidos de multa de 10% (dez por cento) sobre o saldo remanescente do contrato;\nII — Rescisão imotivada pela CONTRATADA após o início da produção: sujeita ao pagamento de multa equivalente a 10% (dez por cento) sobre o saldo remanescente do contrato, além da devolução ao CONTRATANTE de todos os valores pagos proporcionais aos serviços não executados;\nIII — Em qualquer hipótese de rescisão, os materiais já adquiridos e especificados exclusivamente para o projeto serão descontados do valor a restituir, mediante apresentação de comprovação.`}</div>
         </div>
 
         <div className="ct-clausula">

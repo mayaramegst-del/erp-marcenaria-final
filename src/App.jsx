@@ -855,7 +855,7 @@ function ModalPDF({o,empresa,getCli,setModal,totalOrcFinal,totalOrc,totalOrcComN
         const r=row.getBoundingClientRect();
         return{topPx:Math.round((r.top-elRect.top)*2),botPx:Math.round((r.bottom-elRect.top)*2)};
       }).sort((a,b)=>a.topPx-b.topPx);
-      const rowBounds=mkBounds('.svc-table tbody tr,.cond-card,.sign-block,.total-row,.hdr,.orc-banner,.cli-row,.footer-wrap,.sec-title,.svc-table thead');
+      const rowBounds=mkBounds('.svc-table tbody tr,.cond-card,.sign-block,.total-row,.hdr,.orc-banner,.cli-row,.footer-wrap,.sec-title,.svc-table thead,.ct-clausula,.ct-assinaturas,.ct-rodape,.ct-partes,.ct-titulo-bloco');
       const canvas=await html2canvas(el,{scale:2,useCORS:true,backgroundColor:'#fff',logging:false,scrollY:-window.scrollY,windowWidth:800});
       el.style.maxHeight=prevMax;el.style.overflowY=prevOv;el.style.width=prevW;el.style.minWidth=prevMinW;
       const pdf=new jsPDF({orientation:'p',unit:'mm',format:'a4'});
@@ -996,7 +996,7 @@ function ModalPDF({o,empresa,getCli,setModal,totalOrcFinal,totalOrc,totalOrcComN
   const cssContrato=`
     *{box-sizing:border-box;margin:0;padding:0}
     body{background:#fff}
-    .ct-page{font-family:'Calibri','Trebuchet MS','Segoe UI',Arial,sans-serif;background:#fff;color:#1a1a1a;font-size:13pt;line-height:1.75;padding:32px 40px;max-width:800px;margin:0 auto;word-break:normal;overflow-wrap:break-word;hyphens:none}
+    .ct-page{font-family:'Calibri','Trebuchet MS','Segoe UI',Arial,sans-serif;background:#fff;color:#1a1a1a;font-size:13pt;line-height:1.75;padding:32px 40px 48px;max-width:800px;margin:0 auto;word-break:normal;overflow-wrap:break-word;hyphens:none}
     .ct-hdr{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px double #1a1a1a;padding-bottom:18px;margin-bottom:22px}
     .ct-logo{max-height:72px;max-width:160px;object-fit:contain}
     .ct-emp-nome{font-size:15pt;font-weight:700;color:#1a1a1a;margin-bottom:2px;}
@@ -1033,7 +1033,7 @@ function ModalPDF({o,empresa,getCli,setModal,totalOrcFinal,totalOrc,totalOrcComN
     .ct-ass-nome{font-size:11pt;font-weight:800;color:#111}
     .ct-ass-doc{font-size:9pt;color:#666;margin-top:2px}
     .ct-ass-role{font-size:8pt;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#999;margin-top:3px;}
-    .ct-rodape{text-align:center;font-size:8.5pt;color:#bbb;border-top:1px solid #e8e8e8;margin-top:32px;padding-top:12px;}
+    .ct-rodape{text-align:center;font-size:8.5pt;color:#bbb;border-top:1px solid #e8e8e8;margin-top:32px;padding-top:12px;padding-bottom:20px;page-break-inside:avoid;break-inside:avoid;page-break-before:avoid;break-before:avoid;word-break:normal;overflow-wrap:break-word;hyphens:none}
   `;
 
   const ContractBody=()=>{

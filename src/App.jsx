@@ -4621,18 +4621,15 @@ export default function ERP(){
       </div>);
     };
     return(<div style={{animation:"fadeIn .3s"}}>
-      <SH title="Financeiro" sub="Gestão de Caixa — Contas a Pagar e Receber" right={<Btn onClick={()=>setModal({t:"newFin"})}><I.Plus/> Nova Conta</Btn>}/>
+      <SH title="Financeiro" sub="Gestão de Caixa — Contas a Pagar e Receber" right={<div style={{display:"flex",gap:8,alignItems:"center"}}><button onClick={()=>navFluxoMes(-1)} style={{background:"var(--sf)",border:"1.5px solid var(--bd)",borderRadius:8,padding:"5px 12px",fontSize:14,fontWeight:800,cursor:"pointer",color:"var(--tx)"}}>◀</button><span style={{fontSize:13,fontWeight:800,color:"var(--tx)",textTransform:"capitalize",minWidth:150,textAlign:"center"}}>{nomeMesFluxo}</span><button onClick={()=>navFluxoMes(1)} style={{background:"var(--sf)",border:"1.5px solid var(--bd)",borderRadius:8,padding:"5px 12px",fontSize:14,fontWeight:800,cursor:"pointer",color:"var(--tx)"}}>▶</button><Btn onClick={()=>setModal({t:"newFin"})}><I.Plus/> Nova Conta</Btn></div>}/>
 
       {/* ══ LINHA 1 — SALDO REAL ══ */}
       <div style={{display:"grid",gridTemplateColumns:"2fr 1fr",gap:10,marginBottom:10}}>
         {/* Saldo do Mês com carry-over */}
         <div style={{background:"linear-gradient(135deg,#0f172a 0%,#1e293b 100%)",borderRadius:"var(--rl)",padding:"18px 22px",position:"relative",overflow:"hidden"}}>
           <div style={{position:"absolute",right:16,top:16,fontSize:32,opacity:.08}}>💰</div>
-          {/* Seletor de mês */}
-          <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
-            <button onClick={()=>navFluxoMes(-1)} style={{background:"rgba(255,255,255,.1)",border:"none",color:"#94a3b8",borderRadius:6,width:24,height:24,cursor:"pointer",fontSize:14,lineHeight:"24px",textAlign:"center"}}>‹</button>
-            <span style={{fontSize:9,fontWeight:800,color:"#64748b",textTransform:"uppercase",letterSpacing:"1.5px",flex:1}}>💰 Saldo — {nomeMesFluxo}</span>
-            <button onClick={()=>navFluxoMes(1)} style={{background:"rgba(255,255,255,.1)",border:"none",color:"#94a3b8",borderRadius:6,width:24,height:24,cursor:"pointer",fontSize:14,lineHeight:"24px",textAlign:"center"}}>›</button>
+          <div style={{marginBottom:8}}>
+            <span style={{fontSize:9,fontWeight:800,color:"#64748b",textTransform:"uppercase",letterSpacing:"1.5px"}}>💰 Saldo — {nomeMesFluxo}</span>
           </div>
           <div style={{fontSize:28,fontWeight:900,color:saldoDoMes>=0?"#4ade80":"#f87171",letterSpacing:"-1px"}}>{R$(saldoDoMes)}</div>
           <div style={{display:"flex",gap:16,marginTop:8,flexWrap:"wrap"}}>
@@ -4707,7 +4704,6 @@ export default function ERP(){
         </div>
         {/* Conteúdo Pool 10x/12x */}
         {poolTab==="1012"&&(()=>{
-          const mesAtual=new Date().toISOString().slice(0,7);
           const parcMes=pool1012Parc.filter(p=>p.venc&&p.venc.startsWith(mesAtual)).sort((a,b)=>a.pago===b.pago?(a.venc>b.venc?1:-1):a.pago?1:-1);
           const parcPagasAnt=pool1012Parc.filter(p=>p.pago&&(!p.venc||!p.venc.startsWith(mesAtual))).sort((a,b)=>normDate(b.dataPago)>normDate(a.dataPago)?1:-1);
           return(<div style={{padding:16}}>
@@ -4735,7 +4731,7 @@ export default function ERP(){
             </div>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
               <div>
-                <div style={{fontSize:10,fontWeight:800,color:"var(--bl)",textTransform:"uppercase",marginBottom:8}}>📅 Parcelas do mês — {new Date().toLocaleString("pt-BR",{month:"long",year:"numeric"})}</div>
+                <div style={{fontSize:10,fontWeight:800,color:"var(--bl)",textTransform:"uppercase",marginBottom:8}}>📅 Parcelas do mês — {nomeMesFluxo}</div>
                 {parcMes.length===0?<div style={{fontSize:11,color:"var(--tx3)"}}>Nenhuma parcela neste mês</div>
                 :parcMes.map((p,i)=><div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 0",borderBottom:"1px solid var(--bd)",fontSize:12,gap:8,opacity:p.pago?.85:1}}>
                   <div style={{flex:1}}><div style={{fontWeight:700,color:"var(--tx)"}}>{p.desc}</div><div style={{fontSize:10,color:"var(--tx3)"}}>{isoToBR(p.venc)} · {FORMAS_LAB[p.formaPag]||p.formaPag}{p.pago&&p.dataPago?` · recebido ${isoToBR(normDate(p.dataPago))}`:""}</div></div>
@@ -4793,7 +4789,6 @@ export default function ERP(){
         })()}
         {/* Conteúdo Pool 18x */}
         {poolTab==="18"&&(()=>{
-          const mesAtual=new Date().toISOString().slice(0,7);
           const parcMes18=pool18Parc.filter(p=>p.venc&&p.venc.startsWith(mesAtual)).sort((a,b)=>a.pago===b.pago?(a.venc>b.venc?1:-1):a.pago?1:-1);
           const parcPagasAnt18=pool18Parc.filter(p=>p.pago&&(!p.venc||!p.venc.startsWith(mesAtual))).sort((a,b)=>normDate(b.dataPago)>normDate(a.dataPago)?1:-1);
           return(<div style={{padding:16}}>
@@ -4821,7 +4816,7 @@ export default function ERP(){
             </div>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
               <div>
-                <div style={{fontSize:10,fontWeight:800,color:"var(--pp)",textTransform:"uppercase",marginBottom:8}}>📅 Parcelas do mês — {new Date().toLocaleString("pt-BR",{month:"long",year:"numeric"})}</div>
+                <div style={{fontSize:10,fontWeight:800,color:"var(--pp)",textTransform:"uppercase",marginBottom:8}}>📅 Parcelas do mês — {nomeMesFluxo}</div>
                 {parcMes18.length===0?<div style={{fontSize:11,color:"var(--tx3)"}}>Nenhuma parcela neste mês</div>
                 :parcMes18.map((p,i)=><div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 0",borderBottom:"1px solid var(--bd)",fontSize:12,gap:8,opacity:p.pago?.85:1}}>
                   <div style={{flex:1}}><div style={{fontWeight:700,color:"var(--tx)"}}>{p.desc}</div><div style={{fontSize:10,color:"var(--tx3)"}}>{isoToBR(p.venc)} · {FORMAS_LAB[p.formaPag]||p.formaPag}{p.pago&&p.dataPago?` · recebido ${isoToBR(normDate(p.dataPago))}`:""}</div></div>
@@ -5097,10 +5092,8 @@ export default function ERP(){
           {fluxoTab==="semana"&&<>
             {/* Seletor de semana do mês */}
             <div style={{marginBottom:16}}>
-              <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
-                <button onClick={()=>navFluxoMes(-1)} style={{background:"var(--sf)",border:"1.5px solid var(--bd)",borderRadius:8,padding:"3px 10px",fontSize:13,fontWeight:800,cursor:"pointer",color:"var(--tx)"}}>◀</button>
-                <span style={{fontSize:9,fontWeight:800,color:"var(--tx3)",textTransform:"uppercase",letterSpacing:"1px",flex:1,textAlign:"center"}}>Semana do mês de {nomeMesFluxo}</span>
-                <button onClick={()=>navFluxoMes(1)} style={{background:"var(--sf)",border:"1.5px solid var(--bd)",borderRadius:8,padding:"3px 10px",fontSize:13,fontWeight:800,cursor:"pointer",color:"var(--tx)"}}>▶</button>
+              <div style={{marginBottom:8}}>
+                <span style={{fontSize:9,fontWeight:800,color:"var(--tx3)",textTransform:"uppercase",letterSpacing:"1px"}}>Semanas de {nomeMesFluxo}</span>
               </div>
               <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
                 {semanasDoMes.map((s,i)=>{
@@ -5138,11 +5131,6 @@ export default function ERP(){
 
           {/* ── ABA MÊS ── */}
           {fluxoTab==="mes"&&<>
-            <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:10,marginBottom:16}}>
-              <button onClick={()=>navFluxoMes(-1)} style={{background:"var(--sf)",border:"1.5px solid var(--bd)",borderRadius:8,padding:"5px 12px",fontSize:14,fontWeight:800,cursor:"pointer",color:"var(--tx)"}}>◀</button>
-              <span style={{fontSize:13,fontWeight:800,color:"var(--tx)",textTransform:"capitalize",minWidth:140,textAlign:"center"}}>{nomeMesFluxo}</span>
-              <button onClick={()=>navFluxoMes(1)} style={{background:"var(--sf)",border:"1.5px solid var(--bd)",borderRadius:8,padding:"5px 12px",fontSize:14,fontWeight:800,cursor:"pointer",color:"var(--tx)"}}>▶</button>
-            </div>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16}}>
               <div>
                 <div style={{fontSize:13,fontWeight:800,color:"var(--gn)",textTransform:"uppercase",marginBottom:8}}>Entradas —{R$(esteMesRec)}</div>

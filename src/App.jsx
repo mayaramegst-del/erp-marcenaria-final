@@ -2591,6 +2591,9 @@ body{font-family:'Arial',sans-serif;background:#fff;color:#1e293b;padding:0}
   <div class="footer">
     <div class="date-place">${cidadeEmp}, ${dataFmt}</div>
     <div class="sign">
+      ${empresa.logo
+        ?`<img src="${empresa.logo}" style="height:56px;max-width:160px;object-fit:contain;display:block;margin:0 auto 6px"/>`
+        :`<div style="height:56px"></div>`}
       <div class="sign-line"></div>
       <div class="sign-name">${empresa.nome||'Empresa'}</div>
       <div class="sign-role">${empresa.cnpj?'CNPJ: '+empresa.cnpj:'Responsável'}</div>

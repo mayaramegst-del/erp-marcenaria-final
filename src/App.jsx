@@ -4745,8 +4745,8 @@ export default function ERP(){
                   <div style={{fontSize:10,fontWeight:800,color:"var(--rd)",textTransform:"uppercase"}}>💸 Pagamentos a fornecedores</div>
                   <Btn small onClick={()=>setModal({t:"newFin",d:{fontePool:"1012",fornecedorSugerido:"Mestre Marceneiro"}})}><I.Plus/> Pagar Fornecedor</Btn>
                 </div>
-                {pool1012FinPag.length===0?<div style={{fontSize:11,color:"var(--tx3)"}}>Nenhum pagamento registrado</div>
-                :pool1012FinPag.map(f=>{
+                {(()=>{const listaForn=pool1012FinPag.filter(f=>(f.parcelas||[]).some(p=>p.venc?.startsWith(mesAtual)||normDate(p.dataPago).startsWith(mesAtual)));return listaForn.length===0?<div style={{fontSize:11,color:"var(--tx3)"}}>Nenhum pagamento neste mês</div>
+                :listaForn.map(f=>{
                   const abertas=(f.parcelas||[]).filter(p=>!p.pago).sort((a,b)=>a.venc>b.venc?1:-1);
                   const prox=abertas[0];
                   const semSaldo=pool1012Saldo<(prox?.valor||0);
@@ -4774,7 +4774,7 @@ export default function ERP(){
                       <button onClick={()=>{if(semSaldo)return showToast("Saldo 10x/12x insuficiente!","red");pagarParcela(f.id,prox.id,prox.valor,"cred_12x");}} style={{padding:"5px 14px",borderRadius:8,border:"none",background:semSaldo?"var(--bd)":"var(--gn)",color:semSaldo?"var(--tx3)":"#fff",fontSize:11,fontWeight:800,cursor:semSaldo?"not-allowed":"pointer",opacity:semSaldo?.6:1}}>✓ Pagar</button>
                     </div>}
                   </div>);
-                })}
+                })})()}
               </div>
             </div>
           </div>);
@@ -4822,8 +4822,8 @@ export default function ERP(){
                   <div style={{fontSize:10,fontWeight:800,color:"var(--rd)",textTransform:"uppercase"}}>💸 Pagamentos a fornecedores</div>
                   <Btn small onClick={()=>setModal({t:"newFin",d:{fontePool:"18",fornecedorSugerido:"Léo Madeiras"}})}><I.Plus/> Pagar Fornecedor</Btn>
                 </div>
-                {pool18FinPag.length===0?<div style={{fontSize:11,color:"var(--tx3)"}}>Nenhum pagamento registrado</div>
-                :pool18FinPag.map(f=>{
+                {(()=>{const listaForn18=pool18FinPag.filter(f=>(f.parcelas||[]).some(p=>p.venc?.startsWith(mesAtual)||normDate(p.dataPago).startsWith(mesAtual)));return listaForn18.length===0?<div style={{fontSize:11,color:"var(--tx3)"}}>Nenhum pagamento neste mês</div>
+                :listaForn18.map(f=>{
                   const abertas=(f.parcelas||[]).filter(p=>!p.pago).sort((a,b)=>a.venc>b.venc?1:-1);
                   const prox=abertas[0];
                   const semSaldo=pool18Saldo<(prox?.valor||0);
@@ -4851,7 +4851,7 @@ export default function ERP(){
                       <button onClick={()=>{if(semSaldo)return showToast("Saldo 18x insuficiente!","red");pagarParcela(f.id,prox.id,prox.valor,"cred_18x");}} style={{padding:"5px 14px",borderRadius:8,border:"none",background:semSaldo?"var(--bd)":"var(--gn)",color:semSaldo?"var(--tx3)":"#fff",fontSize:11,fontWeight:800,cursor:semSaldo?"not-allowed":"pointer",opacity:semSaldo?.6:1}}>✓ Pagar</button>
                     </div>}
                   </div>);
-                })}
+                })})()}
               </div>
             </div>
           </div>);

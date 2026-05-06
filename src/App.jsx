@@ -3134,6 +3134,36 @@ export default function ERP(){
     setTab("orcamentos");
     showToast(`${num} criado — ${ambs.length} ambientes!`);
   };
+  const importarOrcBrunaLeonardo=()=>{
+    const jaExiste=orcamentos.find(o=>{const c=clientes.find(x=>x.id===o.clienteId);return c?.nome?.toLowerCase().includes("bruna");});
+    if(jaExiste){return showToast("Orçamento Bruna e Leonardo já existe!","red");}
+    let cliId=clientes.find(c=>c.nome?.toLowerCase().includes("bruna"))?.id;
+    if(!cliId){cliId=uid();setClientes(p=>[...p,{id:cliId,nome:"Bruna e Leonardo",tel:"",email:"",endereco:"",doc:""}]);}
+    const ambs=[
+      {id:uid(),nome:"Suíte Casal – Guarda-Roupa",desc:"MDF Frapê – Arauco. 294cm largura × 255cm altura × 65cm profundidade. 3 portas de correr em espelho (96cm cada), puxador cava. Interior 3 seções de 94cm: seção 1 – cabideiro superior + cabideiro inferior; seção 2 – cabideiro superior + 4 gavetas; seção 3 – cabideiro superior + 3 nichos (30+32+31cm) + cabideiro + 4 gavetas.",insumos:[],vi:0,valorTotal:0},
+      {id:uid(),nome:"Suíte Casal – Closet com Sapateira",desc:"MDF Frapê – Arauco. 70cm largura × 255cm altura × 100cm profundidade. 2 portas de abrir em vidro Reflecta Bronze com puxador perfil slim. Interior: 5 prateleiras com LED (25cm cada) + sapateira deslizante inferior (5 gavetas). Altura interna: 245cm.",insumos:[],vi:0,valorTotal:0},
+      {id:uid(),nome:"Suíte Casal – Painel, Penteadeira e Espelho",desc:"MDF Savana – Guararapes. Conjunto total 355cm largura. Prateleira com cantos curvos 140cm × 25cm (acima do espelho). Espelho com LED: 80cm largura × 215cm altura. Penteadeira flutuante central (197cm, profundidade 50cm): gavetas ocultas, LED superior. Lateral direita com armário de 100cm × 75cm altura.",insumos:[],vi:0,valorTotal:0},
+      {id:uid(),nome:"WC Suíte – Gabinete, Espelho e Bancada",desc:"MDF Areal – Arauco. Gabinete: 88cm largura × 55cm altura × 38cm profundidade. 2 portas de abrir + 1 gaveta + tulha embutida. Bancada Quartzo Intense White: 165cm × 40cm. Espelho com LED: 165cm largura × 115cm altura. Puxador Ponto Dourado.",insumos:[],vi:0,valorTotal:0},
+      {id:uid(),nome:"Sala de Estar – Rack / Painel TV",desc:"MDF Savana – Guararapes. 265cm largura × 135cm altura total. Rack inferior (40cm altura, 265cm): 4 portas de abrir com ripado vazado 20×20mm, pés com puffs laterais. Prateleira superior com LED: 265cm largura × 3cm. Cantos curvos em toda a extensão.",insumos:[],vi:0,valorTotal:0},
+      {id:uid(),nome:"Cozinha – Armários Superiores",desc:"MDF Frapê – Arauco e MDF Savana – Guararapes. Largura total aprox. 540cm (seções: 65+70+217+83+15+90cm). Altura: 62cm. Múltiplas portas de abrir + 1 basculante. LED embaixo dos armários. Aquecedor de água a gás Rinnai E15 REU E150 FEHGN8 embutido.",insumos:[],vi:0,valorTotal:0},
+      {id:uid(),nome:"Cozinha – Armários Inferiores e Balcão",desc:"MDF Frapê – Arauco e MDF Savana – Guararapes. Bancada Quartzo Bianco Storm. Largura total: 370cm. Altura: 77cm + 10cm pé. Composição: gavetão + basculante + portas abrir + gavetão. Lava e seca Midea HealthGuard Smart 11kg embutida. Forno a gás Electrolux OEBGF e micro-ondas Electrolux MI41S embutidos.",insumos:[],vi:0,valorTotal:0},
+      {id:uid(),nome:"Cozinha – Torre de Armários",desc:"MDF Frapê – Arauco. 107cm largura × 235cm altura. 2 portas de abrir centrais (200cm). Internamente: gaveta, gaveta, basculante, nicho, gaveta, gavetão, gavetão. Laterais com prateleiras ajustáveis: 2 colunas de 51cm cada + coluna central 63+63+63cm.",insumos:[],vi:0,valorTotal:0},
+      {id:uid(),nome:"Cozinha – Bancada / Ilha com Cooktop",desc:"MDF Savana – Guararapes + Quartzo Bianco Storm. 250cm × 134cm × 82cm altura. Cooktop de indução Electrolux IE6LP embutido (200cm × 82cm seção principal + 50cm extensão lateral). Base: gaveta, gaveta, gaveta + 2 gavetões.",insumos:[],vi:0,valorTotal:0},
+      {id:uid(),nome:"Lavanderia – Armários Superiores e Inferiores",desc:"MDF Frapê – Arauco. Largura total: 290cm. Superiores (h=22cm cada prateleira, 5 prateleiras por seção): seções 61+66+106+106+78+86cm. Inferiores: seções com portas abrir e prateleiras. LED embaixo dos superiores. Tanque Tramontina 40×35 com torneira.",insumos:[],vi:0,valorTotal:0},
+      {id:uid(),nome:"Varanda – Armário e Bancada Gourmet",desc:"MDF Savana – Guararapes + Quartzo Bianco Storm. Armário: 37cm largura × 77cm altura, 1 porta de abrir com moldura provençal, 1 prateleira central interna, puxador Ponto Dourado. Bancada de apoio: 105cm × 60cm × 15cm espessura. Cuba redonda D=30cm com torneira monocomando bica alta.",insumos:[],vi:0,valorTotal:0},
+      {id:uid(),nome:"Quarto 01 – Painel / Cabeceira",desc:"MDF Savana – Guararapes. 314cm largura × 100cm altura (2 módulos de 157cm). Friso de 1cm entre os módulos. Projeção de piso: 10cm.",insumos:[],vi:0,valorTotal:0},
+      {id:uid(),nome:"Quarto 01 – Mesa de Cabeceira",desc:"2 unidades. MDF Frapê – Arauco. 70cm largura × 50cm altura × 45cm profundidade. 2 gavetas. Pés em metalon dourado. Puxador haste dourada.",insumos:[],vi:0,valorTotal:0},
+      {id:uid(),nome:"Quarto 01 – Guarda-Roupa",desc:"MDF Savana – Guararapes e MDF Frapê – Arauco. 216cm largura total × 255cm altura. Módulo de nichos lateral: 50cm × 245cm (nichos 28cm cada, 8 nichos). Módulo armário: 166cm × 255cm com 3 portas de abrir (54cm cada) + puxador cava amadeirado. Interior: nichos, gavetas (3 prateleiras), cabideiro, maleiro. Banco integrado: 150cm × 75cm altura × 55cm profundidade.",insumos:[],vi:0,valorTotal:0},
+    ];
+    const oid=uid();
+    const num=`ORC-${String(orcamentos.length+1).padStart(4,"0")}`;
+    const o={id:oid,num,clienteId:cliId,data:hoje(),status:"rascunho",ambientes:ambs,garantia:empresa.garantia||GARANTIA,garantiaE:false,pagamento:empresa.pagamento||PAGAMENTO,pagamentoE:false,markup:MARKUP,desconto:0,vendedorId:"",percNF:0,especificacoes:empresa.especificacoes||ESPECIFICACOES,especificacoesE:false,validade:mesVigente(),prazoEntrega:empresa.prazoExecucao||""};
+    setOrcamentos(p=>[...p,o]);
+    setOrcAtivo(oid);
+    setTab("orcamentos");
+    showToast(`${num} criado — ${ambs.length} ambientes!`);
+  };
+
   const updOrc=useCallback((id,fn)=>{
     setOrcamentos(prev=>prev.map(o=>{
       if(o.id!==id)return o;
@@ -3931,7 +3961,7 @@ export default function ERP(){
         })()}
       </div>
     )}
-    return(<div style={{animation:"fadeIn .3s"}}><SH title="Orçamentos" sub={`${orcamentos.length} total`} right={<div style={{display:"flex",gap:8}}><Btn v="secondary" small onClick={importarOrcAnaPaula}>📥 Importar Ana Paula</Btn><Btn onClick={()=>setModal({t:"selCli"})}><I.Plus/> Novo</Btn></div>}/>
+    return(<div style={{animation:"fadeIn .3s"}}><SH title="Orçamentos" sub={`${orcamentos.length} total`} right={<div style={{display:"flex",gap:8}}><Btn v="secondary" small onClick={importarOrcAnaPaula}>📥 Importar Ana Paula</Btn><Btn v="secondary" small onClick={importarOrcBrunaLeonardo}>📥 Importar Bruna e Leonardo</Btn><Btn onClick={()=>setModal({t:"selCli"})}><I.Plus/> Novo</Btn></div>}/>
       <Card><TH cols={[{l:"Nº",w:"90px"},{l:"Cliente",w:"2fr"},{l:"Data",w:"1fr"},{l:"Status",w:"90px"},{l:"Valor",w:"110px"},{l:"",w:"90px"}]}/>
       {orcamentos.map(o=>{const c=getCli(o.clienteId);return(<div key={o.id} onClick={()=>setOrcAtivo(o.id)} className="hr" style={{display:"grid",gridTemplateColumns:"90px 2fr 1fr 90px 110px 90px",gap:6,padding:"10px 18px",borderBottom:"1.5px solid var(--bd)",alignItems:"center",cursor:"pointer",fontSize:12}}>
         <span style={{fontWeight:800,color:"var(--pri)"}}>{o.num}</span><span style={{color:"var(--tx)",fontWeight:600}}>{c?.nome}</span><span style={{color:"var(--tx3)"}}>{o.data}</span>

@@ -4448,6 +4448,17 @@ export default function ERP(){
     const [fluxoMes,setFluxoMes]=useState(hojeISO().slice(0,7));
     const navFluxoMes=delta=>{const[y,m]=fluxoMes.split("-").map(Number);const d=new Date(y,m-1+delta,1);setSemSel(null);setFluxoMes(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`);};
     const nomeMesFluxo=new Date(fluxoMes+"-15").toLocaleDateString("pt-BR",{month:"long",year:"numeric"});
+    const prorrogarContasMes=()=>{
+      const[y,m]=fluxoMes.split("-").map(Number);
+      const nextY=m===12?y+1:y;const nextM=m===12?1:m+1;
+      const nextMes=`${nextY}-${String(nextM).padStart(2,"0")}`;
+      const nomePrx=new Date(nextMes+"-15").toLocaleDateString("pt-BR",{month:"long",year:"numeric"});
+      if(!window.confirm(`Mover todas as parcelas não pagas/não recebidas com vencimento até ${nomeMesFluxo} para ${nomePrx}?`))return;
+      const avançar=venc=>{if(!venc)return venc;const[vy,vm,vd]=venc.split("-");const nd=new Date(+vy,+vm-1+1,+vd);return`${nd.getFullYear()}-${String(nd.getMonth()+1).padStart(2,"0")}-${String(nd.getDate()).padStart(2,"0")}`;};
+      setFinanceiro(prev=>prev.map(f=>({...f,parcelas:(f.parcelas||[]).map(p=>(!p.pago&&p.venc&&p.venc<=fluxoMes+"-31")?{...p,venc:avançar(p.venc)}:p)})));
+      setRecebimentos(prev=>prev.map(r=>({...r,parcelas:(r.parcelas||[]).map(p=>(!p.pago&&p.venc&&p.venc<=fluxoMes+"-31")?{...p,venc:avançar(p.venc)}:p)})));
+      showToast(`Contas prorrogadas para ${nomePrx}!`);
+    };
     const eCats=empresa.cats||CATS;
     // Comissões de marceneiros
     const comEntries=financeiro.filter(f=>f.marcId&&f.tipo==="pagar");
@@ -4654,7 +4665,7 @@ export default function ERP(){
       </div>);
     };
     return(<div style={{animation:"fadeIn .3s"}}>
-      <SH title="Financeiro" sub="Gestão de Caixa — Contas a Pagar e Receber" right={<div style={{display:"flex",gap:8,alignItems:"center"}}><button onClick={()=>navFluxoMes(-1)} style={{background:"var(--sf)",border:"1.5px solid var(--bd)",borderRadius:8,padding:"5px 12px",fontSize:14,fontWeight:800,cursor:"pointer",color:"var(--tx)"}}>◀</button><span style={{fontSize:13,fontWeight:800,color:"var(--tx)",textTransform:"capitalize",minWidth:150,textAlign:"center"}}>{nomeMesFluxo}</span><button onClick={()=>navFluxoMes(1)} style={{background:"var(--sf)",border:"1.5px solid var(--bd)",borderRadius:8,padding:"5px 12px",fontSize:14,fontWeight:800,cursor:"pointer",color:"var(--tx)"}}>▶</button><Btn onClick={()=>setModal({t:"newFin"})}><I.Plus/> Nova Conta</Btn></div>}/>
+      <SH title="Financeiro" sub="Gestão de Caixa — Contas a Pagar e Receber" right={<div style={{display:"flex",gap:8,alignItems:"center"}}><button onClick={()=>navFluxoMes(-1)} style={{background:"var(--sf)",border:"1.5px solid var(--bd)",borderRadius:8,padding:"5px 12px",fontSize:14,fontWeight:800,cursor:"pointer",color:"var(--tx)"}}>◀</button><span style={{fontSize:13,fontWeight:800,color:"var(--tx)",textTransform:"capitalize",minWidth:150,textAlign:"center"}}>{nomeMesFluxo}</span><button onClick={()=>navFluxoMes(1)} style={{background:"var(--sf)",border:"1.5px solid var(--bd)",borderRadius:8,padding:"5px 12px",fontSize:14,fontWeight:800,cursor:"pointer",color:"var(--tx)"}}>▶</button><Btn v="secondary" small onClick={prorrogarContasMes}>⏩ Prorrogar Mês</Btn><Btn onClick={()=>setModal({t:"newFin"})}><I.Plus/> Nova Conta</Btn></div>}/>
 
       {/* ══ LINHA 1 — SALDO REAL ══ */}
       <div style={{display:"grid",gridTemplateColumns:"2fr 1fr",gap:10,marginBottom:10}}>

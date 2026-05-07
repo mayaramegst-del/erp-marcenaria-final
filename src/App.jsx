@@ -4673,9 +4673,9 @@ export default function ERP(){
         </div>
         {/* Total a Pagar */}
         <div style={{background:"rgba(239,68,68,.07)",borderRadius:"var(--rl)",padding:"14px 16px",border:"1px solid rgba(239,68,68,.2)"}}>
-          <div style={{fontSize:8,fontWeight:800,color:"var(--rd)",textTransform:"uppercase",letterSpacing:"1px",marginBottom:4}}>❤️ Total a Pagar</div>
-          <div style={{fontSize:20,fontWeight:800,color:"var(--rd)"}}>{R$(totalAP)}</div>
-          <div style={{fontSize:9,color:"var(--tx3)",marginTop:4}}>{financeiro.filter(f=>f.tipo==="pagar"&&f.status!=="pago").length} conta{financeiro.filter(f=>f.tipo==="pagar"&&f.status!=="pago").length!==1?"s":""} em aberto</div>
+          <div style={{fontSize:8,fontWeight:800,color:"var(--rd)",textTransform:"uppercase",letterSpacing:"1px",marginBottom:4}}>❤️ Total a Pagar — {nomeMesFluxo}</div>
+          <div style={{fontSize:20,fontWeight:800,color:"var(--rd)"}}>{R$(parMesPag.reduce((s,p)=>s+p.valor,0))}</div>
+          <div style={{fontSize:9,color:"var(--tx3)",marginTop:4}}>{parMesPag.length} conta{parMesPag.length!==1?"s":""} pendente{parMesPag.length!==1?"s":""} este mês</div>
         </div>
       </div>
 

@@ -2987,13 +2987,6 @@ export default function ERP(){
   useEffect(()=>{if(dbLoaded)syncCloud('leads',leads);},[leads,dbLoaded]);
   useEffect(()=>{if(dbLoaded)syncCloud('biblioteca',biblioteca);},[biblioteca,dbLoaded]);
   useEffect(()=>{if(dbLoaded)syncCloud('recebimentos',recebimentos);},[recebimentos,dbLoaded]);
-  useEffect(()=>{
-    if(!dbLoaded)return;
-    const limite=fluxoMes+"-01";
-    const moverDia=venc=>{if(!venc)return venc;const d=venc.split("-")[2];return`${fluxoMes}-${d}`;};
-    setFinanceiro(prev=>{const novo=prev.map(f=>({...f,parcelas:(f.parcelas||[]).map(p=>(!p.pago&&p.venc&&p.venc<limite)?{...p,venc:moverDia(p.venc)}:p)}));return JSON.stringify(novo)===JSON.stringify(prev)?prev:novo;});
-    setRecebimentos(prev=>{const novo=prev.map(r=>({...r,parcelas:(r.parcelas||[]).map(p=>(!p.pago&&p.venc&&p.venc<limite)?{...p,venc:moverDia(p.venc)}:p)}));return JSON.stringify(novo)===JSON.stringify(prev)?prev:novo;});
-  },[fluxoMes,dbLoaded]);
   useEffect(()=>{if(dbLoaded)syncCloud('recorrentes',recorrentes);},[recorrentes,dbLoaded]);
   useEffect(()=>{if(dbLoaded)syncCloud('vendedores',vendedores);},[vendedores,dbLoaded]);
   useEffect(()=>{if(dbLoaded)syncCloud('cortadores',cortadores);},[cortadores,dbLoaded]);
@@ -4453,6 +4446,12 @@ export default function ERP(){
     const [semSel,setSemSel]=useState(null);
     const [showFluxo,setShowFluxo]=useState(false);
     const [fluxoMes,setFluxoMes]=useState(hojeISO().slice(0,7));
+    useEffect(()=>{
+      const limite=fluxoMes+"-01";
+      const moverDia=venc=>{if(!venc)return venc;const d=venc.split("-")[2];return`${fluxoMes}-${d}`;};
+      setFinanceiro(prev=>{const novo=prev.map(f=>({...f,parcelas:(f.parcelas||[]).map(p=>(!p.pago&&p.venc&&p.venc<limite)?{...p,venc:moverDia(p.venc)}:p)}));return JSON.stringify(novo)===JSON.stringify(prev)?prev:novo;});
+      setRecebimentos(prev=>{const novo=prev.map(r=>({...r,parcelas:(r.parcelas||[]).map(p=>(!p.pago&&p.venc&&p.venc<limite)?{...p,venc:moverDia(p.venc)}:p)}));return JSON.stringify(novo)===JSON.stringify(prev)?prev:novo;});
+    },[fluxoMes]);
     const navFluxoMes=delta=>{const[y,m]=fluxoMes.split("-").map(Number);const d=new Date(y,m-1+delta,1);setSemSel(null);setFluxoMes(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`);};
     const nomeMesFluxo=new Date(fluxoMes+"-15").toLocaleDateString("pt-BR",{month:"long",year:"numeric"});
     const eCats=empresa.cats||CATS;

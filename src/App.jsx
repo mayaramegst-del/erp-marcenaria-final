@@ -4449,7 +4449,12 @@ export default function ERP(){
     useEffect(()=>{
       const limite=fluxoMes+"-01";
       const moverDia=venc=>{if(!venc)return venc;const d=venc.split("-")[2];return`${fluxoMes}-${d}`;};
-      setFinanceiro(prev=>{const novo=prev.map(f=>({...f,parcelas:(f.parcelas||[]).map(p=>(!p.pago&&p.venc&&p.venc<limite)?{...p,venc:moverDia(p.venc)}:p)}));return JSON.stringify(novo)===JSON.stringify(prev)?prev:novo;});
+      setFinanceiro(prev=>{
+        // prorrogar apenas entradas não-recorrentes; recorrentes têm geração própria por mês
+        const movida=prev.map(f=>f.recorrenteId?f:{...f,parcelas:(f.parcelas||[]).map(p=>(!p.pago&&p.venc&&p.venc<limite)?{...p,venc:moverDia(p.venc)}:p)});
+        const dedup=_deduplicateFin(movida);
+        return JSON.stringify(dedup)===JSON.stringify(prev)?prev:dedup;
+      });
       setRecebimentos(prev=>{const novo=prev.map(r=>({...r,parcelas:(r.parcelas||[]).map(p=>(!p.pago&&p.venc&&p.venc<limite)?{...p,venc:moverDia(p.venc)}:p)}));return JSON.stringify(novo)===JSON.stringify(prev)?prev:novo;});
     },[fluxoMes]);
     const navFluxoMes=delta=>{const[y,m]=fluxoMes.split("-").map(Number);const d=new Date(y,m-1+delta,1);setSemSel(null);setFluxoMes(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`);};

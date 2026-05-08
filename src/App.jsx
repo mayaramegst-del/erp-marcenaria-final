@@ -5424,14 +5424,33 @@ export default function ERP(){
     const recFinMan=financeiro.filter(f=>f.tipo==="receber"&&!f.pedidoId).reduce((s,f)=>s+f.parcelas.filter(p=>p.venc?.startsWith(anoStr)).reduce((ss,p)=>ss+p.valor,0),0);
     const recRecMan=recebimentos.reduce((s,r)=>s+r.parcelas.filter(p=>p.venc?.startsWith(anoStr)).reduce((ss,p)=>ss+p.valor,0),0);
     const rec=recPed+recFinMan+recRecMan;
-    // Despesas: excluir marcId (comissão marceneiro, já em cc) e materiais de pedido (já em cm)
-    // Manter: vendedorId (comissão vendedor, não está em cc) e entradas manuais sem pedidoId
-    const filtroDespesas=f=>f.tipo==="pagar"&&(!f.pedidoId||f.vendedorId);
+    // Classificadores DRE
+    const isMaterialFin=f=>!!(f.fontePool||f.fonteCartao||f.desc?.toLowerCase().includes("material")||/mestre|le[oó]\s*mad/i.test(f.fornecedor||""));
+    const isComFin=f=>!!(f.marcId||f.vendedorId||f.categoria==="Folha/Comissão");
+    // Custo de materiais via financeiro (compras cartão pool + lançamentos de material)
+    const cmFin=financeiro.filter(f=>f.tipo==="pagar"&&isMaterialFin(f)).reduce((s,f)=>s+f.parcelas.filter(p=>p.venc?.startsWith(anoStr)).reduce((ss,p)=>ss+p.valor,0),0);
+    // Comissões via financeiro (marceneiros + vendedores lançados)
+    const ccFin=financeiro.filter(f=>f.tipo==="pagar"&&isComFin(f)&&!isMaterialFin(f)).reduce((s,f)=>s+f.parcelas.filter(p=>p.venc?.startsWith(anoStr)).reduce((ss,p)=>ss+p.valor,0),0);
+    const cmTotal=cm+cmFin;const ccTotal=cc+ccFin;
+    // Despesas operacionais: excluir material e comissão já separados
+    const filtroDespesas=f=>f.tipo==="pagar"&&!isMaterialFin(f)&&!isComFin(f)&&!f.pedidoId;
     const despesasFin=financeiro.filter(filtroDespesas).reduce((s,f)=>s+f.parcelas.filter(p=>p.venc?.startsWith(anoStr)).reduce((ss,p)=>ss+p.valor,0),0);
     const despesasFinPagas=financeiro.filter(filtroDespesas).reduce((s,f)=>s+f.parcelas.filter(p=>p.venc?.startsWith(anoStr)&&p.pago).reduce((ss,p)=>ss+p.valor,0),0);
-    const lb=rec-cm;const ll=lb-cc-despesasFin;const mg=rec>0?((ll/rec)*100).toFixed(1):0;
-    const rows=[{l:"(+) Receita Bruta",v:rec,c:"gn",b:true},{l:"(−) Custo Materiais",v:-cm,c:"rd"},{l:"= Lucro Bruto",v:lb,c:lb>=0?"gn":"rd",b:true,line:true},{l:"(−) Comissões",v:-cc,c:"rd"},{l:"(−) Despesas (competência)",v:-despesasFin,c:"rd"},{l:"    ↳ Já pagas",v:-despesasFinPagas,c:"rd",sub:true},{l:"= Resultado Líquido",v:ll,c:ll>=0?"gn":"rd",b:true,line:true}];
-    const chartData=[{name:"Receita",value:rec},{name:"Materiais",value:cm},{name:"Comissões",value:cc},{name:"Despesas",value:despesasFin},{name:"Lucro Líq.",value:Math.max(0,ll)}];
+    const lb=rec-cmTotal;const ll=lb-ccTotal-despesasFin;const mg=rec>0?((ll/rec)*100).toFixed(1):0;
+    const rows=[
+      {l:"(+) Receita Bruta",v:rec,c:"gn",b:true},
+      {l:"(−) Custo de Materiais",v:-cmTotal,c:"rd"},
+      {l:"    ↳ dos Pedidos",v:-cm,c:"rd",sub:true},
+      {l:"    ↳ Compras (Financeiro)",v:-cmFin,c:"rd",sub:true},
+      {l:"= Lucro Bruto",v:lb,c:lb>=0?"gn":"rd",b:true,line:true},
+      {l:"(−) Comissões",v:-ccTotal,c:"am"},
+      {l:"    ↳ dos Pedidos",v:-cc,c:"am",sub:true},
+      {l:"    ↳ Lançamentos (Financeiro)",v:-ccFin,c:"am",sub:true},
+      {l:"(−) Despesas Operacionais",v:-despesasFin,c:"rd"},
+      {l:"    ↳ Já pagas",v:-despesasFinPagas,c:"rd",sub:true},
+      {l:"= Resultado Líquido",v:ll,c:ll>=0?"gn":"rd",b:true,line:true}
+    ];
+    const chartData=[{name:"Receita",value:rec},{name:"Materiais",value:cmTotal},{name:"Comissões",value:ccTotal},{name:"Despesas",value:despesasFin},{name:"Lucro Líq.",value:Math.max(0,ll)}];
     const byPed=pedAno.map(p=>({name:p.num,receita:p.vt,custo:p.cm,comissao:p.comVal,lucro:p.vt-p.cm-p.comVal}));
     // Mensal para fechamento anual
     const MESES=["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
@@ -5444,16 +5463,19 @@ export default function ERP(){
       const recMFin=financeiro.filter(f=>f.tipo==="receber"&&!f.pedidoId).reduce((s,f)=>s+f.parcelas.filter(p=>p.venc?.startsWith(prefx)).reduce((ss,p)=>ss+p.valor,0),0);
       const recMRec=recebimentos.reduce((s,r)=>s+r.parcelas.filter(p=>p.venc?.startsWith(prefx)).reduce((ss,p)=>ss+p.valor,0),0);
       const recM=recMPed+recMFin+recMRec;
-      const pagM=financeiro.filter(f=>f.tipo==="pagar"&&(!f.pedidoId||f.vendedorId)).reduce((s,f)=>s+f.parcelas.filter(p=>p.venc?.startsWith(prefx)).reduce((ss,p)=>ss+p.valor,0),0);
-      return{name:m,receita:recM,materiais:cmM,comissoes:ccM,despesas:pagM,resultado:recM-cmM-ccM-pagM};
+      const cmFinM=financeiro.filter(f=>f.tipo==="pagar"&&isMaterialFin(f)).reduce((s,f)=>s+f.parcelas.filter(p=>p.venc?.startsWith(prefx)).reduce((ss,p)=>ss+p.valor,0),0);
+      const ccFinM=financeiro.filter(f=>f.tipo==="pagar"&&isComFin(f)&&!isMaterialFin(f)).reduce((s,f)=>s+f.parcelas.filter(p=>p.venc?.startsWith(prefx)).reduce((ss,p)=>ss+p.valor,0),0);
+      const pagM=financeiro.filter(filtroDespesas).reduce((s,f)=>s+f.parcelas.filter(p=>p.venc?.startsWith(prefx)).reduce((ss,p)=>ss+p.valor,0),0);
+      const matM=cmM+cmFinM;const comM=ccM+ccFinM;
+      return{name:m,receita:recM,materiais:matM,comissoes:comM,despesas:pagM,resultado:recM-matM-comM-pagM};
     });
-    // Categorias de despesa para o ano
-    const byCat={};financeiro.filter(f=>f.tipo==="pagar"&&(!f.pedidoId||f.vendedorId)).forEach(f=>{const pags=f.parcelas.filter(p=>p.venc?.startsWith(anoStr));if(!pags.length)return;const v=pags.reduce((s,p)=>s+p.valor,0);const c=f.categoria||"Outros";byCat[c]=(byCat[c]||0)+v;});
+    // Categorias de despesas operacionais para o ano
+    const byCat={};financeiro.filter(filtroDespesas).forEach(f=>{const pags=f.parcelas.filter(p=>p.venc?.startsWith(anoStr));if(!pags.length)return;const v=pags.reduce((s,p)=>s+p.valor,0);const c=f.categoria||"Outros";byCat[c]=(byCat[c]||0)+v;});
     const catData=Object.entries(byCat).map(([name,value])=>({name,value})).sort((a,b)=>b.value-a.value);
     const print=()=>{const w=window.open('','_blank','width=900,height=700');const s=`body{font-family:Arial,sans-serif;padding:30px;font-size:12px;color:#1e293b}h1{font-size:20px;font-weight:800;color:#6366f1}table{width:100%;border-collapse:collapse;margin:12px 0}th{background:#f8f7ff;padding:7px;font-size:10px;text-transform:uppercase;color:#999;border-bottom:2px solid #e0e0f0;text-align:left}td{padding:8px;border-bottom:1px solid #f0eeff}.total{font-weight:800;font-size:14px}.green{color:#10b981}.red{color:#ef4444}.amber{color:#d97706}`;w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><style>${s}</style></head><body><h1>DRE — Fechamento ${dreAno}</h1><p style="color:#888">Empresa: ${empresa.nome} • Gerado em ${hoje()}</p><table><tr>${rows.map(r=>`<tr><td>${r.l}</td><td class="${r.v>=0?'green':'red'} ${r.b?'total':''}">${R$(r.v)}</td></tr>`).join('')}</table><h2 style="font-size:14px;margin-top:20px">Resultado Mensal</h2><table><tr><th>Mês</th><th>Receita</th><th>Materiais</th><th>Comissões</th><th>Despesas</th><th>Resultado</th></tr>${mensalData.map(m=>`<tr><td>${m.name}</td><td class="green">${R$(m.receita)}</td><td class="red">${R$(m.materiais)}</td><td class="amber">${R$(m.comissoes)}</td><td class="red">${R$(m.despesas)}</td><td class="${m.resultado>=0?'green':'red'}">${R$(m.resultado)}</td></tr>`).join('')}</table></body></html>`);w.document.close();setTimeout(()=>w.print(),400);};
     const printMes=()=>{if(!dreMes)return;const[aaaa,mm]=dreMes.split("-");const nomeMes=MESES[+mm-1];const pedMes2=pedidos.filter(p=>{const[d,mo,a]=p.data?.split("/")||[];return a===aaaa&&mo===mm&&p.status!=="cancelado";});const recM=pedMes2.reduce((s,p)=>s+p.vt,0);const cmM=pedMes2.reduce((s,p)=>s+(p.cm||0),0);const ccM=pedMes2.reduce((s,p)=>s+(p.comVal||0),0);const pagM=financeiro.filter(f=>f.tipo==="pagar"&&(!f.pedidoId||f.vendedorId)).reduce((s,f)=>s+f.parcelas.filter(p=>p.venc?.startsWith(dreMes)&&p.pago).reduce((ss,p)=>ss+p.valor,0),0);const recM2=financeiro.filter(f=>f.tipo==="receber"&&!f.pedidoId).reduce((s,f)=>s+f.parcelas.filter(p=>p.venc?.startsWith(dreMes)&&p.pago).reduce((ss,p)=>ss+p.valor,0),0);const recTotal=recM+recM2;const lucroB=recTotal-cmM;const resultado=lucroB-ccM-pagM;const byCatM={};financeiro.filter(f=>f.tipo==="pagar"&&(!f.pedidoId||f.vendedorId)).forEach(f=>{const pags=f.parcelas.filter(p=>p.venc?.startsWith(dreMes)&&p.pago);if(!pags.length)return;const v=pags.reduce((s,p)=>s+p.valor,0);const c=f.categoria||"Outros";byCatM[c]=(byCatM[c]||0)+v;});const w=window.open('','_blank','width=900,height=700');const s=`body{font-family:Arial,sans-serif;padding:30px;font-size:12px;color:#1e293b}h1{font-size:20px;font-weight:800;color:#6366f1}h2{font-size:14px;color:#334155;margin-top:20px}table{width:100%;border-collapse:collapse;margin:10px 0}th{background:#f8f7ff;padding:7px;font-size:10px;text-transform:uppercase;color:#999;border-bottom:2px solid #e0e0f0;text-align:left}td{padding:8px;border-bottom:1px solid #f0eeff}.total{font-weight:800}.gn{color:#10b981}.rd{color:#ef4444}.am{color:#d97706}`;w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><style>${s}</style></head><body><h1>Fechamento Mensal — ${nomeMes}/${aaaa}</h1><p style="color:#888">Empresa: ${empresa.nome} • Gerado em ${hoje()}</p><table><tr><th>Item</th><th>Valor</th></tr><tr><td>(+) Receita Pedidos</td><td class="gn">${R$(recM)}</td></tr><tr><td>(+) Receita Financeiro (recebida)</td><td class="gn">${R$(recM2)}</td></tr><tr><td class="total">(+) Receita Bruta</td><td class="gn total">${R$(recTotal)}</td></tr><tr><td>(−) Custo Materiais</td><td class="rd">${R$(cmM)}</td></tr><tr><td class="total">= Lucro Bruto</td><td class="${lucroB>=0?'gn':'rd'} total">${R$(lucroB)}</td></tr><tr><td>(−) Comissões Marceneiro</td><td class="am">${R$(ccM)}</td></tr><tr><td>(−) Despesas Pagas</td><td class="rd">${R$(pagM)}</td></tr><tr><td class="total">= Resultado Líquido</td><td class="${resultado>=0?'gn':'rd'} total">${R$(resultado)}</td></tr></table><h2>Despesas por Categoria</h2><table><tr><th>Categoria</th><th>Valor</th></tr>${Object.entries(byCatM).map(([c,v])=>`<tr><td>${c}</td><td class="rd">${R$(v)}</td></tr>`).join('')}</table></body></html>`);w.document.close();setTimeout(()=>w.print(),400);};
     return(<div style={{animation:"fadeIn .3s"}}><SH title="DRE — Demonstração de Resultados" right={<div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}><select value={dreAno} onChange={e=>setDreAno(+e.target.value)} style={{padding:"7px 12px",borderRadius:10,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:12,fontWeight:700,outline:"none"}}>{[...new Set([dreAno,new Date().getFullYear(),new Date().getFullYear()-1])].sort().reverse().map(a=><option key={a} value={a}>{a}</option>)}</select><Btn v="ghost" small onClick={print}><I.Printer/> Fechar Ano</Btn><input type="month" value={dreMes} onChange={e=>setDreMes(e.target.value)} style={{padding:"6px 10px",borderRadius:10,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:12,fontWeight:700,outline:"none"}}/>{dreMes&&<Btn v="secondary" small onClick={printMes}><I.Printer/> Fechar Mês</Btn>}{dreMes&&<button onClick={()=>setDreMes("")} style={{background:"none",border:"none",color:"var(--tx3)",cursor:"pointer",fontSize:12}}>✕</button>}</div>}/>
-      <div style={{display:"flex",gap:12,marginBottom:20,flexWrap:"wrap"}}><KPI label="Receita" value={R$(rec)} icon={<I.Dollar/>} color="gn"/><KPI label="Materiais" value={R$(cm)} icon={<I.Package/>} color="rd"/><KPI label="Comissões" value={R$(cc)} icon={<I.Percent/>} color="am"/><KPI label="Margem Líq." value={`${mg}%`} icon={<I.DRE/>} color={ll>=0?"gn":"rd"}/></div>
+      <div style={{display:"flex",gap:12,marginBottom:20,flexWrap:"wrap"}}><KPI label="Receita" value={R$(rec)} icon={<I.Dollar/>} color="gn"/><KPI label="Materiais" value={R$(cmTotal)} icon={<I.Package/>} color="rd"/><KPI label="Comissões" value={R$(ccTotal)} icon={<I.Percent/>} color="am"/><KPI label="Margem Líq." value={`${mg}%`} icon={<I.DRE/>} color={ll>=0?"gn":"rd"}/></div>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:14}}>
         <Card style={{maxWidth:500}}>{rows.map((r,i)=><div key={i} style={{padding:r.sub?"6px 20px 6px 32px":"12px 20px",borderTop:r.line?"2px solid var(--bd)":r.sub?"none":"1.5px solid var(--bd)",display:"flex",justifyContent:"space-between",alignItems:"center",background:r.sub?"var(--bg)":"transparent"}}><span style={{fontSize:r.sub?11:13,fontWeight:r.b?800:600,color:r.sub?"var(--tx3)":"var(--tx)",fontStyle:r.sub?"italic":"normal"}}>{r.l}</span><span style={{fontSize:r.b?18:r.sub?11:14,fontWeight:r.sub?600:800,color:r.sub?"var(--tx3)":`var(--${r.c})`}}>{R$(r.v)}</span></div>)}</Card>
         <Card><CardHead title="Composição"/><div style={{padding:16,height:220}}><ResponsiveContainer><PieChart><Pie data={chartData} cx="50%" cy="50%" innerRadius={45} outerRadius={70} dataKey="value" paddingAngle={3}>{chartData.map((e,i)=><Cell key={i} fill={["#10b981","#ef4444","#f59e0b","#6366f1"][i]}/>)}</Pie><Tooltip formatter={v=>R$(v)}/><Legend iconType="circle" wrapperStyle={{fontSize:10,fontWeight:700}}/></PieChart></ResponsiveContainer></div></Card>
@@ -5477,8 +5499,8 @@ export default function ERP(){
               <tr style={{background:"var(--prib)",borderTop:"2px solid var(--bd)"}}>
                 <td style={{padding:"10px 12px",fontWeight:800,color:"var(--pri)",fontSize:12}}>TOTAL {dreAno}</td>
                 <td style={{padding:"10px 12px",textAlign:"right",fontWeight:800,color:"var(--gn)",fontSize:13}}>{R$(rec)}</td>
-                <td style={{padding:"10px 12px",textAlign:"right",fontWeight:800,color:"var(--rd)",fontSize:13}}>{R$(cm)}</td>
-                <td style={{padding:"10px 12px",textAlign:"right",fontWeight:800,color:"var(--am)",fontSize:13}}>{R$(cc)}</td>
+                <td style={{padding:"10px 12px",textAlign:"right",fontWeight:800,color:"var(--rd)",fontSize:13}}>{R$(cmTotal)}</td>
+                <td style={{padding:"10px 12px",textAlign:"right",fontWeight:800,color:"var(--am)",fontSize:13}}>{R$(ccTotal)}</td>
                 <td style={{padding:"10px 12px",textAlign:"right",fontWeight:800,color:"var(--rd)",fontSize:13}}>{R$(despesasFin)}</td>
                 <td style={{padding:"10px 12px",textAlign:"right",fontWeight:800,color:ll>=0?"var(--gn)":"var(--rd)",fontSize:14}}>{R$(ll)}</td>
               </tr>

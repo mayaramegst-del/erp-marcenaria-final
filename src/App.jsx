@@ -5020,7 +5020,7 @@ export default function ERP(){
               const vend=vendedores.find(v=>v.id===f.vendedorId);
               const pedCom=pedidos.find(p=>p.id===f.pedidoId);
               const pago=(f.parcelas||[]).filter(p=>p.pago).reduce((s,p)=>s+p.valor,0);
-              const pendente=(f.parcelas||[]).filter(p=>!p.pago).reduce((s,p)=>s+p.valor,0);
+              const pendente=Math.max(0,f.valor-pago);
               return(<div key={f.id} style={{borderBottom:"1px solid var(--bd)",paddingBottom:12,marginBottom:12}}>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
                   <div>
@@ -5281,7 +5281,7 @@ export default function ERP(){
           {comEntries.map(f=>{
             const marc=marceneiros.find(m=>m.id===f.marcId);
             const pago=(f.parcelas||[]).filter(p=>p.pago).reduce((s,p)=>s+p.valor,0);
-            const pendente=(f.parcelas||[]).filter(p=>!p.pago).reduce((s,p)=>s+p.valor,0);
+            const pendente=Math.max(0,f.valor-pago);
             return(<Card key={f.id} style={{marginBottom:10,padding:"12px 16px"}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:10}}>
                 <div>
@@ -5663,7 +5663,7 @@ export default function ERP(){
               {fins.map(f=>{
                 const pedCom=pedidos.find(p=>p.id===f.pedidoId);
                 const pago=(f.parcelas||[]).filter(p=>p.pago).reduce((s,p)=>s+p.valor,0);
-                const pendente=(f.parcelas||[]).filter(p=>!p.pago).reduce((s,p)=>s+p.valor,0);
+                const pendente=Math.max(0,f.valor-pago);
                 return(<div key={f.id} style={{background:"var(--sf)",borderRadius:10,border:"1.5px solid var(--bd)",padding:"12px 14px",marginBottom:10}}>
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
                     <div>

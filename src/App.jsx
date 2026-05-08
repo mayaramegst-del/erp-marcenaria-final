@@ -4924,7 +4924,7 @@ export default function ERP(){
               const marc=marceneiros.find(m=>m.id===f.marcId);
               const pedCom=pedidos.find(p=>p.id===f.pedidoId);
               const pago=(f.parcelas||[]).filter(p=>p.pago).reduce((s,p)=>s+p.valor,0);
-              const pendente=(f.parcelas||[]).filter(p=>!p.pago).reduce((s,p)=>s+p.valor,0);
+              const pendente=Math.max(0,f.valor-pago);
               const pct=f.valor>0?Math.min(100,Math.round(pago/f.valor*100)):0;
               const cliNome=getCli(pedCom?.clienteId)?.nome||pedCom?.cliente||"";
               return(<div key={f.id} style={{borderBottom:"1px solid var(--bd)",paddingBottom:16,marginBottom:16}}>

@@ -5422,15 +5422,15 @@ export default function ERP(){
     const cc=pedAno.reduce((s,p)=>s+p.comVal,0);
     // Receitas manuais: financeiro receber sem vínculo com pedido + recebimentos manuais
     const recFinMan=financeiro.filter(f=>f.tipo==="receber"&&!f.pedidoId).reduce((s,f)=>s+f.parcelas.filter(p=>p.venc?.startsWith(anoStr)).reduce((ss,p)=>ss+p.valor,0),0);
-    const recRecMan=recebimentos.reduce((s,r)=>s+r.parcelas.filter(p=>p.venc?.startsWith(anoStr)).reduce((ss,p)=>ss+p.valor,0),0);
-    const rec=recPed+recFinMan+recRecMan;
+    // recebimentos (parcelas cartão) excluídos: representam recebimento de pedidos já em recPed — incluir causaria dupla contagem
+    const rec=recPed+recFinMan;
     // Classificadores DRE
     const isMaterialFin=f=>!!(f.fontePool||f.fonteCartao||f.desc?.toLowerCase().includes("material")||/mestre|le[oó]\s*mad/i.test(f.fornecedor||""));
     const isComFin=f=>!!(f.marcId||f.vendedorId||f.categoria==="Folha/Comissão");
     // Custo de materiais via financeiro (compras cartão pool + lançamentos de material)
     const cmFin=financeiro.filter(f=>f.tipo==="pagar"&&isMaterialFin(f)).reduce((s,f)=>s+f.parcelas.filter(p=>p.venc?.startsWith(anoStr)).reduce((ss,p)=>ss+p.valor,0),0);
-    // Comissões via financeiro (marceneiros + vendedores lançados)
-    const ccFin=financeiro.filter(f=>f.tipo==="pagar"&&isComFin(f)&&!isMaterialFin(f)).reduce((s,f)=>s+f.parcelas.filter(p=>p.venc?.startsWith(anoStr)).reduce((ss,p)=>ss+p.valor,0),0);
+    // Comissões via financeiro — exclui marcId+pedidoId (já contado em p.comVal via cc, evita dupla contagem)
+    const ccFin=financeiro.filter(f=>f.tipo==="pagar"&&isComFin(f)&&!isMaterialFin(f)&&!(f.marcId&&f.pedidoId)).reduce((s,f)=>s+f.parcelas.filter(p=>p.venc?.startsWith(anoStr)).reduce((ss,p)=>ss+p.valor,0),0);
     const cmTotal=cm+cmFin;const ccTotal=cc+ccFin;
     // Despesas operacionais: excluir material e comissão já separados
     const filtroDespesas=f=>f.tipo==="pagar"&&!isMaterialFin(f)&&!isComFin(f)&&!f.pedidoId;
@@ -5461,10 +5461,9 @@ export default function ERP(){
       const cmM=pedM.reduce((s,p)=>s+(p.cm||0),0);
       const ccM=pedM.reduce((s,p)=>s+(p.comVal||0),0);
       const recMFin=financeiro.filter(f=>f.tipo==="receber"&&!f.pedidoId).reduce((s,f)=>s+f.parcelas.filter(p=>p.venc?.startsWith(prefx)).reduce((ss,p)=>ss+p.valor,0),0);
-      const recMRec=recebimentos.reduce((s,r)=>s+r.parcelas.filter(p=>p.venc?.startsWith(prefx)).reduce((ss,p)=>ss+p.valor,0),0);
-      const recM=recMPed+recMFin+recMRec;
+      const recM=recMPed+recMFin; // sem recebimentos cartão (dupla contagem)
       const cmFinM=financeiro.filter(f=>f.tipo==="pagar"&&isMaterialFin(f)).reduce((s,f)=>s+f.parcelas.filter(p=>p.venc?.startsWith(prefx)).reduce((ss,p)=>ss+p.valor,0),0);
-      const ccFinM=financeiro.filter(f=>f.tipo==="pagar"&&isComFin(f)&&!isMaterialFin(f)).reduce((s,f)=>s+f.parcelas.filter(p=>p.venc?.startsWith(prefx)).reduce((ss,p)=>ss+p.valor,0),0);
+      const ccFinM=financeiro.filter(f=>f.tipo==="pagar"&&isComFin(f)&&!isMaterialFin(f)&&!(f.marcId&&f.pedidoId)).reduce((s,f)=>s+f.parcelas.filter(p=>p.venc?.startsWith(prefx)).reduce((ss,p)=>ss+p.valor,0),0);
       const pagM=financeiro.filter(filtroDespesas).reduce((s,f)=>s+f.parcelas.filter(p=>p.venc?.startsWith(prefx)).reduce((ss,p)=>ss+p.valor,0),0);
       const matM=cmM+cmFinM;const comM=ccM+ccFinM;
       return{name:m,receita:recM,materiais:matM,comissoes:comM,despesas:pagM,resultado:recM-matM-comM-pagM};

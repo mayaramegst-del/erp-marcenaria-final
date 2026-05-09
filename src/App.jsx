@@ -2221,6 +2221,7 @@ function MarceneiroApp({user,pedidos,setPedidos,clientes,financeiro,showToast,on
 function CortadorApp({user,ordensCort,setOrdensCort,setPedidos,showToast,onLogout,notifs=[],addNotif,unreadFor,markAllRead,clearNotif}){
   const [nav,setNav]=useState("ordens");
   const [selId,setSelId]=useState(null);
+  const [nOpen,setNOpen]=useState(false);
   const minhasOrdens=ordensCort.filter(o=>o.cortadorId===user.id);
   const statusCor={aguardando:"var(--am)",em_corte:"var(--pri)",concluido:"var(--gn)",cancelado:"var(--rd)"};
   const statusLabel={aguardando:"\u23f3 Aguardando",em_corte:"\u2699 Em Corte",concluido:"\u2713 Conclu\xeddo",cancelado:"\u2715 Cancelado"};
@@ -2322,7 +2323,7 @@ function CortadorApp({user,ordensCort,setOrdensCort,setPedidos,showToast,onLogou
   return(
     <div style={{fontFamily:"var(--ft)",background:"var(--bg)",minHeight:"100vh",maxWidth:520,margin:"0 auto",paddingBottom:80}}>
       <style>{CSS}</style>
-      {(()=>{const [nOpen,setNOpen]=useState(false);const cnt=unreadFor?.(user.id)||0;const myNotifs=notifs.filter(n=>n.para.includes(user.id)).slice(0,30);
+      {(()=>{const cnt=unreadFor?.(user.id)||0;const myNotifs=notifs.filter(n=>n.para.includes(user.id)).slice(0,30);
         return(<div style={{background:"linear-gradient(135deg,#0ea5e9,#0284c7)",padding:"16px 18px",display:"flex",justifyContent:"space-between",alignItems:"center",position:"relative"}}>
           <div>
             <div style={{fontSize:16,fontWeight:800,color:"#fff"}}>\ud83e\ude9a Painel do Cortador</div>
@@ -2673,6 +2674,7 @@ export default function ERP(){
   const [ambAberto,setAmbAberto]=useState(null);
   const [insModal,setInsModal]=useState(null);
   const [bibCustoOvr,setBibCustoOvr]=useState({});
+  const [adminNotifOpen,setAdminNotifOpen]=useState(false);
   useEffect(()=>setBibCustoOvr({}),[insModal]);
 
   // ── DATA STORE ──
@@ -6011,16 +6013,16 @@ export default function ERP(){
         <div className="sidebar-logo" style={{padding:"18px 16px",borderBottom:"1.5px solid var(--bd)",display:"flex",alignItems:"center",gap:10}}>
           <div style={{width:36,height:36,borderRadius:12,background:"linear-gradient(135deg,#6366f1,#8b5cf6)",display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 2px 8px rgba(99,102,241,.3)"}}><span style={{fontSize:18,filter:"brightness(10)"}}>🪵</span></div>
           <div style={{flex:1}}><span style={{fontSize:16,fontWeight:800,color:"var(--pri)",display:"block",lineHeight:1}}>ERP</span><span style={{fontSize:9,color:"var(--tx3)",fontWeight:800,letterSpacing:"1.5px",textTransform:"uppercase"}}>Marcenaria</span></div>
-          {(()=>{const cnt=unreadFor("admin");const [open,setOpen]=useState(false);const adminNotifs=notifs.filter(n=>n.para.includes("admin")).slice(0,30);
+          {(()=>{const cnt=unreadFor("admin");const adminNotifs=notifs.filter(n=>n.para.includes("admin")).slice(0,30);
             return(<div style={{position:"relative"}}>
-              <button onClick={()=>{setOpen(o=>!o);if(!open)markAllRead("admin");}} style={{background:"none",border:"none",cursor:"pointer",padding:4,position:"relative",display:"flex",alignItems:"center",justifyContent:"center"}}>
+              <button onClick={()=>{setAdminNotifOpen(o=>!o);if(!adminNotifOpen)markAllRead("admin");}} style={{background:"none",border:"none",cursor:"pointer",padding:4,position:"relative",display:"flex",alignItems:"center",justifyContent:"center"}}>
                 <span style={{fontSize:20}}>🔔</span>
                 {cnt>0&&<span style={{position:"absolute",top:0,right:0,background:"var(--rd)",color:"#fff",borderRadius:"50%",width:16,height:16,fontSize:9,fontWeight:800,display:"flex",alignItems:"center",justifyContent:"center",lineHeight:1}}>{cnt>9?"9+":cnt}</span>}
               </button>
-              {open&&<div style={{position:"fixed",top:60,left:205,width:320,maxHeight:480,overflowY:"auto",background:"var(--sf)",borderRadius:12,boxShadow:"0 8px 32px rgba(0,0,0,.18)",border:"1.5px solid var(--bd)",zIndex:200}}>
+              {adminNotifOpen&&<div style={{position:"fixed",top:60,left:205,width:320,maxHeight:480,overflowY:"auto",background:"var(--sf)",borderRadius:12,boxShadow:"0 8px 32px rgba(0,0,0,.18)",border:"1.5px solid var(--bd)",zIndex:200}}>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"12px 14px",borderBottom:"1.5px solid var(--bd)"}}>
                   <span style={{fontWeight:800,fontSize:13,color:"var(--tx)"}}>🔔 Notificações</span>
-                  <button onClick={()=>setOpen(false)} style={{background:"none",border:"none",color:"var(--tx3)",cursor:"pointer",fontSize:18}}>×</button>
+                  <button onClick={()=>setAdminNotifOpen(false)} style={{background:"none",border:"none",color:"var(--tx3)",cursor:"pointer",fontSize:18}}>×</button>
                 </div>
                 {adminNotifs.length===0&&<div style={{padding:"24px 16px",textAlign:"center",color:"var(--tx3)",fontSize:12}}>Nenhuma notificação ainda.</div>}
                 {adminNotifs.map(n=>(

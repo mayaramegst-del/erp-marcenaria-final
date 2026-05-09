@@ -5345,6 +5345,7 @@ export default function ERP(){
 
   // ESTOQUE
   const PgEst=()=>{const [eE,setEE]=useState(null);
+    const [mEdit,setMEdit]=useState(null);
     const alerta=estoque.filter(e=>e.estoqueMin>0&&e.qtd<=e.estoqueMin);
     return(<div style={{animation:"fadeIn .3s"}}>
       <SH title="Estoque" sub={`${estoque.length} itens • Valor total: ${R$(stats.estVal)}`} right={<div style={{display:"flex",gap:6,alignItems:"center"}}>{alerta.length>0&&<Badge color="red">⚠ {alerta.length} em alerta</Badge>}<Btn onClick={()=>setEE({nome:"",un:"un",qtd:0,custo:0,estoqueMin:0})}><I.Plus/> Novo</Btn></div>}/>
@@ -5378,10 +5379,7 @@ export default function ERP(){
       </div>)})}</Card>
 
       {/* ── BIBLIOTECA DE MATERIAIS (para marceneiros lançarem) ── */}
-      {(()=>{
-        const [mEdit,setMEdit]=useState(null);
-        const cats=[...new Set(matLib.map(m=>m.categoria).filter(Boolean))];
-        return(<>
+      <>
           <SH title="📦 Biblioteca de Materiais" sub="Itens pré-cadastrados que os marceneiros usam para lançar materiais por obra" right={<div style={{display:"flex",gap:8}}><Btn v="secondary" onClick={()=>{const novos=DEMO_MATLIB.filter(d=>!matLib.find(m=>m.id===d.id));if(novos.length===0)return showToast("Padrões já carregados!");setMatLib(p=>[...p,...novos]);showToast(`${novos.length} material(is) adicionado(s)!`);}} small>↺ Carregar Padrões</Btn><Btn onClick={()=>setMEdit({nome:"",unidade:"un",categoria:"",preco:0})}><I.Plus/> Novo Material</Btn></div>} style={{marginTop:24}}/>
           {mEdit&&<Modal onClose={()=>setMEdit(null)}>
             <h2 style={{fontSize:16,fontWeight:800,color:"var(--tx)",marginBottom:16}}>{mEdit.id?"Editar":"Novo"} Material</h2>
@@ -5410,8 +5408,7 @@ export default function ERP(){
                 </div>
               ))}
             </Card>}
-        </>);
-      })()}
+      </>
     </div>);};
 
   // DRE

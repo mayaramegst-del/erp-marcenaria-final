@@ -1466,10 +1466,11 @@ function MarceneiroApp({user,pedidos,setPedidos,clientes,financeiro,showToast,on
   const [instDias,setInstDias]=useState("");
   const [refreshing,setRefreshing]=useState(false);
   const doRefresh=async()=>{setRefreshing(true);await onRefresh?.();setRefreshing(false);showToast("Atualizado!");};
-  const meusP=pedidos.filter(p=>(p.marcId===user.id||p.ambs?.some(a=>a.marcId===user.id))&&p.status!=="cancelado");
-  const getCli=id=>clientes.find(c=>c.id===id);
-  const getComFin=p=>financeiro?.find(f=>f.pedidoId===p.id&&f.marcId===user.id&&f.tipo==="pagar");
-  const atrasados=meusP.filter(p=>p.dataEntrega&&p.stage!=="concluido"&&new Date(p.dataEntrega.split("/").reverse().join("-"))<new Date());
+  const isAtrasado=(dataEntrega,stage)=>{try{if(!dataEntrega||stage==="concluido"||typeof dataEntrega!=="string")return false;const parts=dataEntrega.split("/");if(parts.length!==3)return false;const d=new Date(`${parts[2]}-${parts[1]}-${parts[0]}`);return!isNaN(d.getTime())&&d<new Date();}catch{return false;}};
+  const meusP=(pedidos||[]).filter(p=>p&&(p.marcId===user?.id||(p.ambs||[]).some(a=>a?.marcId===user?.id))&&p.status!=="cancelado");
+  const getCli=id=>(clientes||[]).find(c=>c?.id===id);
+  const getComFin=p=>(financeiro||[]).find(f=>f?.pedidoId===p?.id&&f?.marcId===user?.id&&f?.tipo==="pagar");
+  const atrasados=meusP.filter(p=>isAtrasado(p.dataEntrega,p.stage));
   const totalCom=meusP.reduce((s,p)=>{const f=getComFin(p);return s+(f?.valor||p.comVal||0);},0);
   const totalPago=meusP.reduce((s,p)=>{const f=getComFin(p);return s+(f?.valorPago||0);},0);
   const totalPend=totalCom-totalPago;
@@ -1824,7 +1825,7 @@ function MarceneiroApp({user,pedidos,setPedidos,clientes,financeiro,showToast,on
     const cli=getCli(p.clienteId);
     const stage=KCOLS.find(k=>k.id===p.stage)||KCOLS[0];
     const stageIdx=KCOLS.findIndex(k=>k.id===p.stage);
-    const atrasado=p.dataEntrega&&p.stage!=="concluido"&&new Date(p.dataEntrega.split("/").reverse().join("-"))<new Date();
+    const atrasado=isAtrasado(p.dataEntrega,p.stage);
     const comFin=getComFin(p);
     const comTotal=comFin?.valor||p.comVal||0;
     const comPago=comFin?.valorPago||0;
@@ -2036,7 +2037,7 @@ function MarceneiroApp({user,pedidos,setPedidos,clientes,financeiro,showToast,on
             const cli=getCli(p.clienteId);
             const stage=KCOLS.find(k=>k.id===p.stage)||KCOLS[0];
             const stageIdx=KCOLS.findIndex(k=>k.id===p.stage);
-            const atrasado=p.dataEntrega&&p.stage!=="concluido"&&new Date(p.dataEntrega.split("/").reverse().join("-"))<new Date();
+            const atrasado=isAtrasado(p.dataEntrega,p.stage);
             const comFin=getComFin(p);
             const comTotal=comFin?.valor||p.comVal||0;
             const comPago=comFin?.valorPago||0;

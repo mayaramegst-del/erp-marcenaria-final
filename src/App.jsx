@@ -1803,8 +1803,8 @@ function MarceneiroApp({user,pedidos,setPedidos,clientes,financeiro,showToast,on
             <span style={{padding:"3px 10px",borderRadius:20,fontSize:10,fontWeight:800,color:statusCor[o.status],background:"var(--bg)"}}>{statusLabel[o.status]}</span>
           </div>
           <div style={{fontSize:11,color:"var(--tx3)",display:"flex",gap:12,flexWrap:"wrap"}}>
-            <span>\ud83d\udccb {o.chapa.material} {o.chapa.espessura}mm</span>
-            <span>\ud83d\udcd0 {o.pecas.reduce((s,p)=>s+p.qt,0)} pe\xe7as</span>
+            <span>\ud83d\udccb {o.chapa?.material} {o.chapa?.espessura}mm</span>
+            <span>\ud83d\udcd0 {(o.pecas||[]).reduce((s,p)=>s+p.qt,0)} pe\xe7as</span>
             <span>\ud83e\ude9a {cort?.nome||"\u2014"}</span>
             <span>\ud83d\udcc5 {o.createdAt}</span>
             {o.prazo&&<span style={{color:"#d97706",fontWeight:700}}>⏰ Prazo: {isoToBR(o.prazo)}</span>}
@@ -3479,10 +3479,10 @@ export default function ERP(){
     const rec=pedidos.reduce((s,p)=>s+p.vt,0);
     const cMat=pedidos.reduce((s,p)=>s+p.cm,0);
     const cCom=pedidos.reduce((s,p)=>s+p.comVal,0);
-    const aReceber=financeiro.filter(f=>f.tipo==="receber").reduce((s,f)=>s+(f.valor-f.valorPago),0)+recebimentos.reduce((s,r)=>s+r.parcelas.filter(p=>!p.pago).reduce((ss,p)=>ss+p.valor,0),0);
+    const aReceber=financeiro.filter(f=>f.tipo==="receber").reduce((s,f)=>s+(f.valor-f.valorPago),0)+recebimentos.reduce((s,r)=>s+(r.parcelas||[]).filter(p=>!p.pago).reduce((ss,p)=>ss+p.valor,0),0);
     const aPagar=financeiro.filter(f=>f.tipo==="pagar").reduce((s,f)=>s+(f.valor-f.valorPago),0);
-    const recCartao=recebimentos.reduce((s,r)=>s+r.parcelas.filter(p=>p.pago&&p.formaPag==="cartao_cred").reduce((ss,p)=>ss+p.valor,0),0);
-    const finCartao=financeiro.filter(f=>f.tipo==="receber").reduce((s,f)=>s+f.parcelas.filter(p=>p.pago&&p.formaPag==="cartao_cred").reduce((ss,p)=>ss+p.valor,0),0);
+    const recCartao=recebimentos.reduce((s,r)=>s+(r.parcelas||[]).filter(p=>p.pago&&p.formaPag==="cartao_cred").reduce((ss,p)=>ss+p.valor,0),0);
+    const finCartao=financeiro.filter(f=>f.tipo==="receber").reduce((s,f)=>s+(f.parcelas||[]).filter(p=>p.pago&&p.formaPag==="cartao_cred").reduce((ss,p)=>ss+p.valor,0),0);
     const cartaoPago=financeiro.filter(f=>f.tipo==="pagar"&&f.fonteCartao).reduce((s,f)=>s+(f.valorPago||0),0);
     const saldoCartao=recCartao+finCartao-cartaoPago;
     const estMinAlert=estoque.filter(e=>e.estoqueMin>0&&e.qtd<=e.estoqueMin).length;

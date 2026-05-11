@@ -5772,18 +5772,26 @@ export default function ERP(){
       return{...r,parcelas};
     });
     const totalGeral=recebimentos.reduce((s,r)=>s+r.valorTotal,0);
-    const totalPago=recebimentos.reduce((s,r)=>s+r.parcelas.filter(p=>p.pago).reduce((ss,p)=>ss+p.valor,0),0);
+    const totalPago=recebimentos.reduce((s,r)=>s+(r.parcelas||[]).filter(p=>p.pago).reduce((ss,p)=>ss+p.valor,0),0);
     const vencAtrasado=p=>p.venc&&p.venc<hojeISO()&&!p.pago;
     // Pedidos aprovados com financeiro vinculado
     const pedFinanceiro=financeiro.filter(f=>f.pedidoId&&f.tipo==="receber");
     const totalPedGeral=pedFinanceiro.reduce((s,f)=>s+f.valor,0);
     const totalPedPago=pedFinanceiro.reduce((s,f)=>s+f.valorPago,0);
-    const totalPedVencido=pedFinanceiro.reduce((s,f)=>s+f.parcelas.filter(p=>!p.pago&&p.venc&&p.venc<hojeISO()).reduce((ss,p)=>ss+p.valor,0),0);
+    const totalPedVencido=pedFinanceiro.reduce((s,f)=>s+(f.parcelas||[]).filter(p=>!p.pago&&p.venc&&p.venc<hojeISO()).reduce((ss,p)=>ss+p.valor,0),0);
+    // Separa abertos x quitados
+    const recQuitado=r=>{const pg=(r.parcelas||[]).filter(p=>p.pago).reduce((s,p)=>s+p.valor,0);return r.valorTotal>0&&pg>=r.valorTotal-0.01;};
+    const pedQuitado=f=>f.valor>0&&f.valorPago>=f.valor-0.01;
+    const pedFinanceiroAbertos=pedFinanceiro.filter(f=>!pedQuitado(f));
+    const pedFinanceiroQuitados=pedFinanceiro.filter(pedQuitado);
+    const recebimentosAbertos=recebimentos.filter(r=>!recQuitado(r));
+    const recebimentosQuitados=recebimentos.filter(recQuitado);
+    const totalQuitado=pedFinanceiroQuitados.reduce((s,f)=>s+f.valorPago,0)+recebimentosQuitados.reduce((s,r)=>s+(r.parcelas||[]).filter(p=>p.pago).reduce((ss,p)=>ss+p.valor,0),0);
     return(<div style={{animation:"fadeIn .3s"}}>
       <SH title="Recebimentos" sub={`Controle de recebimento por pedido e planos de pagamento`} right={<Btn onClick={()=>setModal({t:"novoRec"})}><I.Plus/> Novo Recebimento</Btn>}/>
       {/* TABS */}
       <div style={{display:"flex",gap:6,marginBottom:16}}>
-        {[{k:"pedidos",l:"📦 Pedidos Aprovados"},{k:"manuais",l:"📋 Planos Manuais"}].map(t=><button key={t.k} onClick={()=>setRecTab(t.k)} style={{padding:"8px 18px",borderRadius:20,border:"1.5px solid "+(recTab===t.k?"var(--pri)":"var(--bd)"),background:recTab===t.k?"var(--prib)":"transparent",color:recTab===t.k?"var(--pri)":"var(--tx3)",fontSize:12,fontWeight:700,cursor:"pointer"}}>{t.l}</button>)}
+        {[{k:"pedidos",l:"📦 Pedidos Aprovados"},{k:"manuais",l:"📋 Planos Manuais"},{k:"recebidos",l:`✓ Recebidos (${pedFinanceiroQuitados.length+recebimentosQuitados.length})`}].map(t=><button key={t.k} onClick={()=>setRecTab(t.k)} style={{padding:"8px 18px",borderRadius:20,border:"1.5px solid "+(recTab===t.k?"var(--pri)":"var(--bd)"),background:recTab===t.k?"var(--prib)":"transparent",color:recTab===t.k?"var(--pri)":"var(--tx3)",fontSize:12,fontWeight:700,cursor:"pointer"}}>{t.l}</button>)}
       </div>
       {/* KPIs dinâmicos por tab */}
       {recTab==="pedidos"&&<div style={{display:"flex",gap:12,marginBottom:18,flexWrap:"wrap"}}>
@@ -5798,9 +5806,9 @@ export default function ERP(){
         <KPI label="Pendente" value={R$(totalGeral-totalPago)} icon={<I.Clock/>} color="rd"/>
         <KPI label="Em Atraso" value={R$(recebimentos.reduce((s,r)=>s+r.parcelas.filter(vencAtrasado).reduce((ss,p)=>ss+p.valor,0),0))} icon={<I.Zap/>} color="am"/>
       </div>}
-      {/* ── PEDIDOS APROVADOS ── */}
-      {recTab==="pedidos"&&<>{pedFinanceiro.length===0?<Card style={{padding:48,textAlign:"center"}}><p style={{color:"var(--tx3)",fontWeight:700}}>Nenhum pedido aprovado com financeiro vinculado</p></Card>
-      :pedFinanceiro.map(f=>{
+      {/* ── PEDIDOS APROVADOS (abertos) ── */}
+      {recTab==="pedidos"&&<>{pedFinanceiroAbertos.length===0?<Card style={{padding:48,textAlign:"center"}}><p style={{color:"var(--tx3)",fontWeight:700}}>{pedFinanceiro.length===0?"Nenhum pedido aprovado com financeiro vinculado":"✓ Todos os pedidos foram quitados! Veja na aba Recebidos."}</p></Card>
+      :pedFinanceiroAbertos.map(f=>{
         const ped=pedidos.find(p=>p.id===f.pedidoId);
         const cli=getCli(ped?.clienteId||"");
         const pago=f.valorPago;const pendente=f.valor-pago;
@@ -5876,7 +5884,7 @@ export default function ERP(){
           </div>}
         </Card>);
       })}</>}
-      {recTab==="manuais"&&<>{recebimentos.map(r=>{
+      {recTab==="manuais"&&<>{recebimentosAbertos.map(r=>{
         const pago=r.parcelas.filter(p=>p.pago).reduce((s,p)=>s+p.valor,0);
         const pendente=r.valorTotal-pago;
         const pct=r.valorTotal>0?Math.min(100,(pago/r.valorTotal)*100):0;
@@ -5990,6 +5998,59 @@ export default function ERP(){
         </Card>);
       })}
       {recebimentos.length===0&&<Card style={{padding:48,textAlign:"center"}}><div style={{fontSize:40,marginBottom:12}}>💰</div><p style={{color:"var(--tx3)",fontWeight:700,fontSize:14}}>Nenhum recebimento cadastrado</p><Btn onClick={()=>setModal({t:"novoRec"})}><I.Plus/> Novo Recebimento</Btn></Card>}
+      {recebimentos.length>0&&recebimentosAbertos.length===0&&<Card style={{padding:48,textAlign:"center"}}><p style={{color:"var(--tx3)",fontWeight:700}}>✓ Todos os planos manuais foram quitados! Veja na aba Recebidos.</p></Card>}
+      </>}
+      {/* ── RECEBIDOS (quitados) ── */}
+      {recTab==="recebidos"&&<>
+        <div style={{display:"flex",gap:12,marginBottom:18,flexWrap:"wrap"}}>
+          <KPI label="Pedidos Quitados" value={String(pedFinanceiroQuitados.length)} icon={<I.Check/>} color="gn"/>
+          <KPI label="Planos Manuais Quitados" value={String(recebimentosQuitados.length)} icon={<I.Check/>} color="gn"/>
+          <KPI label="Total Recebido" value={R$(totalQuitado)} icon={<I.Dollar/>} color="pri"/>
+        </div>
+        {pedFinanceiroQuitados.length===0&&recebimentosQuitados.length===0&&<Card style={{padding:48,textAlign:"center"}}><div style={{fontSize:40,marginBottom:12}}>📥</div><p style={{color:"var(--tx3)",fontWeight:700,fontSize:14}}>Nenhum recebimento quitado ainda</p></Card>}
+        {pedFinanceiroQuitados.length>0&&<div style={{marginBottom:18}}>
+          <h3 style={{fontSize:12,fontWeight:800,color:"var(--tx3)",textTransform:"uppercase",letterSpacing:".8px",marginBottom:8}}>📦 Pedidos Quitados</h3>
+          {pedFinanceiroQuitados.map(f=>{
+            const ped=pedidos.find(p=>p.id===f.pedidoId);
+            const cli=getCli(ped?.clienteId||"");
+            const ultimoPag=(f.parcelas||[]).filter(p=>p.pago&&p.dataPago).map(p=>p.dataPago).sort().pop()||"—";
+            return(<Card key={f.id} style={{marginBottom:8,padding:"12px 18px",display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,borderLeft:"3px solid var(--gn)"}}>
+              <div style={{display:"flex",alignItems:"center",gap:12,flex:1,minWidth:0}}>
+                <div style={{width:36,height:36,borderRadius:10,background:"var(--gnb)",display:"flex",alignItems:"center",justifyContent:"center",color:"var(--gn)",fontWeight:800,fontSize:14,flexShrink:0}}>{cli?.nome?.[0]?.toUpperCase()||"?"}</div>
+                <div style={{minWidth:0,flex:1}}>
+                  <div style={{fontWeight:800,fontSize:13,color:"var(--tx)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{cli?.nome||"Cliente"}</div>
+                  <div style={{fontSize:10,color:"var(--tx3)",fontWeight:600,marginTop:1}}>{ped?.num||f.desc} • {f.parcelas.length} parcela{f.parcelas.length!==1?"s":""} • Último pgto: {isoToBR(ultimoPag)}</div>
+                </div>
+              </div>
+              <div style={{textAlign:"right",flexShrink:0}}>
+                <div style={{fontSize:9,color:"var(--tx3)",fontWeight:700,textTransform:"uppercase"}}>Total Pago</div>
+                <div style={{fontWeight:800,fontSize:14,color:"var(--gn)"}}>{R$(f.valorPago)}</div>
+              </div>
+              <Badge color="green">✓ Quitado</Badge>
+            </Card>);
+          })}
+        </div>}
+        {recebimentosQuitados.length>0&&<div>
+          <h3 style={{fontSize:12,fontWeight:800,color:"var(--tx3)",textTransform:"uppercase",letterSpacing:".8px",marginBottom:8}}>📋 Planos Manuais Quitados</h3>
+          {recebimentosQuitados.map(r=>{
+            const pago=(r.parcelas||[]).filter(p=>p.pago).reduce((s,p)=>s+p.valor,0);
+            const ultimoPag=(r.parcelas||[]).filter(p=>p.pago&&p.dataPago).map(p=>p.dataPago).sort().pop()||"—";
+            return(<Card key={r.id} style={{marginBottom:8,padding:"12px 18px",display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,borderLeft:"3px solid var(--gn)"}}>
+              <div style={{display:"flex",alignItems:"center",gap:12,flex:1,minWidth:0}}>
+                <div style={{width:36,height:36,borderRadius:10,background:"var(--gnb)",display:"flex",alignItems:"center",justifyContent:"center",color:"var(--gn)",fontWeight:800,fontSize:14,flexShrink:0}}>{r.cliente?.[0]?.toUpperCase()||"?"}</div>
+                <div style={{minWidth:0,flex:1}}>
+                  <div style={{fontWeight:800,fontSize:13,color:"var(--tx)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.cliente}</div>
+                  <div style={{fontSize:10,color:"var(--tx3)",fontWeight:600,marginTop:1}}>{r.obs?`${r.obs} • `:""}{r.parcelas.length} parcela{r.parcelas.length!==1?"s":""} • Último pgto: {isoToBR(ultimoPag)}</div>
+                </div>
+              </div>
+              <div style={{textAlign:"right",flexShrink:0}}>
+                <div style={{fontSize:9,color:"var(--tx3)",fontWeight:700,textTransform:"uppercase"}}>Total Pago</div>
+                <div style={{fontWeight:800,fontSize:14,color:"var(--gn)"}}>{R$(pago)}</div>
+              </div>
+              <Badge color="green">✓ Quitado</Badge>
+            </Card>);
+          })}
+        </div>}
       </>}
     </div>);
   };

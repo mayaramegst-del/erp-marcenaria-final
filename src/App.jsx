@@ -4799,7 +4799,7 @@ export default function ERP(){
                   const semSaldo=pool1012Saldo<(prox?.valor||0);
                   const quitado=(f.valorPago||0)>=f.valor;
                   return(<div key={f.id} style={{borderBottom:"1px solid var(--bd)",padding:"8px 0",fontSize:12}}>
-                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8}}>
                       <div>
                         <div style={{fontWeight:700,color:"var(--tx)"}}>{f.fornecedor||f.desc}</div>
                         <div style={{fontSize:10,color:"var(--tx3)",marginTop:1}}>
@@ -4808,9 +4808,13 @@ export default function ERP(){
                           {quitado?<span style={{color:"var(--gn)",fontWeight:700}}> ✓ Quitado</span>:""}
                         </div>
                       </div>
-                      <div style={{textAlign:"right"}}>
-                        <div style={{fontWeight:800,color:"var(--rd)"}}>{R$(f.valor)}</div>
-                        <div style={{fontSize:10,color:"var(--gn)",fontWeight:600}}>pago {R$(f.valorPago||0)}</div>
+                      <div style={{display:"flex",alignItems:"flex-start",gap:6}}>
+                        <div style={{textAlign:"right"}}>
+                          <div style={{fontWeight:800,color:"var(--rd)"}}>{R$(f.valor)}</div>
+                          <div style={{fontSize:10,color:"var(--gn)",fontWeight:600}}>pago {R$(f.valorPago||0)}</div>
+                        </div>
+                        <button onClick={()=>setModal({t:"detFin",d:f})} title="Editar pagamento" style={{background:"none",border:"none",color:"var(--tx3)",cursor:"pointer",padding:4,marginTop:2}}><I.Edit/></button>
+                        <button onClick={()=>{if(!confirm(`Excluir pagamento "${f.fornecedor||f.desc}"?\nValor: ${R$(f.valor)}`))return;setFinanceiro(p=>p.filter(x=>x.id!==f.id));showToast("Pagamento excluído","red");}} title="Excluir pagamento" style={{background:"none",border:"none",color:"var(--rd)",cursor:"pointer",padding:4,marginTop:2}}><I.Trash/></button>
                       </div>
                     </div>
                     {prox&&!quitado&&<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:6,background:"rgba(16,185,129,.07)",border:"1px solid rgba(16,185,129,.2)",borderRadius:8,padding:"6px 10px"}}>
@@ -4876,7 +4880,7 @@ export default function ERP(){
                   const semSaldo=pool18Saldo<(prox?.valor||0);
                   const quitado=(f.valorPago||0)>=f.valor;
                   return(<div key={f.id} style={{borderBottom:"1px solid var(--bd)",padding:"8px 0",fontSize:12}}>
-                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8}}>
                       <div>
                         <div style={{fontWeight:700,color:"var(--tx)"}}>{f.fornecedor||f.desc}</div>
                         <div style={{fontSize:10,color:"var(--tx3)",marginTop:1}}>
@@ -4885,9 +4889,13 @@ export default function ERP(){
                           {quitado?<span style={{color:"var(--gn)",fontWeight:700}}> ✓ Quitado</span>:""}
                         </div>
                       </div>
-                      <div style={{textAlign:"right"}}>
-                        <div style={{fontWeight:800,color:"var(--rd)"}}>{R$(f.valor)}</div>
-                        <div style={{fontSize:10,color:"var(--gn)",fontWeight:600}}>pago {R$(f.valorPago||0)}</div>
+                      <div style={{display:"flex",alignItems:"flex-start",gap:6}}>
+                        <div style={{textAlign:"right"}}>
+                          <div style={{fontWeight:800,color:"var(--rd)"}}>{R$(f.valor)}</div>
+                          <div style={{fontSize:10,color:"var(--gn)",fontWeight:600}}>pago {R$(f.valorPago||0)}</div>
+                        </div>
+                        <button onClick={()=>setModal({t:"detFin",d:f})} title="Editar pagamento" style={{background:"none",border:"none",color:"var(--tx3)",cursor:"pointer",padding:4,marginTop:2}}><I.Edit/></button>
+                        <button onClick={()=>{if(!confirm(`Excluir pagamento "${f.fornecedor||f.desc}"?\nValor: ${R$(f.valor)}`))return;setFinanceiro(p=>p.filter(x=>x.id!==f.id));showToast("Pagamento excluído","red");}} title="Excluir pagamento" style={{background:"none",border:"none",color:"var(--rd)",cursor:"pointer",padding:4,marginTop:2}}><I.Trash/></button>
                       </div>
                     </div>
                     {prox&&!quitado&&<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:6,background:"rgba(16,185,129,.07)",border:"1px solid rgba(16,185,129,.2)",borderRadius:8,padding:"6px 10px"}}>

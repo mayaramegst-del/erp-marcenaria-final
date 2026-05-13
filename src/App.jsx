@@ -4467,7 +4467,7 @@ export default function ERP(){
     const [showFluxo,setShowFluxo]=useState(false);
     const [fluxoMes,setFluxoMes]=useState(hojeISO().slice(0,7));
     const [auditPool,setAuditPool]=useState(null); // null | "1012" | "18"
-    const [comMarcTab,setComMarcTab]=useState("abertas"); // abertas | quitadas | marcId
+    const [comMarcTab,setComMarcTab]=useState(null); // marcId | "quitadas" (null = primeiro com aberto)
     useEffect(()=>{
       const limite=fluxoMes+"-01";
       const moverDia=venc=>{if(!venc)return venc;const d=venc.split("-")[2];return`${fluxoMes}-${d}`;};
@@ -5056,46 +5056,83 @@ export default function ERP(){
         {showComissoes&&<Card style={{padding:0,border:"1.5px solid rgba(239,68,68,.2)"}}>
           <div style={{padding:"12px 16px"}}>
             {(()=>{
-              // Filtra por aba
+              // Filtra
               const isQuitado=f=>(f.valor>0&&(f.valorPago||0)>=f.valor-0.01);
               const comAbertas=comEntries.filter(f=>!isQuitado(f));
               const comQuitadas=comEntries.filter(isQuitado);
-              const marcsComEntries=[...new Set(comEntries.map(f=>f.marcId).filter(Boolean))].map(id=>marceneiros.find(m=>m.id===id)).filter(Boolean);
-              // Lista filtrada para exibição
-              let comExibir=comAbertas;
-              if(comMarcTab==="quitadas")comExibir=comQuitadas;
-              else if(comMarcTab!=="abertas")comExibir=comEntries.filter(f=>f.marcId===comMarcTab);
+              // Marceneiros com comissões em aberto OU pedidos sem lançamento
+              const marcIdsAtivos=[...new Set([...comAbertas.map(f=>f.marcId),...semLancamento.map(p=>p.marcId)])].filter(Boolean);
+              const marcsAtivos=marcIdsAtivos.map(id=>marceneiros.find(m=>m.id===id)).filter(Boolean);
+              // Aba ativa: se null, pega primeiro marceneiro ativo
+              const activeTab=comMarcTab||marcsAtivos[0]?.id||"quitadas";
               const totalQuitadas=comQuitadas.reduce((s,f)=>s+(f.valorPago||0),0);
+              // Lista para exibir
+              const exibirAbertas=activeTab!=="quitadas"?comAbertas.filter(f=>f.marcId===activeTab):[];
+              const exibirSemLanc=activeTab!=="quitadas"?semLancamento.filter(p=>p.marcId===activeTab):[];
+              const exibirQuitadas=activeTab==="quitadas"?comQuitadas:[];
+              const marcAtual=marcsAtivos.find(m=>m.id===activeTab);
+              const totalAPagar=exibirAbertas.reduce((s,f)=>s+(f.valor-(f.valorPago||0)),0)+exibirSemLanc.reduce((s,p)=>{const m=marceneiros.find(x=>x.id===p.marcId);return s+(p.vt*(m?.comissao||0)/100);},0);
               return(<>
                 {/* TABS */}
-                {comEntries.length>0&&<div style={{display:"flex",gap:5,marginBottom:12,flexWrap:"wrap"}}>
-                  <button onClick={()=>setComMarcTab("abertas")} style={{padding:"6px 12px",borderRadius:18,border:"1.5px solid "+(comMarcTab==="abertas"?"var(--rd)":"var(--bd)"),background:comMarcTab==="abertas"?"var(--rdb)":"transparent",color:comMarcTab==="abertas"?"var(--rd)":"var(--tx3)",fontSize:11,fontWeight:700,cursor:"pointer"}}>⏳ Em Aberto ({comAbertas.length})</button>
-                  <button onClick={()=>setComMarcTab("quitadas")} style={{padding:"6px 12px",borderRadius:18,border:"1.5px solid "+(comMarcTab==="quitadas"?"var(--gn)":"var(--bd)"),background:comMarcTab==="quitadas"?"var(--gnb)":"transparent",color:comMarcTab==="quitadas"?"var(--gn)":"var(--tx3)",fontSize:11,fontWeight:700,cursor:"pointer"}}>✓ Quitadas ({comQuitadas.length})</button>
-                  {marcsComEntries.length>1&&<span style={{width:1,background:"var(--bd)",margin:"0 4px"}}/>}
-                  {marcsComEntries.length>1&&marcsComEntries.map(m=>{const cnt=comEntries.filter(f=>f.marcId===m.id).length;return(<button key={m.id} onClick={()=>setComMarcTab(m.id)} style={{padding:"6px 12px",borderRadius:18,border:"1.5px solid "+(comMarcTab===m.id?"var(--pri)":"var(--bd)"),background:comMarcTab===m.id?"var(--prib)":"transparent",color:comMarcTab===m.id?"var(--pri)":"var(--tx3)",fontSize:11,fontWeight:700,cursor:"pointer"}}>👷 {m.nome.split(" ")[0]} ({cnt})</button>);})}
+                {(marcsAtivos.length>0||comQuitadas.length>0)&&<div style={{display:"flex",gap:6,marginBottom:14,flexWrap:"wrap",padding:"4px 0 12px",borderBottom:"1.5px solid var(--bd)"}}>
+                  {marcsAtivos.map(m=>{
+                    const ab=comAbertas.filter(f=>f.marcId===m.id).length;
+                    const sl=semLancamento.filter(p=>p.marcId===m.id).length;
+                    const tot=ab+sl;
+                    const active=activeTab===m.id;
+                    return(<button key={m.id} onClick={()=>setComMarcTab(m.id)} style={{padding:"8px 14px",borderRadius:10,border:"none",background:active?"linear-gradient(135deg,#ef4444,#f87171)":"var(--sf)",color:active?"#fff":"var(--tx2)",fontSize:12,fontWeight:800,cursor:"pointer",boxShadow:active?"0 2px 8px rgba(239,68,68,.3)":"var(--sh)",display:"flex",alignItems:"center",gap:6,transition:"all .15s"}}>
+                      <span style={{fontSize:14}}>👷</span>
+                      <span>{m.nome.split(" ")[0]}</span>
+                      <span style={{background:active?"rgba(255,255,255,.25)":"var(--rdb)",color:active?"#fff":"var(--rd)",borderRadius:10,padding:"1px 7px",fontSize:10,fontWeight:800,marginLeft:2}}>{tot}</span>
+                    </button>);
+                  })}
+                  {comQuitadas.length>0&&<button onClick={()=>setComMarcTab("quitadas")} style={{padding:"8px 14px",borderRadius:10,border:"none",background:activeTab==="quitadas"?"linear-gradient(135deg,#10b981,#34d399)":"var(--sf)",color:activeTab==="quitadas"?"#fff":"var(--tx2)",fontSize:12,fontWeight:800,cursor:"pointer",boxShadow:activeTab==="quitadas"?"0 2px 8px rgba(16,185,129,.3)":"var(--sh)",display:"flex",alignItems:"center",gap:6,marginLeft:"auto"}}>
+                    <span>✓</span>
+                    <span>Quitadas</span>
+                    <span style={{background:activeTab==="quitadas"?"rgba(255,255,255,.25)":"var(--gnb)",color:activeTab==="quitadas"?"#fff":"var(--gn)",borderRadius:10,padding:"1px 7px",fontSize:10,fontWeight:800}}>{comQuitadas.length}</span>
+                  </button>}
                 </div>}
-                {/* KPI Quitadas (apenas na aba quitadas) */}
-                {comMarcTab==="quitadas"&&comQuitadas.length>0&&<div style={{background:"var(--gnb)",border:"1.5px solid var(--gn)",borderRadius:10,padding:"10px 14px",marginBottom:12,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                  <span style={{fontSize:11,fontWeight:800,color:"var(--gn)"}}>💰 Total pago em comissões quitadas:</span>
-                  <span style={{fontSize:14,fontWeight:800,color:"var(--gn)"}}>{R$(totalQuitadas)}</span>
+                {/* HEADER da aba ativa */}
+                {marcAtual&&activeTab!=="quitadas"&&<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",background:"linear-gradient(135deg,rgba(239,68,68,.06),rgba(239,68,68,.02))",border:"1.5px solid rgba(239,68,68,.2)",borderRadius:12,padding:"12px 16px",marginBottom:14}}>
+                  <div>
+                    <div style={{fontSize:14,fontWeight:800,color:"var(--tx)"}}>👷 {marcAtual.nome}</div>
+                    <div style={{fontSize:10,color:"var(--tx3)",marginTop:2,fontWeight:600}}>{marcAtual.comissao}% de comissão{marcAtual.tel&&` · ${marcAtual.tel}`}</div>
+                  </div>
+                  <div style={{textAlign:"right"}}>
+                    <div style={{fontSize:9,color:"var(--rd)",fontWeight:800,textTransform:"uppercase"}}>A Pagar</div>
+                    <div style={{fontSize:18,fontWeight:800,color:"var(--rd)"}}>{R$(totalAPagar)}</div>
+                  </div>
                 </div>}
-                {/* Pedidos sem lançamento (só na aba "abertas") */}
-                {comMarcTab==="abertas"&&semLancamento.length===0&&comEntries.length===0&&(
-                  <div style={{fontSize:12,color:"var(--tx3)",textAlign:"center",padding:"10px 0"}}>Nenhum pedido com marceneiro designado ainda.</div>
-                )}
-                {comMarcTab==="abertas"&&semLancamento.map(ped=>{
+                {/* HEADER da aba quitadas */}
+                {activeTab==="quitadas"&&<div style={{background:"linear-gradient(135deg,rgba(16,185,129,.08),rgba(16,185,129,.02))",border:"1.5px solid rgba(16,185,129,.3)",borderRadius:12,padding:"12px 16px",marginBottom:14,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                  <div>
+                    <div style={{fontSize:13,fontWeight:800,color:"var(--gn)"}}>✓ Comissões Quitadas</div>
+                    <div style={{fontSize:10,color:"var(--tx3)",marginTop:2,fontWeight:600}}>Somente para conferência · {comQuitadas.length} pagamento{comQuitadas.length!==1?"s":""}</div>
+                  </div>
+                  <div style={{textAlign:"right"}}>
+                    <div style={{fontSize:9,color:"var(--gn)",fontWeight:800,textTransform:"uppercase"}}>Total Pago</div>
+                    <div style={{fontSize:18,fontWeight:800,color:"var(--gn)"}}>{R$(totalQuitadas)}</div>
+                  </div>
+                </div>}
+                {/* Empty state global */}
+                {marcsAtivos.length===0&&comQuitadas.length===0&&<div style={{fontSize:13,color:"var(--tx3)",textAlign:"center",padding:"32px 0",fontWeight:600}}>Nenhuma comissão de marceneiro ainda.</div>}
+                {/* Pedidos sem lançamento (só na aba do marceneiro) */}
+                {exibirSemLanc.map(ped=>{
                   const m=marceneiros.find(x=>x.id===ped.marcId);
                   const comVal=+(ped.vt*(m?.comissao||0)/100).toFixed(2);
-                  return(<div key={ped.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 0",borderBottom:"1px solid var(--bd)",gap:8,flexWrap:"wrap"}}>
+                  return(<div key={ped.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 14px",marginBottom:8,borderRadius:10,background:"rgba(245,158,11,.08)",border:"1.5px solid rgba(245,158,11,.3)",gap:8,flexWrap:"wrap"}}>
                     <div>
-                      <div style={{fontSize:12,fontWeight:700,color:"var(--tx)"}}>Pedido {ped.num} — {ped.cliente}</div>
-                      <div style={{fontSize:10,color:"var(--tx3)"}}>{m?.nome} · {m?.comissao}% · <strong style={{color:"var(--rd)"}}>{R$(comVal)}</strong></div>
+                      <div style={{fontSize:12,fontWeight:800,color:"var(--tx)"}}>📋 Pedido {ped.num} — {ped.cliente}</div>
+                      <div style={{fontSize:10,color:"var(--am)",marginTop:2,fontWeight:700}}>Sem lançamento · {m?.comissao}% · <strong>{R$(comVal)}</strong></div>
                     </div>
                     <Btn small onClick={()=>gerarLancamento(ped)}><I.Plus/> Gerar Lançamento</Btn>
                   </div>);
                 })}
-                {comExibir.length===0&&comMarcTab!=="abertas"&&<div style={{fontSize:12,color:"var(--tx3)",textAlign:"center",padding:"20px 0"}}>{comMarcTab==="quitadas"?"Nenhuma comissão quitada ainda.":"Nenhuma comissão para este marceneiro."}</div>}
-                {comExibir.map(f=>{
+                {/* Empty state da aba */}
+                {activeTab!=="quitadas"&&exibirAbertas.length===0&&exibirSemLanc.length===0&&<div style={{fontSize:12,color:"var(--gn)",textAlign:"center",padding:"24px 0",fontWeight:700}}>✓ Nenhuma comissão pendente para este marceneiro</div>}
+                {activeTab==="quitadas"&&exibirQuitadas.length===0&&<div style={{fontSize:12,color:"var(--tx3)",textAlign:"center",padding:"24px 0"}}>Nenhuma comissão quitada ainda.</div>}
+                {/* Lista final (abertas do marceneiro OU quitadas) */}
+                {[...exibirAbertas,...exibirQuitadas].map(f=>{
               const marc=marceneiros.find(m=>m.id===f.marcId);
               const pedCom=pedidos.find(p=>p.id===f.pedidoId);
               const pago=(f.parcelas||[]).filter(p=>p.pago).reduce((s,p)=>s+p.valor,0);

@@ -4467,6 +4467,7 @@ export default function ERP(){
     const [showFluxo,setShowFluxo]=useState(false);
     const [fluxoMes,setFluxoMes]=useState(hojeISO().slice(0,7));
     const [auditPool,setAuditPool]=useState(null); // null | "1012" | "18"
+    const [comMarcTab,setComMarcTab]=useState("abertas"); // abertas | quitadas | marcId
     useEffect(()=>{
       const limite=fluxoMes+"-01";
       const moverDia=venc=>{if(!venc)return venc;const d=venc.split("-")[2];return`${fluxoMes}-${d}`;};
@@ -5054,21 +5055,47 @@ export default function ERP(){
         </button>
         {showComissoes&&<Card style={{padding:0,border:"1.5px solid rgba(239,68,68,.2)"}}>
           <div style={{padding:"12px 16px"}}>
-            {semLancamento.length===0&&comEntries.length===0&&(
-              <div style={{fontSize:12,color:"var(--tx3)",textAlign:"center",padding:"10px 0"}}>Nenhum pedido com marceneiro designado ainda.</div>
-            )}
-            {semLancamento.map(ped=>{
-              const m=marceneiros.find(x=>x.id===ped.marcId);
-              const comVal=+(ped.vt*(m?.comissao||0)/100).toFixed(2);
-              return(<div key={ped.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 0",borderBottom:"1px solid var(--bd)",gap:8,flexWrap:"wrap"}}>
-                <div>
-                  <div style={{fontSize:12,fontWeight:700,color:"var(--tx)"}}>Pedido {ped.num} — {ped.cliente}</div>
-                  <div style={{fontSize:10,color:"var(--tx3)"}}>{m?.nome} · {m?.comissao}% · <strong style={{color:"var(--rd)"}}>{R$(comVal)}</strong></div>
-                </div>
-                <Btn small onClick={()=>gerarLancamento(ped)}><I.Plus/> Gerar Lançamento</Btn>
-              </div>);
-            })}
-            {comEntries.map(f=>{
+            {(()=>{
+              // Filtra por aba
+              const isQuitado=f=>(f.valor>0&&(f.valorPago||0)>=f.valor-0.01);
+              const comAbertas=comEntries.filter(f=>!isQuitado(f));
+              const comQuitadas=comEntries.filter(isQuitado);
+              const marcsComEntries=[...new Set(comEntries.map(f=>f.marcId).filter(Boolean))].map(id=>marceneiros.find(m=>m.id===id)).filter(Boolean);
+              // Lista filtrada para exibição
+              let comExibir=comAbertas;
+              if(comMarcTab==="quitadas")comExibir=comQuitadas;
+              else if(comMarcTab!=="abertas")comExibir=comEntries.filter(f=>f.marcId===comMarcTab);
+              const totalQuitadas=comQuitadas.reduce((s,f)=>s+(f.valorPago||0),0);
+              return(<>
+                {/* TABS */}
+                {comEntries.length>0&&<div style={{display:"flex",gap:5,marginBottom:12,flexWrap:"wrap"}}>
+                  <button onClick={()=>setComMarcTab("abertas")} style={{padding:"6px 12px",borderRadius:18,border:"1.5px solid "+(comMarcTab==="abertas"?"var(--rd)":"var(--bd)"),background:comMarcTab==="abertas"?"var(--rdb)":"transparent",color:comMarcTab==="abertas"?"var(--rd)":"var(--tx3)",fontSize:11,fontWeight:700,cursor:"pointer"}}>⏳ Em Aberto ({comAbertas.length})</button>
+                  <button onClick={()=>setComMarcTab("quitadas")} style={{padding:"6px 12px",borderRadius:18,border:"1.5px solid "+(comMarcTab==="quitadas"?"var(--gn)":"var(--bd)"),background:comMarcTab==="quitadas"?"var(--gnb)":"transparent",color:comMarcTab==="quitadas"?"var(--gn)":"var(--tx3)",fontSize:11,fontWeight:700,cursor:"pointer"}}>✓ Quitadas ({comQuitadas.length})</button>
+                  {marcsComEntries.length>1&&<span style={{width:1,background:"var(--bd)",margin:"0 4px"}}/>}
+                  {marcsComEntries.length>1&&marcsComEntries.map(m=>{const cnt=comEntries.filter(f=>f.marcId===m.id).length;return(<button key={m.id} onClick={()=>setComMarcTab(m.id)} style={{padding:"6px 12px",borderRadius:18,border:"1.5px solid "+(comMarcTab===m.id?"var(--pri)":"var(--bd)"),background:comMarcTab===m.id?"var(--prib)":"transparent",color:comMarcTab===m.id?"var(--pri)":"var(--tx3)",fontSize:11,fontWeight:700,cursor:"pointer"}}>👷 {m.nome.split(" ")[0]} ({cnt})</button>);})}
+                </div>}
+                {/* KPI Quitadas (apenas na aba quitadas) */}
+                {comMarcTab==="quitadas"&&comQuitadas.length>0&&<div style={{background:"var(--gnb)",border:"1.5px solid var(--gn)",borderRadius:10,padding:"10px 14px",marginBottom:12,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                  <span style={{fontSize:11,fontWeight:800,color:"var(--gn)"}}>💰 Total pago em comissões quitadas:</span>
+                  <span style={{fontSize:14,fontWeight:800,color:"var(--gn)"}}>{R$(totalQuitadas)}</span>
+                </div>}
+                {/* Pedidos sem lançamento (só na aba "abertas") */}
+                {comMarcTab==="abertas"&&semLancamento.length===0&&comEntries.length===0&&(
+                  <div style={{fontSize:12,color:"var(--tx3)",textAlign:"center",padding:"10px 0"}}>Nenhum pedido com marceneiro designado ainda.</div>
+                )}
+                {comMarcTab==="abertas"&&semLancamento.map(ped=>{
+                  const m=marceneiros.find(x=>x.id===ped.marcId);
+                  const comVal=+(ped.vt*(m?.comissao||0)/100).toFixed(2);
+                  return(<div key={ped.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 0",borderBottom:"1px solid var(--bd)",gap:8,flexWrap:"wrap"}}>
+                    <div>
+                      <div style={{fontSize:12,fontWeight:700,color:"var(--tx)"}}>Pedido {ped.num} — {ped.cliente}</div>
+                      <div style={{fontSize:10,color:"var(--tx3)"}}>{m?.nome} · {m?.comissao}% · <strong style={{color:"var(--rd)"}}>{R$(comVal)}</strong></div>
+                    </div>
+                    <Btn small onClick={()=>gerarLancamento(ped)}><I.Plus/> Gerar Lançamento</Btn>
+                  </div>);
+                })}
+                {comExibir.length===0&&comMarcTab!=="abertas"&&<div style={{fontSize:12,color:"var(--tx3)",textAlign:"center",padding:"20px 0"}}>{comMarcTab==="quitadas"?"Nenhuma comissão quitada ainda.":"Nenhuma comissão para este marceneiro."}</div>}
+                {comExibir.map(f=>{
               const marc=marceneiros.find(m=>m.id===f.marcId);
               const pedCom=pedidos.find(p=>p.id===f.pedidoId);
               const pago=(f.parcelas||[]).filter(p=>p.pago).reduce((s,p)=>s+p.valor,0);
@@ -5138,6 +5165,8 @@ export default function ERP(){
                 </div>
               </div>);
             })}
+              </>);
+            })()}
           </div>
         </Card>}
       </div>

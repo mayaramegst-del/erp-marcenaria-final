@@ -5998,8 +5998,50 @@ export default function ERP(){
     const recebimentosAbertos=recebimentos.filter(r=>!recQuitado(r));
     const recebimentosQuitados=recebimentos.filter(recQuitado);
     const totalQuitado=pedFinanceiroQuitados.reduce((s,f)=>s+f.valorPago,0)+recebimentosQuitados.reduce((s,r)=>s+(r.parcelas||[]).filter(p=>p.pago).reduce((ss,p)=>ss+p.valor,0),0);
+    // RECOVERY: detecta entries com multiplas parcelas pendentes empilhadas no mesmo vencimento (efeito do bug do prorrogar)
+    const subMes=(iso,n)=>{if(!iso)return iso;const[y,m,d]=iso.split("-").map(Number);const dt=new Date(y,m-1-n,d);return`${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,"0")}-${String(dt.getDate()).padStart(2,"0")}`;};
+    const detectarEmpilhadas=(parcelas)=>{
+      const grupos={};
+      (parcelas||[]).forEach((p,i)=>{if(!p.pago&&p.venc){grupos[p.venc]=grupos[p.venc]||[];grupos[p.venc].push(i);}});
+      return Object.entries(grupos).filter(([,arr])=>arr.length>1);
+    };
+    const recebimentosAfetados=recebimentos.filter(r=>detectarEmpilhadas(r.parcelas).length>0);
+    const financeiroAfetados=financeiro.filter(f=>detectarEmpilhadas(f.parcelas).length>0);
+    const totalAfetados=recebimentosAfetados.length+financeiroAfetados.length;
+    const recuperarParcelas=()=>{
+      let totalMovidas=0;
+      const fix=parcelas=>{
+        const arr=[...(parcelas||[])];
+        const grupos=detectarEmpilhadas(arr);
+        grupos.forEach(([venc,indices])=>{
+          // Mais antiga (menor índice) é a mais "atrasada" — volta mais meses para trás
+          indices.sort((a,b)=>a-b);
+          const ultimoIdx=indices.length-1;
+          indices.forEach((idx,gi)=>{
+            const mesesAtras=ultimoIdx-gi; // a última fica no venc, anteriores voltam
+            if(mesesAtras>0){
+              arr[idx]={...arr[idx],venc:subMes(venc,mesesAtras)};
+              totalMovidas++;
+            }
+          });
+        });
+        return arr;
+      };
+      setRecebimentos(prev=>prev.map(r=>({...r,parcelas:fix(r.parcelas)})));
+      setFinanceiro(prev=>prev.map(f=>({...f,parcelas:fix(f.parcelas)})));
+      setTimeout(()=>showToast(`✓ ${totalMovidas} parcela(s) redistribuída(s) para os meses anteriores`),100);
+    };
     return(<div style={{animation:"fadeIn .3s"}}>
-      <SH title="Recebimentos" sub={`Controle de recebimento por pedido e planos de pagamento`} right={<Btn onClick={()=>setModal({t:"novoRec"})}><I.Plus/> Novo Recebimento</Btn>}/>
+      <SH title="Recebimentos" sub={`Controle de recebimento por pedido e planos de pagamento`} right={<div style={{display:"flex",gap:8,flexWrap:"wrap"}}>{totalAfetados>0&&<Btn v="secondary" onClick={()=>{if(window.confirm(`Detectadas ${totalAfetados} entrada(s) com parcelas empilhadas no mesmo mês.\n\nAo aplicar, as parcelas antigas serão movidas de volta para os meses anteriores (uma por mês, ordem original).\n\nDeseja continuar?`))recuperarParcelas();}}>🔧 Recuperar Parcelas ({totalAfetados})</Btn>}<Btn onClick={()=>setModal({t:"novoRec"})}><I.Plus/> Novo Recebimento</Btn></div>}/>
+      {totalAfetados>0&&<Card style={{background:"rgba(245,158,11,.08)",border:"1.5px solid var(--am)",padding:"12px 16px",marginBottom:14}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
+          <div>
+            <div style={{fontSize:13,fontWeight:800,color:"var(--am)"}}>⚠ Bug detectado: parcelas empilhadas</div>
+            <div style={{fontSize:11,color:"var(--tx2)",marginTop:3,fontWeight:600}}>Encontrei <b>{recebimentosAfetados.length} plano(s) manual(is)</b> e <b>{financeiroAfetados.length} pedido(s)</b> com múltiplas parcelas no mesmo vencimento. Clique em "Recuperar Parcelas" para redistribuir mensalmente.</div>
+          </div>
+          <Btn onClick={()=>{if(window.confirm(`Detectadas ${totalAfetados} entrada(s) com parcelas empilhadas no mesmo mês.\n\nAo aplicar, as parcelas antigas serão movidas de volta para os meses anteriores (uma por mês, ordem original).\n\nDeseja continuar?`))recuperarParcelas();}}>🔧 Recuperar Agora</Btn>
+        </div>
+      </Card>}
       {/* TABS */}
       <div style={{display:"flex",gap:6,marginBottom:16}}>
         {[{k:"pedidos",l:"📦 Pedidos Aprovados"},{k:"manuais",l:"📋 Planos Manuais"},{k:"recebidos",l:`✓ Recebidos (${pedFinanceiroQuitados.length+recebimentosQuitados.length})`}].map(t=><button key={t.k} onClick={()=>setRecTab(t.k)} style={{padding:"8px 18px",borderRadius:20,border:"1.5px solid "+(recTab===t.k?"var(--pri)":"var(--bd)"),background:recTab===t.k?"var(--prib)":"transparent",color:recTab===t.k?"var(--pri)":"var(--tx3)",fontSize:12,fontWeight:700,cursor:"pointer"}}>{t.l}</button>)}

@@ -4466,6 +4466,7 @@ export default function ERP(){
     const [semSel,setSemSel]=useState(null);
     const [showFluxo,setShowFluxo]=useState(false);
     const [fluxoMes,setFluxoMes]=useState(hojeISO().slice(0,7));
+    const [auditPool,setAuditPool]=useState(null); // null | "1012" | "18"
     useEffect(()=>{
       const limite=fluxoMes+"-01";
       const moverDia=venc=>{if(!venc)return venc;const d=venc.split("-")[2];return`${fluxoMes}-${d}`;};
@@ -4787,12 +4788,66 @@ export default function ERP(){
                 <div style={{fontSize:18,fontWeight:800,color:"var(--rd)"}}>{R$(pool1012Pago)}</div>
                 <div style={{fontSize:9,color:"var(--tx3)",marginTop:2}}>Mestre Marc. · AZ Ferragens</div>
               </div>
-              <div style={{background:pool1012Saldo>=0?"var(--gnb)":"var(--rdb)",borderRadius:"var(--r)",padding:"12px 14px",border:`1px solid ${pool1012Saldo>=0?"var(--gn)":"var(--rd)"}33`}}>
+              <div style={{background:pool1012Saldo>=0?"var(--gnb)":"var(--rdb)",borderRadius:"var(--r)",padding:"12px 14px",border:`1px solid ${pool1012Saldo>=0?"var(--gn)":"var(--rd)"}33`,position:"relative"}}>
                 <div style={{fontSize:8,fontWeight:800,color:pool1012Saldo>=0?"var(--gn)":"var(--rd)",textTransform:"uppercase",letterSpacing:1,marginBottom:3}}>⚖ Saldo Disponível</div>
                 <div style={{fontSize:18,fontWeight:800,color:pool1012Saldo>=0?"var(--gn)":"var(--rd)"}}>{R$(pool1012Saldo)}</div>
                 <div style={{fontSize:9,color:"var(--tx3)",marginTop:2}}>{R$(pool1012Rec)} − {R$(pool1012Pago)}</div>
+                <button onClick={()=>setAuditPool(auditPool==="1012"?null:"1012")} style={{position:"absolute",top:6,right:6,padding:"3px 8px",borderRadius:6,border:"1.5px solid "+(pool1012Saldo>=0?"var(--gn)":"var(--rd)"),background:"transparent",color:pool1012Saldo>=0?"var(--gn)":"var(--rd)",fontSize:9,fontWeight:800,cursor:"pointer"}}>{auditPool==="1012"?"✕ Fechar":"🔍 Auditar"}</button>
               </div>
             </div>
+            {auditPool==="1012"&&<div style={{background:"var(--bg)",border:"2px solid var(--pri)",borderRadius:"var(--rl)",padding:14,marginBottom:14}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+                <div style={{fontSize:13,fontWeight:800,color:"var(--pri)"}}>🔍 Auditoria Completa — Conta 12x</div>
+                <button onClick={()=>setAuditPool(null)} style={{background:"none",border:"none",color:"var(--tx3)",cursor:"pointer",fontSize:16}}>×</button>
+              </div>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+                {/* RECEBIDOS */}
+                <div>
+                  <div style={{fontSize:10,fontWeight:800,color:"var(--gn)",textTransform:"uppercase",marginBottom:6,padding:"4px 0",borderBottom:"2px solid var(--gn)"}}>
+                    ✅ Recebido via 12x ({pool1012Parc.filter(p=>p.pago).length}) — Total: {R$(pool1012Rec)}
+                  </div>
+                  <div style={{maxHeight:300,overflowY:"auto"}}>
+                    {pool1012Parc.filter(p=>p.pago).sort((a,b)=>normDate(b.dataPago).localeCompare(normDate(a.dataPago))).map((p,i)=>(
+                      <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"5px 6px",borderBottom:"1px solid var(--bd)",fontSize:11,background:i%2===0?"transparent":"rgba(0,0,0,.02)"}}>
+                        <div style={{flex:1,minWidth:0}}>
+                          <div style={{fontWeight:700,color:"var(--tx)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.desc}</div>
+                          <div style={{fontSize:9,color:"var(--tx3)"}}>{isoToBR(normDate(p.dataPago))} · {FORMAS_LAB[p.formaPag]||p.formaPag}</div>
+                        </div>
+                        <span style={{fontWeight:800,color:"var(--gn)",whiteSpace:"nowrap",marginLeft:6}}>{R$(p.valor)}</span>
+                      </div>
+                    ))}
+                    {pool1012Parc.filter(p=>p.pago).length===0&&<div style={{padding:10,textAlign:"center",color:"var(--tx3)",fontSize:11}}>Nenhum recebimento via 12x</div>}
+                  </div>
+                </div>
+                {/* PAGOS */}
+                <div>
+                  <div style={{fontSize:10,fontWeight:800,color:"var(--rd)",textTransform:"uppercase",marginBottom:6,padding:"4px 0",borderBottom:"2px solid var(--rd)"}}>
+                    💸 Pago a Fornecedores ({pool1012FinPag.length}) — Total: {R$(pool1012Pago)}
+                  </div>
+                  <div style={{maxHeight:300,overflowY:"auto"}}>
+                    {pool1012FinPag.slice().sort((a,b)=>{
+                      const da=(a.parcelas||[]).map(p=>normDate(p.dataPago)).filter(Boolean).sort().pop()||"";
+                      const db=(b.parcelas||[]).map(p=>normDate(p.dataPago)).filter(Boolean).sort().pop()||"";
+                      return db.localeCompare(da);
+                    }).map((f,i)=>{
+                      const ultPag=(f.parcelas||[]).map(p=>normDate(p.dataPago)).filter(Boolean).sort().pop()||"—";
+                      return(<div key={f.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"5px 6px",borderBottom:"1px solid var(--bd)",fontSize:11,background:i%2===0?"transparent":"rgba(0,0,0,.02)",gap:6}}>
+                        <div style={{flex:1,minWidth:0}}>
+                          <div style={{fontWeight:700,color:"var(--tx)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{f.fornecedor||f.desc}</div>
+                          <div style={{fontSize:9,color:"var(--tx3)"}}>{f.desc} {ultPag!=="—"?`· ${isoToBR(ultPag)}`:""}</div>
+                        </div>
+                        <span style={{fontWeight:800,color:"var(--rd)",whiteSpace:"nowrap"}}>{R$(f.valorPago||0)}</span>
+                        <button onClick={()=>setModal({t:"detFin",d:f})} title="Editar/Excluir" style={{background:"var(--prib)",border:"1px solid var(--pri)",color:"var(--pri)",cursor:"pointer",padding:"2px 6px",borderRadius:5,fontSize:10,fontWeight:700,whiteSpace:"nowrap"}}>✏</button>
+                      </div>);
+                    })}
+                    {pool1012FinPag.length===0&&<div style={{padding:10,textAlign:"center",color:"var(--tx3)",fontSize:11}}>Nenhum pagamento</div>}
+                  </div>
+                </div>
+              </div>
+              <div style={{marginTop:10,padding:"10px 12px",background:"var(--sf)",borderRadius:8,fontSize:11,fontWeight:700,color:"var(--tx2)"}}>
+                💡 <b>Saldo = </b>{R$(pool1012Rec)} − {R$(pool1012Pago)} = <span style={{color:pool1012Saldo>=0?"var(--gn)":"var(--rd)",fontWeight:800}}>{R$(pool1012Saldo)}</span>
+              </div>
+            </div>}
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
               <div>
                 <div style={{fontSize:10,fontWeight:800,color:"var(--bl)",textTransform:"uppercase",marginBottom:8}}>📅 Parcelas do mês — {nomeMesFluxo}</div>
@@ -4870,12 +4925,64 @@ export default function ERP(){
                 <div style={{fontSize:18,fontWeight:800,color:"var(--rd)"}}>{R$(pool18Pago)}</div>
                 <div style={{fontSize:9,color:"var(--tx3)",marginTop:2}}>Léo Madeiras</div>
               </div>
-              <div style={{background:pool18Saldo>=0?"var(--gnb)":"var(--rdb)",borderRadius:"var(--r)",padding:"12px 14px",border:`1px solid ${pool18Saldo>=0?"var(--gn)":"var(--rd)"}33`}}>
+              <div style={{background:pool18Saldo>=0?"var(--gnb)":"var(--rdb)",borderRadius:"var(--r)",padding:"12px 14px",border:`1px solid ${pool18Saldo>=0?"var(--gn)":"var(--rd)"}33`,position:"relative"}}>
                 <div style={{fontSize:8,fontWeight:800,color:pool18Saldo>=0?"var(--gn)":"var(--rd)",textTransform:"uppercase",letterSpacing:1,marginBottom:3}}>⚖ Saldo Disponível</div>
                 <div style={{fontSize:18,fontWeight:800,color:pool18Saldo>=0?"var(--gn)":"var(--rd)"}}>{R$(pool18Saldo)}</div>
                 <div style={{fontSize:9,color:"var(--tx3)",marginTop:2}}>{R$(pool18Rec)} − {R$(pool18Pago)}</div>
+                <button onClick={()=>setAuditPool(auditPool==="18"?null:"18")} style={{position:"absolute",top:6,right:6,padding:"3px 8px",borderRadius:6,border:"1.5px solid "+(pool18Saldo>=0?"var(--gn)":"var(--rd)"),background:"transparent",color:pool18Saldo>=0?"var(--gn)":"var(--rd)",fontSize:9,fontWeight:800,cursor:"pointer"}}>{auditPool==="18"?"✕ Fechar":"🔍 Auditar"}</button>
               </div>
             </div>
+            {auditPool==="18"&&<div style={{background:"var(--bg)",border:"2px solid var(--pri)",borderRadius:"var(--rl)",padding:14,marginBottom:14}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+                <div style={{fontSize:13,fontWeight:800,color:"var(--pri)"}}>🔍 Auditoria Completa — Conta 18x</div>
+                <button onClick={()=>setAuditPool(null)} style={{background:"none",border:"none",color:"var(--tx3)",cursor:"pointer",fontSize:16}}>×</button>
+              </div>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+                <div>
+                  <div style={{fontSize:10,fontWeight:800,color:"var(--gn)",textTransform:"uppercase",marginBottom:6,padding:"4px 0",borderBottom:"2px solid var(--gn)"}}>
+                    ✅ Recebido via 18x ({pool18Parc.filter(p=>p.pago).length}) — Total: {R$(pool18Rec)}
+                  </div>
+                  <div style={{maxHeight:300,overflowY:"auto"}}>
+                    {pool18Parc.filter(p=>p.pago).sort((a,b)=>normDate(b.dataPago).localeCompare(normDate(a.dataPago))).map((p,i)=>(
+                      <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"5px 6px",borderBottom:"1px solid var(--bd)",fontSize:11,background:i%2===0?"transparent":"rgba(0,0,0,.02)"}}>
+                        <div style={{flex:1,minWidth:0}}>
+                          <div style={{fontWeight:700,color:"var(--tx)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.desc}</div>
+                          <div style={{fontSize:9,color:"var(--tx3)"}}>{isoToBR(normDate(p.dataPago))} · {FORMAS_LAB[p.formaPag]||p.formaPag}</div>
+                        </div>
+                        <span style={{fontWeight:800,color:"var(--gn)",whiteSpace:"nowrap",marginLeft:6}}>{R$(p.valor)}</span>
+                      </div>
+                    ))}
+                    {pool18Parc.filter(p=>p.pago).length===0&&<div style={{padding:10,textAlign:"center",color:"var(--tx3)",fontSize:11}}>Nenhum recebimento via 18x</div>}
+                  </div>
+                </div>
+                <div>
+                  <div style={{fontSize:10,fontWeight:800,color:"var(--rd)",textTransform:"uppercase",marginBottom:6,padding:"4px 0",borderBottom:"2px solid var(--rd)"}}>
+                    💸 Pago a Fornecedores ({pool18FinPag.length}) — Total: {R$(pool18Pago)}
+                  </div>
+                  <div style={{maxHeight:300,overflowY:"auto"}}>
+                    {pool18FinPag.slice().sort((a,b)=>{
+                      const da=(a.parcelas||[]).map(p=>normDate(p.dataPago)).filter(Boolean).sort().pop()||"";
+                      const db=(b.parcelas||[]).map(p=>normDate(p.dataPago)).filter(Boolean).sort().pop()||"";
+                      return db.localeCompare(da);
+                    }).map((f,i)=>{
+                      const ultPag=(f.parcelas||[]).map(p=>normDate(p.dataPago)).filter(Boolean).sort().pop()||"—";
+                      return(<div key={f.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"5px 6px",borderBottom:"1px solid var(--bd)",fontSize:11,background:i%2===0?"transparent":"rgba(0,0,0,.02)",gap:6}}>
+                        <div style={{flex:1,minWidth:0}}>
+                          <div style={{fontWeight:700,color:"var(--tx)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{f.fornecedor||f.desc}</div>
+                          <div style={{fontSize:9,color:"var(--tx3)"}}>{f.desc} {ultPag!=="—"?`· ${isoToBR(ultPag)}`:""}</div>
+                        </div>
+                        <span style={{fontWeight:800,color:"var(--rd)",whiteSpace:"nowrap"}}>{R$(f.valorPago||0)}</span>
+                        <button onClick={()=>setModal({t:"detFin",d:f})} title="Editar/Excluir" style={{background:"var(--prib)",border:"1px solid var(--pri)",color:"var(--pri)",cursor:"pointer",padding:"2px 6px",borderRadius:5,fontSize:10,fontWeight:700,whiteSpace:"nowrap"}}>✏</button>
+                      </div>);
+                    })}
+                    {pool18FinPag.length===0&&<div style={{padding:10,textAlign:"center",color:"var(--tx3)",fontSize:11}}>Nenhum pagamento</div>}
+                  </div>
+                </div>
+              </div>
+              <div style={{marginTop:10,padding:"10px 12px",background:"var(--sf)",borderRadius:8,fontSize:11,fontWeight:700,color:"var(--tx2)"}}>
+                💡 <b>Saldo = </b>{R$(pool18Rec)} − {R$(pool18Pago)} = <span style={{color:pool18Saldo>=0?"var(--gn)":"var(--rd)",fontWeight:800}}>{R$(pool18Saldo)}</span>
+              </div>
+            </div>}
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
               <div>
                 <div style={{fontSize:10,fontWeight:800,color:"var(--pp)",textTransform:"uppercase",marginBottom:8}}>📅 Parcelas do mês — {nomeMesFluxo}</div>

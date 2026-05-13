@@ -4469,6 +4469,10 @@ export default function ERP(){
     const [auditPool,setAuditPool]=useState(null); // null | "1012" | "18"
     const [comMarcTab,setComMarcTab]=useState(null); // marcId | "quitadas" (null = primeiro com aberto)
     useEffect(()=>{
+      // CORREÇÃO CRÍTICA: só prorroga quando fluxoMes === mês atual real.
+      // Navegar para meses futuros NÃO pode mutar vencimentos (causava perda de parcelas)
+      const mesAtualReal=hojeISO().slice(0,7);
+      if(fluxoMes!==mesAtualReal)return;
       const limite=fluxoMes+"-01";
       const moverDia=venc=>{if(!venc)return venc;const d=venc.split("-")[2];return`${fluxoMes}-${d}`;};
       setFinanceiro(prev=>{

@@ -52,6 +52,12 @@ const hoje=()=>new Date().toLocaleDateString("pt-BR");
 const hojeISO=()=>new Date().toISOString().split("T")[0];
 const isoToBR=d=>{if(!d)return"";const p=d.split("-");return p.length===3?`${p[2]}/${p[1]}/${p[0]}`:d;};
 const MARKUP=3.2;
+// Fornecedores que sempre debitam dos pools de cartão de crédito
+const FNS_POOL_1012=["mestre marceneiro","mestre marc","az ferragens"]; // Pool 10x/12x
+const FNS_POOL_18=["léo madeiras","leo madeiras","léo mad","leo mad"]; // Pool 18x
+const normStr=s=>(s||"").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"").trim();
+const matchFornPool=(forn,lista)=>{const n=normStr(forn);return n?lista.some(x=>n.includes(x)):false;};
+const detectFontePool=forn=>matchFornPool(forn,FNS_POOL_1012)?"1012":matchFornPool(forn,FNS_POOL_18)?"18":"";
 const CATS={pagar:["Aluguel","Folha/Comissão","Fornecedores","Marketing","Manutenção","Impostos","Utilidades","Outros"],receber:["Venda Móveis","Serviços","Outros"]};
 const getEmpresaCats=()=>{try{const e=JSON.parse(localStorage.getItem('erpEmpresa'));return{pagar:(e?.cats?.pagar?.length?e.cats.pagar:CATS.pagar),receber:(e?.cats?.receber?.length?e.cats.receber:CATS.receber)};}catch{return CATS;}};
 const GARANTIA=`Ferragens: A garantia de 1 (um) ano\nMadeira MDF: A garantia de 3 (três) anos`;
@@ -564,9 +570,11 @@ function ModalDetFin({f:fInit,financeiro,setModal,pagarParcela,editParcela,addPa
           </div>
         ):(
           <div>
-            <div style={{display:"flex",alignItems:"center",gap:8}}>
+            <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
               <h2 style={{fontSize:15,fontWeight:800,color:"var(--tx)"}}>{f.desc}</h2>
               <button onClick={()=>setEditMeta(true)} style={{background:"none",border:"none",color:"var(--tx3)",cursor:"pointer",padding:2}}><I.Edit/></button>
+              {f.tipo==="pagar"&&!f.marcId&&(f.fontePool==="1012"||matchFornPool(f.fornecedor,FNS_POOL_1012))&&<Badge color="blue">💳 Debita Conta 12x</Badge>}
+              {f.tipo==="pagar"&&!f.marcId&&(f.fontePool==="18"||matchFornPool(f.fornecedor,FNS_POOL_18))&&<Badge color="purple">💳 Debita Conta 18x</Badge>}
             </div>
             {(f.categoria||f.fornecedor)&&<div style={{fontSize:11,color:"var(--tx3)",marginTop:2,fontWeight:600}}>{[f.categoria,f.fornecedor].filter(Boolean).join(" • ")}</div>}
           </div>
@@ -3405,7 +3413,16 @@ export default function ERP(){
       return{...f,parcelas,valorPago,status};
     }));
   };
-  const updFin=(id,d)=>setFinanceiro(prev=>prev.map(f=>f.id===id?{...f,...d}:f));
+  const updFin=(id,d)=>setFinanceiro(prev=>prev.map(f=>{
+    if(f.id!==id)return f;
+    const merged={...f,...d};
+    // Auto-detecta fontePool baseado no fornecedor (Mestre/AZ → 12x, Léo → 18x)
+    if(merged.tipo==="pagar"&&!merged.marcId){
+      const detected=detectFontePool(merged.fornecedor);
+      if(detected)merged.fontePool=detected;
+    }
+    return merged;
+  }));
 
   const limparDuplicatas=()=>{
     let removidos=0;
@@ -4514,9 +4531,9 @@ export default function ERP(){
     const _allParc=[...financeiro.flatMap(f=>f.parcelas.map(p=>({...p,finId:f.id,tipo:f.tipo,desc:f.desc,categoria:f.categoria,fornecedor:f.fornecedor}))),...recParcelas];
     const todasParcelas=[...new Map(_allParc.map(p=>[p.id,p])).values()];
     // ── Pools de Cartão ──
-    const FNS_1012=["mestre marceneiro","az ferragens"];
-    const FNS_18=["léo madeiras","leo madeiras"];
-    const matchForn=(forn,lista)=>lista.some(n=>(forn||"").toLowerCase().includes(n));
+    const FNS_1012=FNS_POOL_1012;
+    const FNS_18=FNS_POOL_18;
+    const matchForn=matchFornPool;
     // Formas de pagamento que vão para o pool de fornecedores (não entram no fluxo de caixa)
     const POOL_FORMAS=new Set(["cred_10x","cred_12x","cartao_cred","cred_18x"]);
     const isPoolParc=(p)=>p.tipo==="receber"&&POOL_FORMAS.has(p.formaPag);

@@ -4806,7 +4806,7 @@ export default function ERP(){
                   <div style={{fontSize:10,fontWeight:800,color:"var(--gn)",textTransform:"uppercase",marginBottom:6,padding:"4px 0",borderBottom:"2px solid var(--gn)"}}>
                     ✅ Recebido via 12x ({pool1012Parc.filter(p=>p.pago).length}) — Total: {R$(pool1012Rec)}
                   </div>
-                  <div style={{maxHeight:300,overflowY:"auto"}}>
+                  <div style={{maxHeight:200,overflowY:"auto"}}>
                     {pool1012Parc.filter(p=>p.pago).sort((a,b)=>normDate(b.dataPago).localeCompare(normDate(a.dataPago))).map((p,i)=>(
                       <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"5px 6px",borderBottom:"1px solid var(--bd)",fontSize:11,background:i%2===0?"transparent":"rgba(0,0,0,.02)"}}>
                         <div style={{flex:1,minWidth:0}}>
@@ -4818,6 +4818,11 @@ export default function ERP(){
                     ))}
                     {pool1012Parc.filter(p=>p.pago).length===0&&<div style={{padding:10,textAlign:"center",color:"var(--tx3)",fontSize:11}}>Nenhum recebimento via 12x</div>}
                   </div>
+                  {/* DEBUG: parcelas pagas com formaPag suspeita (não bate com cred_10x/cred_12x/cartao_cred) */}
+                  {(()=>{const suspeitas=todasParcelas.filter(p=>p.pago&&p.tipo==="receber"&&p.formaPag&&!["cred_10x","cred_12x","cartao_cred","cred_18x","pix","dinheiro","boleto","transferencia","cartao_deb"].includes(p.formaPag));return suspeitas.length>0&&<div style={{marginTop:6,padding:6,background:"rgba(245,158,11,.1)",border:"1px solid var(--am)",borderRadius:6,fontSize:10}}>
+                    <div style={{fontWeight:800,color:"var(--am)",marginBottom:3}}>⚠ {suspeitas.length} parcela(s) com forma de pagamento desconhecida:</div>
+                    {suspeitas.map((p,i)=><div key={i} style={{display:"flex",justifyContent:"space-between"}}><span>{p.desc} ({p.formaPag})</span><span style={{fontWeight:800}}>{R$(p.valor)}</span></div>)}
+                  </div>;})()}
                 </div>
                 {/* PAGOS */}
                 <div>

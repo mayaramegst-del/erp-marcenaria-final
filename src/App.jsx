@@ -4790,7 +4790,7 @@ export default function ERP(){
               <div style={{background:pool1012Saldo>=0?"var(--gnb)":"var(--rdb)",borderRadius:"var(--r)",padding:"12px 14px",border:`1px solid ${pool1012Saldo>=0?"var(--gn)":"var(--rd)"}33`}}>
                 <div style={{fontSize:8,fontWeight:800,color:pool1012Saldo>=0?"var(--gn)":"var(--rd)",textTransform:"uppercase",letterSpacing:1,marginBottom:3}}>⚖ Saldo Disponível</div>
                 <div style={{fontSize:18,fontWeight:800,color:pool1012Saldo>=0?"var(--gn)":"var(--rd)"}}>{R$(pool1012Saldo)}</div>
-                <div style={{fontSize:9,color:"var(--tx3)",marginTop:2}}>Recebido − Pago fornec.</div>
+                <div style={{fontSize:9,color:"var(--tx3)",marginTop:2}}>{R$(pool1012Rec)} − {R$(pool1012Pago)}</div>
               </div>
             </div>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
@@ -4873,7 +4873,7 @@ export default function ERP(){
               <div style={{background:pool18Saldo>=0?"var(--gnb)":"var(--rdb)",borderRadius:"var(--r)",padding:"12px 14px",border:`1px solid ${pool18Saldo>=0?"var(--gn)":"var(--rd)"}33`}}>
                 <div style={{fontSize:8,fontWeight:800,color:pool18Saldo>=0?"var(--gn)":"var(--rd)",textTransform:"uppercase",letterSpacing:1,marginBottom:3}}>⚖ Saldo Disponível</div>
                 <div style={{fontSize:18,fontWeight:800,color:pool18Saldo>=0?"var(--gn)":"var(--rd)"}}>{R$(pool18Saldo)}</div>
-                <div style={{fontSize:9,color:"var(--tx3)",marginTop:2}}>Recebido − Pago fornec.</div>
+                <div style={{fontSize:9,color:"var(--tx3)",marginTop:2}}>{R$(pool18Rec)} − {R$(pool18Pago)}</div>
               </div>
             </div>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>

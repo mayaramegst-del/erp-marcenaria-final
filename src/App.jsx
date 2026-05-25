@@ -3227,6 +3227,26 @@ export default function ERP(){
     setTab("orcamentos");
     showToast(`${num} criado — ${ambs.length} ambientes!`);
   };
+  const adicionarAmbientesFaltantesCarina=()=>{
+    const orc=orcamentos.find(o=>{
+      const c=clientes.find(x=>x.id===o.clienteId);
+      return c?.nome?.toLowerCase()==="carina";
+    });
+    if(!orc){return showToast("Orçamento da Carina não encontrado. Importe primeiro.","red");}
+    const novosAmbs=[
+      {id:uid(),nome:"Suíte 01 — Painel Cabeceira e Prateleira",desc:"MARCENARIA — CABECEIRA:\nPainel cabeceira lambri (RIPAS=10cm | FRISOS=01cm).\nAcabamento superior com perfil de LED embutido.\nMDF: Cacao Chess — Arauco.\n(Instalar tomadas e interruptores nas posições indicadas).\nComprimento aprox. 354cm.\n\nMARCENARIA — PRATELEIRA:\nPrateleira com fixação oculta por grapas.\nMDF: Arauco Cacao Chess.\nPerfil de LED embutido por baixo.\nEspessura: 04cm / Profundidade: 30cm.\nLargura aprox. 170cm.",insumos:[],vi:0,valorTotal:0},
+      {id:uid(),nome:"Suíte 02 — Painel Cabeceira e Prateleira",desc:"MARCENARIA — CABECEIRA:\nPainel cabeceira lambri (RIPAS=10cm | FRISOS=01cm).\nAcabamento superior com perfil de LED embutido.\nMDF: Cacao Chess — Arauco.\n(Instalar tomadas e interruptores nas posições indicadas).\nComprimento aprox. 283cm.\n\nMARCENARIA — PRATELEIRA:\nPrateleira com fixação oculta por grapas.\nMDF: Arauco Cacao Chess.\nPerfil de LED embutido por baixo.\nEspessura: 04cm / Profundidade: 30cm.\nLargura aprox. 170cm.",insumos:[],vi:0,valorTotal:0},
+      {id:uid(),nome:"Suíte Master — Painel Ripado e Prateleira",desc:"MARCENARIA — PAINEL RIPADO COM FRISOS:\nRipa 2cm / Friso 2cm.\nMDF: Cacao Chess — Arauco.\nComprimento aprox. 471cm × altura 268cm.\n\nMARCENARIA — PRATELEIRA:\nPrateleira com fixação oculta por grapas.\nMDF: Arauco Cacao Chess.\nPerfil de LED embutido por baixo.\nEspessura: 04cm / Profundidade: 30cm.",insumos:[],vi:0,valorTotal:0},
+      {id:uid(),nome:"Banho Área Externa — Gabinete e Espelho",desc:"MARCENARIA — GABINETE BANCADA:\nArmário com 2 portas de giro.\nPuxador alternativa Trento liso preto.\nMDF externo: Cacao Chess — Arauco.\nMDF interno: Branco TX.\nAcabamento com moldura provençal chapa sobreposta 6mm.\n\nVIDRAÇARIA:\nEspelho com bordas arredondadas e iluminação indireta em LED.\nFormato oval R40 × 120cm.\n\nObs.: Cuba Deca Redonda de Apoio 30cm Branco-Slim (compra cliente).",insumos:[],vi:0,valorTotal:0},
+      {id:uid(),nome:"Escritório",desc:"MARCENARIA — ESCRIVANINHA:\nBancada com 05 gavetas.\nPuxador passante inferior.\nMDF: Arauco Cacao Chess.\nLargura total aprox. 255cm.\n\nMARCENARIA — GAVETEIRO:\nGaveteiro com rodízio — 3 gavetas (sendo 1 com chave).\nPuxador cava metálica preta com fita borda.\nMDF: Cacao Chess — Arauco.\n\nMARCENARIA — ARMÁRIO BAIXO:\nArmário com 2 portas de giro + 4 gavetas.\nPuxador cava metálica preta com fita borda.\nMDF externo: Cacao Chess — Arauco | MDF interno: Branco-TX.\nFerragens com amortecimento.\nLargura aprox. 145cm.\n\nMARCENARIA — PRATELEIRA:\n3 prateleiras com fixação oculta por grapas.\nMDF: Arauco Cacao Chess.\nPerfil de LED embutido por baixo.\nEspessura: 04cm / Profundidade: 30cm.\n\nMARCENARIA — PAINEL RIPADO COM FRISOS:\nRipa 2cm / Friso 2cm.\nMDF: Cacao Chess — Arauco.\nLargura aprox. 302cm × altura 280cm.",insumos:[],vi:0,valorTotal:0},
+      {id:uid(),nome:"Closet (sala dedicada)",desc:"MARCENARIA — ROUPEIROS (2 unidades opostas — Vistas 10 e 11):\nCada armário com 6 portas de giro, com moldura provençal chapa sobreposta 6mm.\nPuxador alternativa Trento liso preto.\nMDF externo: Arauco Cacao Chess.\nMDF interno: Branco TX.\nPortas com sistema de amortecimento.\nFerragens com amortecimento.\nLargura cada 360cm × altura 280cm × profundidade 60cm.\n\nINTERIOR:\nCabideiros (araras) + prateleiras ajustáveis (pino oculto) + gaveteiros internos (4-5 gavetas cada) + sapateiras inferiores com prateleiras inclinadas.\n\nVIDRAÇARIA:\nEspelho com iluminação frontal em LED.\n\nObs.: Ambiente Closet possui 14,45m² e PD forro=280cm.",insumos:[],vi:0,valorTotal:0},
+    ];
+    const nomesExistentes=new Set((orc.ambientes||[]).map(a=>a.nome));
+    const adicionar=novosAmbs.filter(a=>!nomesExistentes.has(a.nome));
+    if(adicionar.length===0){return showToast("Todos os ambientes faltantes já estão no orçamento da Carina","red");}
+    updOrc(orc.id,o=>({...o,ambientes:[...(o.ambientes||[]),...adicionar]}));
+    showToast(`✓ ${adicionar.length} ambiente(s) adicionado(s) ao orçamento da Carina (sem alterar os existentes)!`);
+  };
 
   const updOrc=useCallback((id,fn)=>{
     setOrcamentos(prev=>prev.map(o=>{
@@ -4034,7 +4054,7 @@ export default function ERP(){
         })()}
       </div>
     )}
-    return(<div style={{animation:"fadeIn .3s"}}><SH title="Orçamentos" sub={`${orcamentos.length} total`} right={<div style={{display:"flex",gap:8,flexWrap:"wrap"}}><Btn v="secondary" small onClick={importarOrcAnaPaula}>📥 Importar Ana Paula</Btn><Btn v="secondary" small onClick={importarOrcBrunaLeonardo}>📥 Importar Bruna e Leonardo</Btn><Btn v="secondary" small onClick={importarOrcRodrigo}>📥 Importar Rodrigo</Btn><Btn v="secondary" small onClick={importarOrcCarina}>📥 Importar Carina</Btn><Btn onClick={()=>setModal({t:"selCli"})}><I.Plus/> Novo</Btn></div>}/>
+    return(<div style={{animation:"fadeIn .3s"}}><SH title="Orçamentos" sub={`${orcamentos.length} total`} right={<div style={{display:"flex",gap:8,flexWrap:"wrap"}}><Btn v="secondary" small onClick={importarOrcAnaPaula}>📥 Importar Ana Paula</Btn><Btn v="secondary" small onClick={importarOrcBrunaLeonardo}>📥 Importar Bruna e Leonardo</Btn><Btn v="secondary" small onClick={importarOrcRodrigo}>📥 Importar Rodrigo</Btn><Btn v="secondary" small onClick={importarOrcCarina}>📥 Importar Carina</Btn><Btn v="secondary" small onClick={adicionarAmbientesFaltantesCarina}>➕ Add Faltantes Carina</Btn><Btn onClick={()=>setModal({t:"selCli"})}><I.Plus/> Novo</Btn></div>}/>
       <Card><TH cols={[{l:"Nº",w:"90px"},{l:"Cliente",w:"2fr"},{l:"Data",w:"1fr"},{l:"Status",w:"90px"},{l:"Valor",w:"110px"},{l:"",w:"90px"}]}/>
       {orcamentos.map(o=>{const c=getCli(o.clienteId);return(<div key={o.id} onClick={()=>setOrcAtivo(o.id)} className="hr" style={{display:"grid",gridTemplateColumns:"90px 2fr 1fr 90px 110px 90px",gap:6,padding:"10px 18px",borderBottom:"1.5px solid var(--bd)",alignItems:"center",cursor:"pointer",fontSize:12}}>
         <span style={{fontWeight:800,color:"var(--pri)"}}>{o.num}</span><span style={{color:"var(--tx)",fontWeight:600}}>{c?.nome}</span><span style={{color:"var(--tx3)"}}>{o.data}</span>

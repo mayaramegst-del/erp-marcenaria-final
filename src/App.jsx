@@ -6233,12 +6233,16 @@ export default function ERP(){
                     <input autoFocus value={editRecDraft.cliente} onChange={e=>setEditRecDraft(p=>({...p,cliente:e.target.value}))}
                       placeholder="Nome do cliente"
                       style={{fontWeight:800,fontSize:14,padding:"3px 7px",borderRadius:6,border:"1.5px solid var(--pri)",background:"var(--sf)",color:"var(--tx)",outline:"none",width:220}}/>
-                    <input value={editRecDraft.obs} onChange={e=>setEditRecDraft(p=>({...p,obs:e.target.value}))}
-                      placeholder="Descrição / observação"
-                      style={{fontSize:11,padding:"3px 7px",borderRadius:6,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",outline:"none",width:280}}/>
+                    <textarea value={editRecDraft.obs} onChange={e=>setEditRecDraft(p=>({...p,obs:e.target.value}))}
+                      placeholder="Descrição / observação (deixe vazio para remover)"
+                      rows={3}
+                      style={{fontSize:11,padding:"5px 7px",borderRadius:6,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",outline:"none",width:380,resize:"vertical",fontFamily:"var(--ft)"}}/>
+                    <div style={{fontSize:9,color:"var(--tx3)",fontWeight:600}}>{editRecDraft.obs.length} caracter(es)</div>
                     <div style={{display:"flex",gap:4,marginTop:2}}>
                       <button onClick={()=>{updRec(r.id,x=>({...x,cliente:editRecDraft.cliente.trim()||x.cliente,obs:editRecDraft.obs}));setEditRecId(null);}}
                         style={{background:"var(--gn)",border:"none",color:"#fff",borderRadius:5,fontSize:10,fontWeight:800,padding:"3px 8px",cursor:"pointer"}}>✓ Salvar</button>
+                      <button onClick={()=>setEditRecDraft(p=>({...p,obs:""}))}
+                        style={{background:"var(--am)",border:"none",color:"#fff",borderRadius:5,fontSize:10,fontWeight:800,padding:"3px 8px",cursor:"pointer"}}>🗑 Limpar descrição</button>
                       <button onClick={()=>setEditRecId(null)}
                         style={{background:"none",border:"1px solid var(--bd)",color:"var(--tx3)",borderRadius:5,fontSize:10,fontWeight:700,padding:"3px 7px",cursor:"pointer"}}>Cancelar</button>
                     </div>

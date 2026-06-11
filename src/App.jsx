@@ -4600,12 +4600,12 @@ export default function ERP(){
       const limite=fluxoMes+"-01";
       const moverDia=venc=>{if(!venc)return venc;const d=venc.split("-")[2];return`${fluxoMes}-${d}`;};
       setFinanceiro(prev=>{
-        // prorrogar apenas entradas não-recorrentes; recorrentes têm geração própria por mês
-        const movida=prev.map(f=>f.recorrenteId?f:{...f,parcelas:(f.parcelas||[]).map(p=>(!p.pago&&p.venc&&p.venc<limite)?{...p,venc:moverDia(p.venc)}:p)});
+        // prorroga só saídas (pagar) não-recorrentes; "receber" mantém venc original — atrasadas aparecem só na aba Recebimentos por cliente
+        const movida=prev.map(f=>(f.recorrenteId||f.tipo==="receber")?f:{...f,parcelas:(f.parcelas||[]).map(p=>(!p.pago&&p.venc&&p.venc<limite)?{...p,venc:moverDia(p.venc)}:p)});
         const dedup=_deduplicateFin(movida);
         return JSON.stringify(dedup)===JSON.stringify(prev)?prev:dedup;
       });
-      setRecebimentos(prev=>{const novo=prev.map(r=>({...r,parcelas:(r.parcelas||[]).map(p=>(!p.pago&&p.venc&&p.venc<limite)?{...p,venc:moverDia(p.venc)}:p)}));return JSON.stringify(novo)===JSON.stringify(prev)?prev:novo;});
+      // Recebimentos manuais NÃO são prorrogados — atrasadas ficam visíveis somente dentro do parcelamento de cada cliente (aba Recebimentos)
     },[fluxoMes]);
     const navFluxoMes=delta=>{const[y,m]=fluxoMes.split("-").map(Number);const d=new Date(y,m-1+delta,1);setSemSel(null);setFluxoMes(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`);};
     const nomeMesFluxo=new Date(fluxoMes+"-15").toLocaleDateString("pt-BR",{month:"long",year:"numeric"});
@@ -4704,7 +4704,8 @@ export default function ERP(){
     const selSemRecTotal=parSelSemRec.reduce((s,p)=>s+p.valor,0)+parSelSemPagoRec.reduce((s,p)=>s+p.valor,0);
     const selSemPagTotal=parSelSemPag.reduce((s,p)=>s+p.valor,0)+parSelSemPagoPag.reduce((s,p)=>s+p.valor,0);
     // MÊS — pendentes
-    const parMesRec=parcelasFluxo.filter(p=>!p.pago&&p.venc?.startsWith(mesAtual)&&p.tipo==="receber");
+    // Recebimentos do mês: apenas vigentes (não atrasadas). Atrasadas só aparecem na aba Recebimentos por cliente.
+    const parMesRec=parcelasFluxo.filter(p=>!p.pago&&p.venc?.startsWith(mesAtual)&&p.tipo==="receber"&&p.venc>=hj);
     const parMesPag=parcelasFluxo.filter(p=>!p.pago&&p.venc?.startsWith(mesAtual)&&p.tipo==="pagar");
     // MÊS — já realizadas
     const parPagoMesRec=parcelasFluxo.filter(p=>p.pago&&normDate(p.dataPago).startsWith(mesAtual)&&p.tipo==="receber");
@@ -4870,19 +4871,15 @@ export default function ERP(){
         </div>}
       </div>
 
-      {/* ══ ALERTAS VENCIDOS ══ */}
-      {(vencidoRec>0||vencidoPag>0)&&<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:10}}>
-        {vencidoRec>0&&<div style={{background:"rgba(245,158,11,.1)",borderRadius:"var(--rl)",padding:"10px 16px",border:"1.5px solid rgba(245,158,11,.4)",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-          <div><div style={{fontSize:9,fontWeight:800,color:"#d97706",textTransform:"uppercase"}}>⚠ Atrasado a Receber</div><div style={{fontSize:16,fontWeight:800,color:"#d97706"}}>{R$(vencidoRec)}</div></div>
-          <div style={{fontSize:11,color:"#92400e",fontWeight:700}}>{parVencRec.length} parc.</div>
-        </div>}
-        {vencidoPag>0&&<div style={{background:"rgba(239,68,68,.1)",borderRadius:"var(--rl)",padding:"10px 16px",border:"1.5px solid rgba(239,68,68,.35)"}}>
+      {/* ══ ALERTA VENCIDO (somente a Pagar) — Atrasados a Receber aparecem só na aba Recebimentos ══ */}
+      {vencidoPag>0&&<div style={{display:"grid",gridTemplateColumns:"1fr",gap:10,marginBottom:10}}>
+        <div style={{background:"rgba(239,68,68,.1)",borderRadius:"var(--rl)",padding:"10px 16px",border:"1.5px solid rgba(239,68,68,.35)"}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
             <div><div style={{fontSize:9,fontWeight:800,color:"var(--rd)",textTransform:"uppercase"}}>⚠ Atrasado a Pagar</div><div style={{fontSize:16,fontWeight:800,color:"var(--rd)"}}>{R$(vencidoPag)}</div></div>
             <div style={{fontSize:11,color:"#991b1b",fontWeight:700}}>{parVencPag.length} parc.</div>
           </div>
           <div style={{marginTop:4,fontSize:10,color:"#991b1b"}}>{parVencPag.map(p=>`${p.desc||p.fornecedor||"?"} (venc. ${isoToBR(p.venc)})`).join(" · ")}</div>
-        </div>}
+        </div>
       </div>}
 
       {/* ══ POOLS DE CARTÃO DE CRÉDITO ══ */}

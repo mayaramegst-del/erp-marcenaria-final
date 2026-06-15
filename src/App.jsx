@@ -3711,8 +3711,8 @@ export default function ERP(){
     const doLogin=()=>handleLogin(loginView?.l,loginView?.s);
     const onKey=e=>{if(e.key==="Enter")doLogin();};
     return(
-    <div style={{fontFamily:"var(--ft)",background:"linear-gradient(135deg,#6366f1,#8b5cf6,#ec4899)",minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center"}}><style>{CSS}</style>
-      <div style={{background:"#fff",borderRadius:24,padding:36,width:380,boxShadow:"var(--sh2)",animation:"scaleIn .3s"}}>
+    <div style={{fontFamily:"var(--ft)",background:"linear-gradient(135deg,#6366f1,#8b5cf6,#ec4899)",minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",padding:"16px"}}><style>{CSS}</style>
+      <div style={{background:"#fff",borderRadius:24,padding:"32px 24px",width:"100%",maxWidth:380,boxShadow:"var(--sh2)",animation:"scaleIn .3s"}}>
         <div style={{textAlign:"center",marginBottom:28}}><div style={{width:56,height:56,borderRadius:16,background:"var(--prib2)",display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 12px",fontSize:28}}>🪵</div><h1 style={{fontSize:22,fontWeight:800,color:"var(--tx)"}}>ERP Marcenaria</h1><p style={{fontSize:12,color:"var(--tx3)",fontWeight:600,marginTop:4}}>Acesse com suas credenciais</p></div>
         <div onKeyDown={onKey}>
           <Field label="Login" value={loginView?.l||""} onChange={v=>setLoginView(p=>({...(p||{}),l:v}))} placeholder="Seu login"/>

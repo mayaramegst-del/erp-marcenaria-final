@@ -4008,7 +4008,7 @@ export default function ERP(){
             </div>
             {op&&<div style={{padding:16}}>
               <Field label="Nome" value={a.nome} onChange={v=>updAmb(orc.id,a.id,{nome:v})} placeholder="Ex: Cozinha, Closet..." commitOnBlur/>
-              <Field label="Descrição" value={a.desc} onChange={v=>updAmb(orc.id,a.id,{desc:v})} placeholder="Medidas, acabamentos..." rows={2} commitOnBlur/>
+              <Field label="Descrição" value={a.desc} onChange={v=>updAmb(orc.id,a.id,{desc:v})} placeholder="Medidas, acabamentos..." rows={10} commitOnBlur/>
               <div style={{display:"flex",gap:6,marginBottom:10}}>
                 <button onClick={()=>updAmb(orc.id,a.id,{modoFixo:false})} style={{flex:1,padding:"7px 0",borderRadius:8,border:"1.5px solid "+(a.modoFixo?"var(--bd)":"var(--pri)"),background:a.modoFixo?"transparent":"var(--prib)",color:a.modoFixo?"var(--tx3)":"var(--pri)",fontSize:11,fontWeight:700,cursor:"pointer"}}>📋 Por Insumos</button>
                 <button onClick={()=>updAmb(orc.id,a.id,{modoFixo:true})} style={{flex:1,padding:"7px 0",borderRadius:8,border:"1.5px solid "+(a.modoFixo?"var(--pri)":"var(--bd)"),background:a.modoFixo?"var(--prib)":"transparent",color:a.modoFixo?"var(--pri)":"var(--tx3)",fontSize:11,fontWeight:700,cursor:"pointer"}}>💰 Valor Direto</button>

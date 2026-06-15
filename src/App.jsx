@@ -3106,7 +3106,7 @@ export default function ERP(){
   const totalOrcFinal=o=>o?.valorFinalManual>0?o.valorFinalManual:totalOrcFinalCalc(o);
   const totalOrcComNF=o=>{const t=totalOrcFinal(o);return t*(1+(o?.percNF||0)/100);};
 
-  const saveCli=c=>{if(!c.nome?.trim())return showToast("Nome obrigatório","red");if(c.id&&clientes.find(x=>x.id===c.id)){setClientes(p=>p.map(x=>x.id===c.id?{...x,...c}:x))}else{setClientes(p=>[...p,{...c,id:uid()}])}setModal(null);showToast("Cliente salvo!")};
+  const saveCli=c=>{if(!c.nome?.trim())return showToast("Nome obrigatório","red");if(c.id&&clientes.find(x=>x.id===c.id)){setClientes(p=>p.map(x=>x.id===c.id?{...x,...c}:x))}else{setClientes(p=>[{...c,id:uid()},...p])}setModal(null);showToast("Cliente salvo!")};
 
   const criarOrc=cid=>{const o={id:uid(),num:`ORC-${String(orcamentos.length+1).padStart(4,"0")}`,clienteId:cid,data:hoje(),status:"rascunho",ambientes:[],garantia:empresa.garantia||GARANTIA,garantiaE:false,pagamento:empresa.pagamento||PAGAMENTO,pagamentoE:false,markup:MARKUP,desconto:0,vendedorId:"",percNF:0,especificacoes:empresa.especificacoes||ESPECIFICACOES,especificacoesE:false,validade:"30 dias",prazoEntrega:empresa.prazoExecucao||"A combinar"};setOrcamentos(p=>[...p,o]);setOrcAtivo(o.id);setTab("orcamentos");setModal(null);showToast(o.num+" criado!")};
 
@@ -4137,7 +4137,7 @@ export default function ERP(){
     )}
     return(<div style={{animation:"fadeIn .3s"}}><SH title="Orçamentos" sub={`${orcamentos.length} total`} right={<div style={{display:"flex",gap:8,flexWrap:"wrap"}}><Btn v="secondary" small onClick={importarOrcAnaPaula}>📥 Importar Ana Paula</Btn><Btn v="secondary" small onClick={importarOrcBrunaLeonardo}>📥 Importar Bruna e Leonardo</Btn><Btn v="secondary" small onClick={importarOrcRodrigo}>📥 Importar Rodrigo</Btn><Btn v="secondary" small onClick={importarOrcCarina}>📥 Importar Carina</Btn><Btn v="secondary" small onClick={adicionarAmbientesFaltantesCarina}>➕ Add Faltantes Carina</Btn><Btn v="secondary" small onClick={importarOrcDenisCintya}>📥 Importar Denis e Cintya</Btn><Btn v="secondary" small onClick={importarOrcJoaoGonsalez}>📥 Importar João Gonsalez</Btn><Btn v="secondary" small onClick={importarOrcSodero}>📥 Importar Condomínio Sodero</Btn><Btn onClick={()=>setModal({t:"selCli"})}><I.Plus/> Novo</Btn></div>}/>
       <Card><TH cols={[{l:"Nº",w:"90px"},{l:"Cliente",w:"2fr"},{l:"Data",w:"1fr"},{l:"Status",w:"90px"},{l:"Valor",w:"110px"},{l:"",w:"90px"}]}/>
-      {orcamentos.map(o=>{const c=getCli(o.clienteId);return(<div key={o.id} onClick={()=>setOrcAtivo(o.id)} className="hr" style={{display:"grid",gridTemplateColumns:"90px 2fr 1fr 90px 110px 90px",gap:6,padding:"10px 18px",borderBottom:"1.5px solid var(--bd)",alignItems:"center",cursor:"pointer",fontSize:12}}>
+      {[...orcamentos].reverse().map(o=>{const c=getCli(o.clienteId);return(<div key={o.id} onClick={()=>setOrcAtivo(o.id)} className="hr" style={{display:"grid",gridTemplateColumns:"90px 2fr 1fr 90px 110px 90px",gap:6,padding:"10px 18px",borderBottom:"1.5px solid var(--bd)",alignItems:"center",cursor:"pointer",fontSize:12}}>
         <span style={{fontWeight:800,color:"var(--pri)"}}>{o.num}</span><span style={{color:"var(--tx)",fontWeight:600}}>{c?.nome}</span><span style={{color:"var(--tx3)"}}>{o.data}</span>
         <Badge color={o.status==="aprovado"?"green":o.status==="rejeitado"?"red":"pri"}>{o.status}</Badge>
         <span style={{fontWeight:700,color:"var(--tx)"}}>{R$(totalOrcFinal(o))}</span>

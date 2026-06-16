@@ -3329,6 +3329,24 @@ export default function ERP(){
     showToast(`${num} criado — ${ambs.length} ambientes!`);
   };
 
+  const importarOrcCamilaCasarin=()=>{
+    const jaExiste=orcamentos.find(o=>{const c=clientes.find(x=>x.id===o.clienteId);return c?.nome?.toLowerCase().includes("camila casarin");});
+    if(jaExiste){return showToast("Orçamento Camila Casarin já existe!","red");}
+    let cliId=clientes.find(c=>c.nome?.toLowerCase().includes("camila casarin"))?.id;
+    if(!cliId){cliId=uid();setClientes(p=>[{id:cliId,nome:"Camila Casarin",tel:"",email:"",endereco:"",doc:""},...p]);}
+    const ambs=[
+      {id:uid(),nome:"Quarto — Guarda-roupa",desc:"Guarda-roupa de correr 1900x2500x650mm.\nEstrutura externa em MDF Cromio Berneck 18mm.\n\nPORTAS DE CORRER (2 unidades):\n2 portas 845x2350mm em MDF Carvalho Batur Duratex 18mm.\nSistema de trilho superior embutido slim com amortecimento.\nRecuos de 15mm superior, 5mm laterais e 7mm inferior para fechamento perfeito.\n\nDIVISÃO INTERNA (2 colunas de 840mm cada):\n\nColuna esquerda — área de roupas:\nMaleiro superior 840x400mm em MDF Branco TX 15mm.\nCabideiro superior 950mm de altura em tubo oblongo cromado.\nCabideiro inferior 950mm de altura em tubo oblongo cromado.\n\nColuna direita — prateleiras + gavetas:\nMaleiro superior 840x400mm em MDF Branco TX 15mm.\n2 níveis de prateleiras (configuração 2x2, 410mm largura x 460mm altura cada vão).\n4 gavetas inferiores 820x220mm com frente passante (sem puxador aparente).\n\nInterior e prateleiras em MDF Branco TX 15mm.\nFundo em MDF Branco TX 06mm.\nCorrediças telescópicas 30kg Hafele com amortecimento.\nTubo cabideiro oblongo cromado.",insumos:[],vi:0,valorTotal:0},
+      {id:uid(),nome:"Quarto — Cômoda",desc:"Cômoda 1240x950x500mm.\nEstrutura externa e tampo em MDF Carvalho Batur Duratex 18mm.\n\n8 gavetas distribuídas em 4 linhas x 2 colunas:\nFrentes 610x190mm cada em MDF Cromio Berneck 18mm.\nFrente passante (sem puxador aparente — abertura por cava ou tip-on).\n\nInterior das gavetas e divisórias em MDF Branco TX 15mm.\nFundo em MDF Branco TX 06mm.\nCorrediças telescópicas 30kg Hafele com amortecimento.\nBase com recuo de 60mm para iluminação indireta opcional.",insumos:[],vi:0,valorTotal:0},
+    ];
+    const oid=uid();
+    const num=`ORC-${String(orcamentos.length+1).padStart(4,"0")}`;
+    const o={id:oid,num,clienteId:cliId,data:hoje(),status:"rascunho",ambientes:ambs,garantia:empresa.garantia||GARANTIA,garantiaE:false,pagamento:empresa.pagamento||PAGAMENTO,pagamentoE:false,markup:MARKUP,desconto:0,vendedorId:"",percNF:0,especificacoes:empresa.especificacoes||ESPECIFICACOES,especificacoesE:false,validade:mesVigente(),prazoEntrega:empresa.prazoExecucao||""};
+    setOrcamentos(p=>[...p,o]);
+    setOrcAtivo(oid);
+    setTab("orcamentos");
+    showToast(`${num} criado — ${ambs.length} ambientes!`);
+  };
+
   const updOrc=useCallback((id,fn)=>{
     setOrcamentos(prev=>prev.map(o=>{
       if(o.id!==id)return o;
@@ -4135,7 +4153,7 @@ export default function ERP(){
         })()}
       </div>
     )}
-    return(<div style={{animation:"fadeIn .3s"}}><SH title="Orçamentos" sub={`${orcamentos.length} total`} right={<div style={{display:"flex",gap:8,flexWrap:"wrap"}}><Btn v="secondary" small onClick={importarOrcAnaPaula}>📥 Importar Ana Paula</Btn><Btn v="secondary" small onClick={importarOrcBrunaLeonardo}>📥 Importar Bruna e Leonardo</Btn><Btn v="secondary" small onClick={importarOrcRodrigo}>📥 Importar Rodrigo</Btn><Btn v="secondary" small onClick={importarOrcCarina}>📥 Importar Carina</Btn><Btn v="secondary" small onClick={adicionarAmbientesFaltantesCarina}>➕ Add Faltantes Carina</Btn><Btn v="secondary" small onClick={importarOrcDenisCintya}>📥 Importar Denis e Cintya</Btn><Btn v="secondary" small onClick={importarOrcJoaoGonsalez}>📥 Importar João Gonsalez</Btn><Btn v="secondary" small onClick={importarOrcSodero}>📥 Importar Condomínio Sodero</Btn><Btn onClick={()=>setModal({t:"selCli"})}><I.Plus/> Novo</Btn></div>}/>
+    return(<div style={{animation:"fadeIn .3s"}}><SH title="Orçamentos" sub={`${orcamentos.length} total`} right={<div style={{display:"flex",gap:8,flexWrap:"wrap"}}><Btn v="secondary" small onClick={importarOrcAnaPaula}>📥 Importar Ana Paula</Btn><Btn v="secondary" small onClick={importarOrcBrunaLeonardo}>📥 Importar Bruna e Leonardo</Btn><Btn v="secondary" small onClick={importarOrcRodrigo}>📥 Importar Rodrigo</Btn><Btn v="secondary" small onClick={importarOrcCarina}>📥 Importar Carina</Btn><Btn v="secondary" small onClick={adicionarAmbientesFaltantesCarina}>➕ Add Faltantes Carina</Btn><Btn v="secondary" small onClick={importarOrcDenisCintya}>📥 Importar Denis e Cintya</Btn><Btn v="secondary" small onClick={importarOrcJoaoGonsalez}>📥 Importar João Gonsalez</Btn><Btn v="secondary" small onClick={importarOrcSodero}>📥 Importar Condomínio Sodero</Btn><Btn v="secondary" small onClick={importarOrcCamilaCasarin}>📥 Importar Camila Casarin</Btn><Btn onClick={()=>setModal({t:"selCli"})}><I.Plus/> Novo</Btn></div>}/>
       <Card><TH cols={[{l:"Nº",w:"90px"},{l:"Cliente",w:"2fr"},{l:"Data",w:"1fr"},{l:"Status",w:"90px"},{l:"Valor",w:"110px"},{l:"",w:"90px"}]}/>
       {[...orcamentos].reverse().map(o=>{const c=getCli(o.clienteId);return(<div key={o.id} onClick={()=>setOrcAtivo(o.id)} className="hr" style={{display:"grid",gridTemplateColumns:"90px 2fr 1fr 90px 110px 90px",gap:6,padding:"10px 18px",borderBottom:"1.5px solid var(--bd)",alignItems:"center",cursor:"pointer",fontSize:12}}>
         <span style={{fontWeight:800,color:"var(--pri)"}}>{o.num}</span><span style={{color:"var(--tx)",fontWeight:600}}>{c?.nome}</span><span style={{color:"var(--tx3)"}}>{o.data}</span>

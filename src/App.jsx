@@ -3360,6 +3360,26 @@ export default function ERP(){
     showToast(`${num} criado — ${ambs.length} ambientes!`);
   };
 
+  const gerarListaPresentes=(orcamento)=>{
+    const cli=clientes.find(c=>c.id===orcamento.clienteId);
+    if(!cli)return showToast("Cliente não encontrado","red");
+    const payload={
+      num:orcamento.num,
+      data:orcamento.data,
+      cliente:{nome:cli.nome,email:cli.email||"",tel:cli.tel||""},
+      ambientes:(orcamento.ambientes||[]).map(a=>({nome:a.nome,desc:a.desc||"",valorTotal:Math.round((a.valorTotal||0)*100)/100}))
+    };
+    try{
+      const json=JSON.stringify(payload);
+      const b64=btoa(unescape(encodeURIComponent(json)));
+      const url=`https://alphavilleplanejados.com.br/admin/criar-lista?dados=${b64}`;
+      window.open(url,"_blank");
+      showToast("Abrindo painel admin do site…");
+    }catch(e){
+      showToast("Erro ao gerar link: "+(e.message||""),"red");
+    }
+  };
+
   const importarOrcDaniFabio=()=>{
     const jaExiste=orcamentos.find(o=>{const c=clientes.find(x=>x.id===o.clienteId);return c?.nome?.toLowerCase().includes("dani") && c?.nome?.toLowerCase().includes("fábio");});
     if(jaExiste){return showToast("Orçamento Dani e Fábio já existe!","red");}
@@ -4032,7 +4052,7 @@ export default function ERP(){
     if(orc){const ambs=orc.ambientes;return(
       <div style={{animation:"fadeIn .3s"}}>
         <button onClick={()=>setOrcAtivo(null)} style={{background:"none",border:"none",color:"var(--pri)",fontSize:11,fontWeight:700,marginBottom:6,cursor:"pointer"}}>← Voltar</button>
-        <SH title={orc.num} sub={`${cliOrc?.nome} • ${orc.data}`} right={<><select value={orc.status} onChange={e=>updOrc(orc.id,{status:e.target.value})} style={{padding:"8px 12px",borderRadius:10,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:11,fontWeight:700,outline:"none"}}><option value="rascunho">Rascunho</option><option value="enviado">Enviado</option><option value="aprovado">Aprovado</option><option value="rejeitado">Rejeitado</option></select><Btn v="secondary" small onClick={()=>setModal({t:"pdf",d:orc})}><I.Printer/> Ver / Baixar PDF</Btn>{orc.status!=="aprovado"&&<Btn small onClick={()=>gerarPedido(orc)}>Aprovar → Pedido</Btn>}</>}/>
+        <SH title={orc.num} sub={`${cliOrc?.nome} • ${orc.data}`} right={<><select value={orc.status} onChange={e=>updOrc(orc.id,{status:e.target.value})} style={{padding:"8px 12px",borderRadius:10,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:11,fontWeight:700,outline:"none"}}><option value="rascunho">Rascunho</option><option value="enviado">Enviado</option><option value="aprovado">Aprovado</option><option value="rejeitado">Rejeitado</option></select><Btn v="secondary" small onClick={()=>setModal({t:"pdf",d:orc})}><I.Printer/> Ver / Baixar PDF</Btn>{orc.status!=="aprovado"&&<Btn small onClick={()=>gerarPedido(orc)}>Aprovar → Pedido</Btn>}<Btn v="secondary" small onClick={()=>gerarListaPresentes(orc)} title="Gerar Lista de Presentes para Noivos no site">🎁 Lista de Presentes</Btn></>}/>
         <div style={{background:"linear-gradient(135deg,#6366f1,#8b5cf6)",borderRadius:"var(--rl)",padding:"20px 24px",marginBottom:18,display:"flex",justifyContent:"space-between",alignItems:"center",color:"#fff",boxShadow:"0 4px 20px rgba(99,102,241,.3)"}}>
           <div><span style={{fontSize:10,fontWeight:800,textTransform:"uppercase",opacity:.8}}>Valor Total (Cliente)</span><div style={{fontSize:28,fontWeight:800,marginTop:2}}>{R$(totalOrcFinal(orc))}</div>{(orc.desconto>0||orc.descontoR>0)&&<div style={{fontSize:11,opacity:.8}}>Sem desconto: {R$(totalOrc(orc))}{orc.descontoR>0&&` • -${R$(orc.descontoR)}`}{orc.desconto>0&&` • -${orc.desconto}%`}</div>}{(orc.percNF>0)&&<div style={{fontSize:11,marginTop:4,background:"rgba(255,255,255,.15)",borderRadius:8,padding:"3px 8px",display:"inline-block"}}>Admin c/ NF ({orc.percNF}%): {R$(totalOrcComNF(orc))}</div>}</div>
           <div style={{textAlign:"right",display:"flex",flexDirection:"column",gap:8,alignItems:"flex-end"}}>

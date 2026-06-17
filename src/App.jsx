@@ -3329,6 +3329,10 @@ export default function ERP(){
       return `[${idx+1}] ${o.num} — Cliente: "${c?.nome||"?"}"\n   Status: ${o.status} | Total: ${R$(total)} | Ambientes: ${o.ambientes?.length||0}\n${ambsInfo}`;
     }).join("\n\n");
     const msg=`📊 DIAGNÓSTICO ROSA/SODERO/OKOTI\n\nEncontrei ${matching.length} orçamento(s) que casam com o nome:\n\n${lines}\n\n— Se você ver UM orçamento com valores e outro com tudo zerado, é provável que tenha duplicado. Use o botão 🗑️ na lista de orçamentos pra apagar o vazio.\n— Se TODOS estão zerados, me avise que eu te mando o passo a passo pra recuperar.`;
+    try{
+      navigator.clipboard.writeText(msg);
+      showToast("Diagnóstico copiado pra clipboard! Cola aqui no Claude.");
+    }catch{}
     alert(msg);
     console.log("[diagnostico-rosa]",matching);
   };

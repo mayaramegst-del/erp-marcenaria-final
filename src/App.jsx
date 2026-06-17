@@ -3311,6 +3311,60 @@ export default function ERP(){
     setTab("orcamentos");
     showToast(`${num} criado — ${ambs.length} ambientes!`);
   };
+  const restaurarValoresRosa=()=>{
+    // Valores tirados do PDF aprovado (R$ 110.591,28 total)
+    const valoresPDF={
+      "Cozinha":17795.71,
+      "Cozinha — Prateleiras":3789.25,
+      "Cozinha — Nicho e Cristaleira Suspensa":3789.25,
+      "Varanda Gourmet":9971.35,
+      "Sala de Estar — Painel TV e Rack":6185.20,
+      "Quarto  — Costura e Visitas":13100.17,
+      "Quarto — Costura e Visitas":13100.17,
+      "Quarto Compacto — Costura e Visitas":13100.17,
+      "Quarto da Filha":23852.20,
+      "Suíte Casal":29157.20,
+      "Banheiro Suíte":3370.25,
+      "Banheiro Social":3370.25,
+      "Banheiro Social ":3370.25,
+    };
+    // Acha o orçamento principal (Rosa/Okoti)
+    const principal=orcamentos.find(o=>{
+      const c=clientes.find(x=>x.id===o.clienteId);
+      const n=(c?.nome||"").toLowerCase();
+      return n.includes("rosa")||n.includes("okoti");
+    });
+    if(!principal)return showToast("Orçamento Rosa/Okoti não encontrado","red");
+    // Acha duplicados (Sodero sem ser Rosa/Okoti)
+    const duplicados=orcamentos.filter(o=>{
+      if(o.id===principal.id)return false;
+      const c=clientes.find(x=>x.id===o.clienteId);
+      const n=(c?.nome||"").toLowerCase();
+      return n.includes("sodero")||n.includes("rosa")||n.includes("okoti");
+    });
+    const markup=principal.markup||MARKUP;
+    let restaurados=0, naoEncontrados=[];
+    const novosAmbs=(principal.ambientes||[]).map(a=>{
+      const valor=valoresPDF[a.nome];
+      if(!valor){naoEncontrados.push(a.nome);return a;}
+      restaurados++;
+      const vu=+(valor/markup).toFixed(2);
+      const insumo={id:uid(),nome:"Mão de obra + materiais (consolidado do PDF aprovado)",qtd:1,vu};
+      const vi=vu;
+      return{...a,insumos:[insumo],vi,valorTotal:vi*markup};
+    });
+    const msg=`Vou:\n• Restaurar ${restaurados} de ${principal.ambientes?.length} ambientes do ${principal.num} (Rosa/Okoti)\n• Total restaurado: ${R$(novosAmbs.reduce((s,a)=>s+(a.valorTotal||0),0))}\n• Apagar ${duplicados.length} orçamento(s) duplicado(s): ${duplicados.map(o=>o.num).join(", ")||"nenhum"}\n${naoEncontrados.length?`\n⚠️ Ambientes não reconhecidos (deixei como está):\n${naoEncontrados.map(n=>"• "+n).join("\n")}`:""}\n\nConfirmar?`;
+    if(!confirm(msg))return;
+    updOrc(principal.id,o=>({...o,ambientes:novosAmbs}));
+    if(duplicados.length>0){
+      const idsApagar=new Set(duplicados.map(o=>o.id));
+      setOrcamentos(p=>p.filter(o=>!idsApagar.has(o.id)));
+    }
+    setOrcAtivo(principal.id);
+    setTab("orcamentos");
+    showToast(`✅ ${restaurados} ambientes restaurados, ${duplicados.length} duplicado(s) apagado(s)!`);
+  };
+
   const diagnosticarRosa=()=>{
     const matching=orcamentos.filter(o=>{
       const c=clientes.find(x=>x.id===o.clienteId);
@@ -4251,7 +4305,7 @@ export default function ERP(){
         })()}
       </div>
     )}
-    return(<div style={{animation:"fadeIn .3s"}}><SH title="Orçamentos" sub={`${orcamentos.length} total`} right={<div style={{display:"flex",gap:8,flexWrap:"wrap"}}><Btn v="secondary" small onClick={importarOrcAnaPaula}>📥 Importar Ana Paula</Btn><Btn v="secondary" small onClick={importarOrcBrunaLeonardo}>📥 Importar Bruna e Leonardo</Btn><Btn v="secondary" small onClick={importarOrcRodrigo}>📥 Importar Rodrigo</Btn><Btn v="secondary" small onClick={importarOrcCarina}>📥 Importar Carina</Btn><Btn v="secondary" small onClick={adicionarAmbientesFaltantesCarina}>➕ Add Faltantes Carina</Btn><Btn v="secondary" small onClick={importarOrcDenisCintya}>📥 Importar Denis e Cintya</Btn><Btn v="secondary" small onClick={importarOrcJoaoGonsalez}>📥 Importar João Gonsalez</Btn><Btn v="secondary" small onClick={importarOrcSodero}>📥 Importar Condomínio Sodero</Btn><Btn v="secondary" small onClick={atualizarSoderoCorrecoes}>✏️ Atualizar correções Rosa</Btn><Btn v="secondary" small onClick={diagnosticarRosa}>🔍 Diagnosticar Rosa</Btn><Btn v="secondary" small onClick={importarOrcCamilaCasarin}>📥 Importar Camila Casarin</Btn><Btn v="secondary" small onClick={importarOrcDaniFabio}>📥 Importar Dani e Fábio</Btn><Btn onClick={()=>setModal({t:"selCli"})}><I.Plus/> Novo</Btn></div>}/>
+    return(<div style={{animation:"fadeIn .3s"}}><SH title="Orçamentos" sub={`${orcamentos.length} total`} right={<div style={{display:"flex",gap:8,flexWrap:"wrap"}}><Btn v="secondary" small onClick={importarOrcAnaPaula}>📥 Importar Ana Paula</Btn><Btn v="secondary" small onClick={importarOrcBrunaLeonardo}>📥 Importar Bruna e Leonardo</Btn><Btn v="secondary" small onClick={importarOrcRodrigo}>📥 Importar Rodrigo</Btn><Btn v="secondary" small onClick={importarOrcCarina}>📥 Importar Carina</Btn><Btn v="secondary" small onClick={adicionarAmbientesFaltantesCarina}>➕ Add Faltantes Carina</Btn><Btn v="secondary" small onClick={importarOrcDenisCintya}>📥 Importar Denis e Cintya</Btn><Btn v="secondary" small onClick={importarOrcJoaoGonsalez}>📥 Importar João Gonsalez</Btn><Btn v="secondary" small onClick={importarOrcSodero}>📥 Importar Condomínio Sodero</Btn><Btn v="secondary" small onClick={atualizarSoderoCorrecoes}>✏️ Atualizar correções Rosa</Btn><Btn v="secondary" small onClick={diagnosticarRosa}>🔍 Diagnosticar Rosa</Btn><Btn v="secondary" small onClick={restaurarValoresRosa}>💾 Restaurar valores Rosa (PDF)</Btn><Btn v="secondary" small onClick={importarOrcCamilaCasarin}>📥 Importar Camila Casarin</Btn><Btn v="secondary" small onClick={importarOrcDaniFabio}>📥 Importar Dani e Fábio</Btn><Btn onClick={()=>setModal({t:"selCli"})}><I.Plus/> Novo</Btn></div>}/>
       <Card><TH cols={[{l:"Nº",w:"90px"},{l:"Cliente",w:"2fr"},{l:"Data",w:"1fr"},{l:"Status",w:"90px"},{l:"Valor",w:"110px"},{l:"",w:"90px"}]}/>
       {[...orcamentos].reverse().map(o=>{const c=getCli(o.clienteId);return(<div key={o.id} onClick={()=>setOrcAtivo(o.id)} className="hr" style={{display:"grid",gridTemplateColumns:"90px 2fr 1fr 90px 110px 90px",gap:6,padding:"10px 18px",borderBottom:"1.5px solid var(--bd)",alignItems:"center",cursor:"pointer",fontSize:12}}>
         <span style={{fontWeight:800,color:"var(--pri)"}}>{o.num}</span><span style={{color:"var(--tx)",fontWeight:600}}>{c?.nome}</span><span style={{color:"var(--tx3)"}}>{o.data}</span>

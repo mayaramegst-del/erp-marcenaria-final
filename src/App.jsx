@@ -5977,15 +5977,23 @@ export default function ERP(){
     // Material: cartão pool, cartão, desc com "material", fornecedores conhecidos, OU categoria começando com "material"
     const isMaterialFin=f=>!!(f.fontePool||f.fonteCartao||f.desc?.toLowerCase().includes("material")||/mestre|le[oó]\s*mad/i.test(f.fornecedor||"")||norm(f.categoria).startsWith("material"));
     const isComFin=f=>!!(f.marcId||f.vendedorId||f.categoria==="Folha/Comissão");
-    // Custo de materiais via financeiro (compras cartão pool + lançamentos de material)
-    const cmFin=financeiro.filter(f=>f.tipo==="pagar"&&isMaterialFin(f)).reduce((s,f)=>s+f.parcelas.filter(p=>p.venc?.startsWith(prefx)).reduce((ss,p)=>ss+p.valor,0),0);
+    // REGIME DE CAIXA: só parcelas EFETIVAMENTE PAGAS no periodo entram no DRE.
+    // dataPago tem prioridade sobre venc (se nao houver dataPago, usa venc como fallback).
+    const parcPagaNoPeriodo=(p,periodo)=>{
+      if(!p.pago)return false;
+      const dataRef=p.dataPago||p.venc||"";
+      return dataRef.startsWith(periodo);
+    };
+    const valorPagoNoPeriodo=(f,periodo)=>f.parcelas.filter(p=>parcPagaNoPeriodo(p,periodo)).reduce((s,p)=>s+p.valor,0);
+    // Custo de materiais via financeiro — SÓ O PAGO no período (regime de caixa)
+    const cmFin=financeiro.filter(f=>f.tipo==="pagar"&&isMaterialFin(f)).reduce((s,f)=>s+valorPagoNoPeriodo(f,prefx),0);
     // Comissões via financeiro — exclui marcId+pedidoId (já contado em p.comVal via cc, evita dupla contagem)
-    const ccFin=financeiro.filter(f=>f.tipo==="pagar"&&isComFin(f)&&!isMaterialFin(f)&&!(f.marcId&&f.pedidoId)).reduce((s,f)=>s+f.parcelas.filter(p=>p.venc?.startsWith(prefx)).reduce((ss,p)=>ss+p.valor,0),0);
+    const ccFin=financeiro.filter(f=>f.tipo==="pagar"&&isComFin(f)&&!isMaterialFin(f)&&!(f.marcId&&f.pedidoId)).reduce((s,f)=>s+valorPagoNoPeriodo(f,prefx),0);
     const cmTotal=cm+cmFin;const ccTotal=cc+ccFin;
     // Despesas operacionais: excluir material e comissão já separados
     const filtroDespesas=f=>f.tipo==="pagar"&&!isMaterialFin(f)&&!isComFin(f)&&!f.pedidoId;
-    const despesasFin=financeiro.filter(filtroDespesas).reduce((s,f)=>s+f.parcelas.filter(p=>p.venc?.startsWith(prefx)).reduce((ss,p)=>ss+p.valor,0),0);
-    const despesasFinPagas=financeiro.filter(filtroDespesas).reduce((s,f)=>s+f.parcelas.filter(p=>p.venc?.startsWith(prefx)&&p.pago).reduce((ss,p)=>ss+p.valor,0),0);
+    const despesasFin=financeiro.filter(filtroDespesas).reduce((s,f)=>s+valorPagoNoPeriodo(f,prefx),0);
+    const despesasFinPagas=despesasFin;
     const lb=rec-cmTotal;const ll=lb-ccTotal-despesasFin;const mg=rec>0?((ll/rec)*100).toFixed(1):0;
     const rows=[
       {l:"(+) Receita Bruta",v:rec,c:"gn",b:true},
@@ -6018,14 +6026,13 @@ export default function ERP(){
       const matM=cmM+cmFinM;const comM=ccM+ccFinM;
       return{name:m,receita:recM,materiais:matM,comissoes:comM,despesas:pagM,resultado:recM-matM-comM-pagM};
     });
-    // TODOS os gastos por categoria (inclui materiais e comissoes pra visibilidade total)
+    // TODOS os gastos por categoria — SÓ parcelas PAGAS no período (regime de caixa)
     // Normaliza nomes pra mesclar duplicados (case/acento/espacos extras)
     const byCat={};
     financeiro.filter(f=>f.tipo==="pagar").forEach(f=>{
-      const pags=f.parcelas.filter(p=>p.venc?.startsWith(prefx));
-      if(!pags.length)return;
-      const v=pags.reduce((s,p)=>s+p.valor,0);
-      const vPagas=pags.filter(p=>p.pago).reduce((s,p)=>s+p.valor,0);
+      const pagas=f.parcelas.filter(p=>parcPagaNoPeriodo(p,prefx));
+      if(!pagas.length)return;
+      const v=pagas.reduce((s,p)=>s+p.valor,0);
       // Se nao tem categoria, classifica automaticamente
       let rawCat=(f.categoria||"").trim();
       if(!rawCat){
@@ -6036,15 +6043,14 @@ export default function ERP(){
       const key=norm(rawCat);
       if(!byCat[key])byCat[key]={name:rawCat,value:0,pago:0,aberto:0,lancs:[]};
       byCat[key].value+=v;
-      byCat[key].pago+=vPagas;
-      byCat[key].aberto+=(v-vPagas);
-      byCat[key].lancs.push({f,parcelasNoPeriodo:pags});
+      byCat[key].pago+=v;
+      byCat[key].lancs.push({f,parcelasNoPeriodo:pagas});
     });
     const catData=Object.values(byCat).sort((a,b)=>b.value-a.value);
     const totalGastosCat=catData.reduce((s,c)=>s+c.value,0);
     const print=()=>{const w=window.open('','_blank','width=900,height=700');const s=`body{font-family:Arial,sans-serif;padding:30px;font-size:12px;color:#1e293b}h1{font-size:20px;font-weight:800;color:#6366f1}table{width:100%;border-collapse:collapse;margin:12px 0}th{background:#f8f7ff;padding:7px;font-size:10px;text-transform:uppercase;color:#999;border-bottom:2px solid #e0e0f0;text-align:left}td{padding:8px;border-bottom:1px solid #f0eeff}.total{font-weight:800;font-size:14px}.green{color:#10b981}.red{color:#ef4444}.amber{color:#d97706}`;w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><style>${s}</style></head><body><h1>DRE — Fechamento ${dreAno}</h1><p style="color:#888">Empresa: ${empresa.nome} • Gerado em ${hoje()}</p><table><tr>${rows.map(r=>`<tr><td>${r.l}</td><td class="${r.v>=0?'green':'red'} ${r.b?'total':''}">${R$(r.v)}</td></tr>`).join('')}</table><h2 style="font-size:14px;margin-top:20px">Resultado Mensal</h2><table><tr><th>Mês</th><th>Receita</th><th>Materiais</th><th>Comissões</th><th>Despesas</th><th>Resultado</th></tr>${mensalData.map(m=>`<tr><td>${m.name}</td><td class="green">${R$(m.receita)}</td><td class="red">${R$(m.materiais)}</td><td class="amber">${R$(m.comissoes)}</td><td class="red">${R$(m.despesas)}</td><td class="${m.resultado>=0?'green':'red'}">${R$(m.resultado)}</td></tr>`).join('')}</table></body></html>`);w.document.close();setTimeout(()=>w.print(),400);};
     const printMes=()=>{if(!dreMes)return;const[aaaa,mm]=dreMes.split("-");const nomeMes=MESES[+mm-1];const pedMes2=pedidos.filter(p=>{const[d,mo,a]=p.data?.split("/")||[];return a===aaaa&&mo===mm&&p.status!=="cancelado";});const recM=pedMes2.reduce((s,p)=>s+p.vt,0);const cmM=pedMes2.reduce((s,p)=>s+(p.cm||0),0);const ccM=pedMes2.reduce((s,p)=>s+(p.comVal||0),0);const pagM=financeiro.filter(f=>f.tipo==="pagar"&&(!f.pedidoId||f.vendedorId)).reduce((s,f)=>s+f.parcelas.filter(p=>p.venc?.startsWith(dreMes)&&p.pago).reduce((ss,p)=>ss+p.valor,0),0);const recM2=financeiro.filter(f=>f.tipo==="receber"&&!f.pedidoId).reduce((s,f)=>s+f.parcelas.filter(p=>p.venc?.startsWith(dreMes)&&p.pago).reduce((ss,p)=>ss+p.valor,0),0);const recTotal=recM+recM2;const lucroB=recTotal-cmM;const resultado=lucroB-ccM-pagM;const byCatM={};financeiro.filter(f=>f.tipo==="pagar"&&(!f.pedidoId||f.vendedorId)).forEach(f=>{const pags=f.parcelas.filter(p=>p.venc?.startsWith(dreMes)&&p.pago);if(!pags.length)return;const v=pags.reduce((s,p)=>s+p.valor,0);const c=f.categoria||"Outros";byCatM[c]=(byCatM[c]||0)+v;});const w=window.open('','_blank','width=900,height=700');const s=`body{font-family:Arial,sans-serif;padding:30px;font-size:12px;color:#1e293b}h1{font-size:20px;font-weight:800;color:#6366f1}h2{font-size:14px;color:#334155;margin-top:20px}table{width:100%;border-collapse:collapse;margin:10px 0}th{background:#f8f7ff;padding:7px;font-size:10px;text-transform:uppercase;color:#999;border-bottom:2px solid #e0e0f0;text-align:left}td{padding:8px;border-bottom:1px solid #f0eeff}.total{font-weight:800}.gn{color:#10b981}.rd{color:#ef4444}.am{color:#d97706}`;w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><style>${s}</style></head><body><h1>Fechamento Mensal — ${nomeMes}/${aaaa}</h1><p style="color:#888">Empresa: ${empresa.nome} • Gerado em ${hoje()}</p><table><tr><th>Item</th><th>Valor</th></tr><tr><td>(+) Receita Pedidos</td><td class="gn">${R$(recM)}</td></tr><tr><td>(+) Receita Financeiro (recebida)</td><td class="gn">${R$(recM2)}</td></tr><tr><td class="total">(+) Receita Bruta</td><td class="gn total">${R$(recTotal)}</td></tr><tr><td>(−) Custo Materiais</td><td class="rd">${R$(cmM)}</td></tr><tr><td class="total">= Lucro Bruto</td><td class="${lucroB>=0?'gn':'rd'} total">${R$(lucroB)}</td></tr><tr><td>(−) Comissões Marceneiro</td><td class="am">${R$(ccM)}</td></tr><tr><td>(−) Despesas Pagas</td><td class="rd">${R$(pagM)}</td></tr><tr><td class="total">= Resultado Líquido</td><td class="${resultado>=0?'gn':'rd'} total">${R$(resultado)}</td></tr></table><h2>Despesas por Categoria</h2><table><tr><th>Categoria</th><th>Valor</th></tr>${Object.entries(byCatM).map(([c,v])=>`<tr><td>${c}</td><td class="rd">${R$(v)}</td></tr>`).join('')}</table></body></html>`);w.document.close();setTimeout(()=>w.print(),400);};
-    return(<div style={{animation:"fadeIn .3s"}}><SH title={`DRE — ${periodoLabel}`} sub={dreMes?"Resultado mensal isolado":"Resultado anual (selecione um mês para ver isolado)"} right={<div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}><select value={dreAno} onChange={e=>setDreAno(+e.target.value)} style={{padding:"7px 12px",borderRadius:10,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:12,fontWeight:700,outline:"none"}}>{[...new Set([dreAno,new Date().getFullYear(),new Date().getFullYear()-1])].sort().reverse().map(a=><option key={a} value={a}>{a}</option>)}</select><Btn v="ghost" small onClick={print}><I.Printer/> Fechar Ano</Btn><input type="month" value={dreMes} onChange={e=>setDreMes(e.target.value)} style={{padding:"6px 10px",borderRadius:10,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:12,fontWeight:700,outline:"none"}}/>{dreMes&&<Btn v="secondary" small onClick={printMes}><I.Printer/> Fechar Mês</Btn>}{dreMes&&<button onClick={()=>setDreMes("")} style={{background:"none",border:"none",color:"var(--tx3)",cursor:"pointer",fontSize:12}}>✕</button>}</div>}/>
+    return(<div style={{animation:"fadeIn .3s"}}><SH title={`DRE — ${periodoLabel}`} sub={dreMes?"Regime de caixa — só parcelas PAGAS no mês entram":"Regime de caixa — selecione um mês para isolar o resultado mensal"} right={<div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}><select value={dreAno} onChange={e=>setDreAno(+e.target.value)} style={{padding:"7px 12px",borderRadius:10,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:12,fontWeight:700,outline:"none"}}>{[...new Set([dreAno,new Date().getFullYear(),new Date().getFullYear()-1])].sort().reverse().map(a=><option key={a} value={a}>{a}</option>)}</select><Btn v="ghost" small onClick={print}><I.Printer/> Fechar Ano</Btn><input type="month" value={dreMes} onChange={e=>setDreMes(e.target.value)} style={{padding:"6px 10px",borderRadius:10,border:"1.5px solid var(--bd)",background:"var(--sf)",color:"var(--tx)",fontSize:12,fontWeight:700,outline:"none"}}/>{dreMes&&<Btn v="secondary" small onClick={printMes}><I.Printer/> Fechar Mês</Btn>}{dreMes&&<button onClick={()=>setDreMes("")} style={{background:"none",border:"none",color:"var(--tx3)",cursor:"pointer",fontSize:12}}>✕</button>}</div>}/>
       <div style={{display:"flex",gap:12,marginBottom:20,flexWrap:"wrap"}}><KPI label="Receita" value={R$(rec)} icon={<I.Dollar/>} color="gn"/><KPI label="Materiais" value={R$(cmTotal)} icon={<I.Package/>} color="rd"/><KPI label="Comissões" value={R$(ccTotal)} icon={<I.Percent/>} color="am"/><KPI label="Margem Líq." value={`${mg}%`} icon={<I.DRE/>} color={ll>=0?"gn":"rd"}/></div>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:14}}>
         <Card style={{maxWidth:500}}>{rows.map((r,i)=><div key={i} style={{padding:r.sub?"6px 20px 6px 32px":"12px 20px",borderTop:r.line?"2px solid var(--bd)":r.sub?"none":"1.5px solid var(--bd)",display:"flex",justifyContent:"space-between",alignItems:"center",background:r.sub?"var(--bg)":"transparent"}}><span style={{fontSize:r.sub?11:13,fontWeight:r.b?800:600,color:r.sub?"var(--tx3)":"var(--tx)",fontStyle:r.sub?"italic":"normal"}}>{r.l}</span><span style={{fontSize:r.b?18:r.sub?11:14,fontWeight:r.sub?600:800,color:r.sub?"var(--tx3)":`var(--${r.c})`}}>{R$(r.v)}</span></div>)}</Card>
@@ -6085,10 +6091,10 @@ export default function ERP(){
           const linhas=[];
           c.lancs.forEach(({f,parcelasNoPeriodo})=>{
             parcelasNoPeriodo.forEach((p,pi)=>{
-              linhas.push({fid:f.id,desc:f.desc||"(sem descrição)",fornecedor:f.fornecedor||"—",numParc:`${f.parcelas.indexOf(p)+1}/${f.parcelas.length}`,venc:p.venc||"—",valor:p.valor,pago:p.pago,formaPag:p.formaPag||"—",fonteCartao:f.fonteCartao||null,key:`${f.id}-${pi}`,catAtual:f.categoria||""});
+              linhas.push({fid:f.id,desc:f.desc||"(sem descrição)",fornecedor:f.fornecedor||"—",numParc:`${f.parcelas.indexOf(p)+1}/${f.parcelas.length}`,venc:p.venc||"—",dataPago:p.dataPago||p.venc||"",valor:p.valor,pago:p.pago,formaPag:p.formaPag||"—",fonteCartao:f.fonteCartao||null,key:`${f.id}-${pi}`,catAtual:f.categoria||""});
             });
           });
-          linhas.sort((a,b)=>(a.venc||"").localeCompare(b.venc||""));
+          linhas.sort((a,b)=>(a.dataPago||"").localeCompare(b.dataPago||""));
           // Lista de categorias unicas do financeiro inteiro (pra autocomplete)
           const catsExistentes=[...new Set(financeiro.filter(f=>f.tipo==="pagar"&&f.categoria).map(f=>f.categoria.trim()))].sort();
           const editarCat=(l)=>{
@@ -6110,28 +6116,24 @@ export default function ERP(){
                   <div style={{fontSize:11,color:"var(--tx3)",fontWeight:700,marginTop:4}}>{c.lancs.length} lançamento(s) • {linhas.length} parcela(s) no período</div>
                 </div>
                 <div style={{textAlign:"right"}}>
-                  <div style={{fontSize:9,fontWeight:800,color:"var(--tx3)",textTransform:"uppercase"}}>TOTAL</div>
-                  <div style={{fontSize:22,fontWeight:800,color:"var(--rd)"}}>{R$(c.value)}</div>
-                  <div style={{display:"flex",gap:8,marginTop:4,justifyContent:"flex-end"}}>
-                    <Badge color="green">Pago {R$(c.pago)}</Badge>
-                    {c.aberto>0&&<Badge color="amber">Aberto {R$(c.aberto)}</Badge>}
-                  </div>
+                  <div style={{fontSize:9,fontWeight:800,color:"var(--tx3)",textTransform:"uppercase"}}>TOTAL PAGO NO PERÍODO</div>
+                  <div style={{fontSize:22,fontWeight:800,color:"var(--gn)"}}>{R$(c.value)}</div>
+                  <div style={{fontSize:10,color:"var(--tx3)",fontWeight:700,marginTop:4}}>Apenas parcelas efetivamente pagas</div>
                 </div>
               </div>
               <div style={{maxHeight:480,overflowY:"auto",border:"1.5px solid var(--bd)",borderRadius:8}}>
                 <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
                   <thead style={{position:"sticky",top:0,background:"var(--bg)",zIndex:1}}>
-                    <tr>{["Descrição","Fornecedor","Parcela","Vencimento","Forma","Status","Valor",""].map((h,i)=><th key={i} style={{padding:"8px 10px",fontSize:9,fontWeight:800,textTransform:"uppercase",color:"var(--tx3)",borderBottom:"1.5px solid var(--bd)",textAlign:i>=5?"right":"left"}}>{h}</th>)}</tr>
+                    <tr>{["Descrição","Fornecedor","Parcela","Pago em","Forma","Valor",""].map((h,i)=><th key={i} style={{padding:"8px 10px",fontSize:9,fontWeight:800,textTransform:"uppercase",color:"var(--tx3)",borderBottom:"1.5px solid var(--bd)",textAlign:i>=5?"right":"left"}}>{h}</th>)}</tr>
                   </thead>
                   <tbody>{linhas.map((l,i)=>(
                     <tr key={l.key} style={{background:i%2===0?"transparent":"var(--bg)"}}>
                       <td style={{padding:"8px 10px",fontWeight:700,color:"var(--tx)"}}>{l.desc}</td>
                       <td style={{padding:"8px 10px",color:"var(--tx2)",fontWeight:600}}>{l.fornecedor}</td>
                       <td style={{padding:"8px 10px",color:"var(--tx3)",fontWeight:700,fontSize:11}}>{l.numParc}</td>
-                      <td style={{padding:"8px 10px",color:"var(--tx2)",fontWeight:600,fontSize:11}}>{l.venc?l.venc.split("-").reverse().join("/"):"—"}</td>
+                      <td style={{padding:"8px 10px",color:"var(--tx2)",fontWeight:600,fontSize:11}}>{l.dataPago?l.dataPago.split("-").reverse().join("/"):"—"}</td>
                       <td style={{padding:"8px 10px",fontSize:11}}>{l.fonteCartao?<Badge color="pri">Cartão {l.fonteCartao.slice(0,8)}</Badge>:<span style={{color:"var(--tx3)",fontWeight:600}}>{l.formaPag}</span>}</td>
-                      <td style={{padding:"8px 10px",textAlign:"right"}}><Badge color={l.pago?"green":"amber"}>{l.pago?"Pago":"Aberto"}</Badge></td>
-                      <td style={{padding:"8px 10px",textAlign:"right",fontWeight:800,color:l.pago?"var(--gn)":"var(--rd)"}}>{R$(l.valor)}</td>
+                      <td style={{padding:"8px 10px",textAlign:"right",fontWeight:800,color:"var(--gn)"}}>{R$(l.valor)}</td>
                       <td style={{padding:"8px 10px",textAlign:"center"}}><button onClick={()=>editarCat(l)} title="Editar categoria deste lançamento" style={{background:"none",border:"1.5px solid var(--bd)",color:"var(--pri)",cursor:"pointer",padding:"4px 8px",borderRadius:6,fontSize:11,fontWeight:700}}>✏️ Categoria</button></td>
                     </tr>
                   ))}</tbody>
@@ -6140,10 +6142,10 @@ export default function ERP(){
               <div style={{marginTop:14,padding:12,background:"var(--bg)",borderRadius:8,fontSize:11,color:"var(--tx2)",fontWeight:600,lineHeight:1.6}}>
                 <strong style={{color:"var(--tx)"}}>💡 Dicas:</strong>
                 <ul style={{margin:"6px 0 0 18px",padding:0}}>
-                  <li>O total é a soma das parcelas que vencem em <strong>{periodoLabel}</strong>, paga ou não.</li>
+                  <li><strong>Regime de caixa:</strong> só parcelas que foram efetivamente PAGAS em <strong>{periodoLabel}</strong> aparecem aqui. Parcelas em aberto (não pagas) não entram.</li>
+                  <li>Materiais em 12x/18x: cada parcela paga conta no mês em que foi paga — assim você vê o impacto real no caixa do mês.</li>
                   <li>Categorias começando com "Material" são reclassificadas automaticamente como Custo de Materiais no DRE.</li>
                   <li>Clique em <strong>✏️ Categoria</strong> em qualquer linha pra recategorizar — isso afeta TODAS as parcelas do lançamento.</li>
-                  <li>Pra ver despesas de outro mês, feche este modal, selecione o mês desejado no topo e clique na categoria de novo.</li>
                 </ul>
               </div>
               <div style={{textAlign:"right",marginTop:14}}>
@@ -6152,7 +6154,7 @@ export default function ERP(){
             </Modal>
           );
         })()}
-        {catData.length>0&&<Card><CardHead title={`Todos os Gastos por Categoria — ${periodoLabel}`} right={<span style={{fontSize:11,color:"var(--rd)",fontWeight:800}}>Total: {R$(totalGastosCat)}</span>}/><div style={{padding:14,maxHeight:480,overflowY:"auto"}}>{catData.map((c,i)=>{const total=catData.reduce((s,x)=>s+x.value,0);const perc=total>0?(c.value/total*100):0;return(<div key={i} onClick={()=>setDreCatDetalhe(c)} className="hr" style={{display:"grid",gridTemplateColumns:"1fr auto",gap:8,alignItems:"center",padding:"10px 8px",borderBottom:"1px solid var(--bd)",fontSize:12,cursor:"pointer",borderRadius:6}}><div><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}><span style={{fontWeight:700,color:"var(--tx)"}}>{c.name}</span><span style={{fontSize:10,color:"var(--tx3)",fontWeight:700,marginLeft:8}}>{perc.toFixed(1)}%</span></div><div style={{background:"var(--bg)",height:4,borderRadius:2,overflow:"hidden"}}><div style={{width:`${perc}%`,height:"100%",background:"var(--rd)",borderRadius:2}}/></div><div style={{fontSize:10,color:"var(--tx3)",marginTop:3,fontWeight:600}}>{c.lancs.length} lançamento(s) • Pago: {R$(c.pago)} • Em aberto: {R$(c.aberto)}</div></div><div style={{textAlign:"right"}}><div style={{fontWeight:800,color:"var(--rd)",fontSize:13}}>{R$(c.value)}</div><div style={{fontSize:9,color:"var(--tx3)",fontWeight:700,marginTop:2}}>VER LANÇAMENTOS →</div></div></div>);})}</div></Card>}
+        {catData.length>0&&<Card><CardHead title={`Todos os Gastos por Categoria — ${periodoLabel}`} right={<span style={{fontSize:11,color:"var(--rd)",fontWeight:800}}>Total: {R$(totalGastosCat)}</span>}/><div style={{padding:14,maxHeight:480,overflowY:"auto"}}>{catData.map((c,i)=>{const total=catData.reduce((s,x)=>s+x.value,0);const perc=total>0?(c.value/total*100):0;return(<div key={i} onClick={()=>setDreCatDetalhe(c)} className="hr" style={{display:"grid",gridTemplateColumns:"1fr auto",gap:8,alignItems:"center",padding:"10px 8px",borderBottom:"1px solid var(--bd)",fontSize:12,cursor:"pointer",borderRadius:6}}><div><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}><span style={{fontWeight:700,color:"var(--tx)"}}>{c.name}</span><span style={{fontSize:10,color:"var(--tx3)",fontWeight:700,marginLeft:8}}>{perc.toFixed(1)}%</span></div><div style={{background:"var(--bg)",height:4,borderRadius:2,overflow:"hidden"}}><div style={{width:`${perc}%`,height:"100%",background:"var(--rd)",borderRadius:2}}/></div><div style={{fontSize:10,color:"var(--tx3)",marginTop:3,fontWeight:600}}>{c.lancs.length} lançamento(s) • {c.lancs.reduce((s,l)=>s+l.parcelasNoPeriodo.length,0)} parcela(s) paga(s) no período</div></div><div style={{textAlign:"right"}}><div style={{fontWeight:800,color:"var(--rd)",fontSize:13}}>{R$(c.value)}</div><div style={{fontSize:9,color:"var(--tx3)",fontWeight:700,marginTop:2}}>VER LANÇAMENTOS →</div></div></div>);})}</div></Card>}
       </div>
     </div>);};
 

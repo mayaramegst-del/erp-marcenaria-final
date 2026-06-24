@@ -6063,7 +6063,59 @@ export default function ERP(){
       </Card>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:14}}>
         {byPed.length>0&&<Card><CardHead title="Resultado por Pedido"/><div style={{padding:16,height:220}}><ResponsiveContainer><BarChart data={byPed}><CartesianGrid strokeDasharray="3 3" stroke="var(--bd)"/><XAxis dataKey="name" tick={{fontSize:10,fontWeight:700,fill:"var(--tx2)"}}/><YAxis tick={{fontSize:10,fill:"var(--tx3)"}}/><Tooltip formatter={v=>R$(v)}/><Legend iconType="circle" wrapperStyle={{fontSize:10,fontWeight:700}}/><Bar dataKey="receita" fill="#10b981" radius={[4,4,0,0]} name="Receita"/><Bar dataKey="custo" fill="#ef4444" radius={[4,4,0,0]} name="Custo"/><Bar dataKey="lucro" fill="#6366f1" radius={[4,4,0,0]} name="Lucro"/></BarChart></ResponsiveContainer></div></Card>}
-        {dreCatDetalhe&&(()=>{const c=dreCatDetalhe;const linhas=[];c.lancs.forEach(({f,parcelasNoPeriodo})=>{parcelasNoPeriodo.forEach((p,pi)=>{linhas.push({fid:f.id,desc:f.desc||"(sem descrição)",fornecedor:f.fornecedor||"—",numParc:`${f.parcelas.indexOf(p)+1}/${f.parcelas.length}`,venc:p.venc||"—",valor:p.valor,pago:p.pago,formaPag:p.formaPag||"—",fonteCartao:f.fonteCartao||null,key:`${f.id}-${pi}`});});});linhas.sort((a,b)=>(a.venc||"").localeCompare(b.venc||""));return(<Modal onClose={()=>setDreCatDetalhe(null)}><div style={{padding:"4px 4px 16px"}}><div style={{marginBottom:14}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:12,flexWrap:"wrap"}}><div><div style={{fontSize:10,color:"var(--tx3)",fontWeight:800,letterSpacing:1,textTransform:"uppercase",marginBottom:4}}>CATEGORIA — {dreMes?dreMes:dreAno}</div><h2 style={{fontSize:20,fontWeight:800,color:"var(--tx)",margin:0}}>{c.name}</h2><div style={{fontSize:11,color:"var(--tx3)",fontWeight:700,marginTop:4}}>{c.lancs.length} lançamento(s) • {linhas.length} parcela(s) no período</div></div><div style={{textAlign:"right"}}><div style={{fontSize:9,fontWeight:800,color:"var(--tx3)",textTransform:"uppercase"}}>TOTAL</div><div style={{fontSize:22,fontWeight:800,color:"var(--rd)"}}>{R$(c.value)}</div><div style={{display:"flex",gap:8,marginTop:4,justifyContent:"flex-end"}}><Badge color="green">Pago {R$(c.pago)}</Badge>{c.aberto>0&&<Badge color="amber">Aberto {R$(c.aberto)}</Badge>}</div></div></div></div><div style={{maxHeight:480,overflowY:"auto",border:"1.5px solid var(--bd)",borderRadius:8}}><table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}><thead style={{position:"sticky",top:0,background:"var(--bg)",zIndex:1}}><tr>{["Descrição","Fornecedor","Parcela","Vencimento","Forma","Status","Valor"].map((h,i)=><th key={h} style={{padding:"8px 10px",fontSize:9,fontWeight:800,textTransform:"uppercase",color:"var(--tx3)",borderBottom:"1.5px solid var(--bd)",textAlign:i>=5?"right":"left"}}>{h}</th>)}</tr></thead><tbody>{linhas.map((l,i)=>(<tr key={l.key} style={{background:i%2===0?"transparent":"var(--bg)"}}><td style={{padding:"8px 10px",fontWeight:700,color:"var(--tx)"}}>{l.desc}</td><td style={{padding:"8px 10px",color:"var(--tx2)",fontWeight:600}}>{l.fornecedor}</td><td style={{padding:"8px 10px",color:"var(--tx3)",fontWeight:700,fontSize:11}}>{l.numParc}</td><td style={{padding:"8px 10px",color:"var(--tx2)",fontWeight:600,fontSize:11}}>{l.venc?l.venc.split("-").reverse().join("/"):"—"}</td><td style={{padding:"8px 10px",fontSize:11}}>{l.fonteCartao?<Badge color="pri">Cartão {l.fonteCartao.slice(0,8)}</Badge>:<span style={{color:"var(--tx3)",fontWeight:600}}>{l.formaPag}</span>}</td><td style={{padding:"8px 10px",textAlign:"right"}}><Badge color={l.pago?"green":"amber"}>{l.pago?"Pago":"Aberto"}</Badge></td><td style={{padding:"8px 10px",textAlign:"right",fontWeight:800,color:l.pago?"var(--gn)":"var(--rd)"}}>{R$(l.valor)}</td></tr>))}</tbody></table></div><div style={{marginTop:14,padding:12,background:"var(--bg)",borderRadius:8,fontSize:11,color:"var(--tx2)",fontWeight:600,lineHeight:1.6}}><strong style={{color:"var(--tx)"}}>💡 Como interpretar:</strong> O valor total é a soma das parcelas que vencem em <strong>{dreMes||dreAno}</strong>, independente de já terem sido pagas. Se "Material" aparece com valor baixo, pode ser que lançamentos com categoria "Material" estejam sendo reclassificados como Custo de Materiais no DRE (e não aqui como despesa operacional).</div><div style={{textAlign:"right",marginTop:14}}><Btn onClick={()=>setDreCatDetalhe(null)}>Fechar</Btn></div></Modal>);})()}
+        {dreCatDetalhe&&(()=>{
+          const c=dreCatDetalhe;
+          const linhas=[];
+          c.lancs.forEach(({f,parcelasNoPeriodo})=>{
+            parcelasNoPeriodo.forEach((p,pi)=>{
+              linhas.push({fid:f.id,desc:f.desc||"(sem descrição)",fornecedor:f.fornecedor||"—",numParc:`${f.parcelas.indexOf(p)+1}/${f.parcelas.length}`,venc:p.venc||"—",valor:p.valor,pago:p.pago,formaPag:p.formaPag||"—",fonteCartao:f.fonteCartao||null,key:`${f.id}-${pi}`});
+            });
+          });
+          linhas.sort((a,b)=>(a.venc||"").localeCompare(b.venc||""));
+          return(
+            <Modal onClose={()=>setDreCatDetalhe(null)} wide>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:12,flexWrap:"wrap",marginBottom:14}}>
+                <div>
+                  <div style={{fontSize:10,color:"var(--tx3)",fontWeight:800,letterSpacing:1,textTransform:"uppercase",marginBottom:4}}>CATEGORIA — {dreMes?dreMes:dreAno}</div>
+                  <h2 style={{fontSize:20,fontWeight:800,color:"var(--tx)",margin:0}}>{c.name}</h2>
+                  <div style={{fontSize:11,color:"var(--tx3)",fontWeight:700,marginTop:4}}>{c.lancs.length} lançamento(s) • {linhas.length} parcela(s) no período</div>
+                </div>
+                <div style={{textAlign:"right"}}>
+                  <div style={{fontSize:9,fontWeight:800,color:"var(--tx3)",textTransform:"uppercase"}}>TOTAL</div>
+                  <div style={{fontSize:22,fontWeight:800,color:"var(--rd)"}}>{R$(c.value)}</div>
+                  <div style={{display:"flex",gap:8,marginTop:4,justifyContent:"flex-end"}}>
+                    <Badge color="green">Pago {R$(c.pago)}</Badge>
+                    {c.aberto>0&&<Badge color="amber">Aberto {R$(c.aberto)}</Badge>}
+                  </div>
+                </div>
+              </div>
+              <div style={{maxHeight:480,overflowY:"auto",border:"1.5px solid var(--bd)",borderRadius:8}}>
+                <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
+                  <thead style={{position:"sticky",top:0,background:"var(--bg)",zIndex:1}}>
+                    <tr>{["Descrição","Fornecedor","Parcela","Vencimento","Forma","Status","Valor"].map((h,i)=><th key={h} style={{padding:"8px 10px",fontSize:9,fontWeight:800,textTransform:"uppercase",color:"var(--tx3)",borderBottom:"1.5px solid var(--bd)",textAlign:i>=5?"right":"left"}}>{h}</th>)}</tr>
+                  </thead>
+                  <tbody>{linhas.map((l,i)=>(
+                    <tr key={l.key} style={{background:i%2===0?"transparent":"var(--bg)"}}>
+                      <td style={{padding:"8px 10px",fontWeight:700,color:"var(--tx)"}}>{l.desc}</td>
+                      <td style={{padding:"8px 10px",color:"var(--tx2)",fontWeight:600}}>{l.fornecedor}</td>
+                      <td style={{padding:"8px 10px",color:"var(--tx3)",fontWeight:700,fontSize:11}}>{l.numParc}</td>
+                      <td style={{padding:"8px 10px",color:"var(--tx2)",fontWeight:600,fontSize:11}}>{l.venc?l.venc.split("-").reverse().join("/"):"—"}</td>
+                      <td style={{padding:"8px 10px",fontSize:11}}>{l.fonteCartao?<Badge color="pri">Cartão {l.fonteCartao.slice(0,8)}</Badge>:<span style={{color:"var(--tx3)",fontWeight:600}}>{l.formaPag}</span>}</td>
+                      <td style={{padding:"8px 10px",textAlign:"right"}}><Badge color={l.pago?"green":"amber"}>{l.pago?"Pago":"Aberto"}</Badge></td>
+                      <td style={{padding:"8px 10px",textAlign:"right",fontWeight:800,color:l.pago?"var(--gn)":"var(--rd)"}}>{R$(l.valor)}</td>
+                    </tr>
+                  ))}</tbody>
+                </table>
+              </div>
+              <div style={{marginTop:14,padding:12,background:"var(--bg)",borderRadius:8,fontSize:11,color:"var(--tx2)",fontWeight:600,lineHeight:1.6}}>
+                <strong style={{color:"var(--tx)"}}>💡 Dica:</strong> O valor total é a soma das parcelas que vencem em <strong>{dreMes||dreAno}</strong>, independente de já terem sido pagas. Categorias começando com "Material" são reclassificadas automaticamente como Custo de Materiais no DRE (e não aparecem aqui como despesa operacional).
+              </div>
+              <div style={{textAlign:"right",marginTop:14}}>
+                <Btn onClick={()=>setDreCatDetalhe(null)}>Fechar</Btn>
+              </div>
+            </Modal>
+          );
+        })()}
         {catData.length>0&&<Card><CardHead title={`Despesas por Categoria — ${dreMes?dreMes:dreAno}`} right={<span style={{fontSize:10,color:"var(--tx3)",fontWeight:700}}>Clique para ver lançamentos</span>}/><div style={{padding:14,maxHeight:480,overflowY:"auto"}}>{catData.map((c,i)=>{const total=catData.reduce((s,x)=>s+x.value,0);const perc=total>0?(c.value/total*100):0;return(<div key={i} onClick={()=>setDreCatDetalhe(c)} className="hr" style={{display:"grid",gridTemplateColumns:"1fr auto",gap:8,alignItems:"center",padding:"10px 8px",borderBottom:"1px solid var(--bd)",fontSize:12,cursor:"pointer",borderRadius:6}}><div><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}><span style={{fontWeight:700,color:"var(--tx)"}}>{c.name}</span><span style={{fontSize:10,color:"var(--tx3)",fontWeight:700,marginLeft:8}}>{perc.toFixed(1)}%</span></div><div style={{background:"var(--bg)",height:4,borderRadius:2,overflow:"hidden"}}><div style={{width:`${perc}%`,height:"100%",background:"var(--rd)",borderRadius:2}}/></div><div style={{fontSize:10,color:"var(--tx3)",marginTop:3,fontWeight:600}}>{c.lancs.length} lançamento(s) • Pago: {R$(c.pago)} • Em aberto: {R$(c.aberto)}</div></div><div style={{textAlign:"right"}}><div style={{fontWeight:800,color:"var(--rd)",fontSize:13}}>{R$(c.value)}</div><div style={{fontSize:9,color:"var(--tx3)",fontWeight:700,marginTop:2}}>VER LANÇAMENTOS →</div></div></div>);})}</div></Card>}
       </div>
     </div>);};

@@ -315,7 +315,7 @@ function ModalEditLead({d,setModal,setLeads,showToast}){
 }
 
 function ModalNewFin({setModal,setFinanceiro,setRecorrentes,showToast,cats:catsProp,fonteCartao,fontePool,fornecedorSugerido}){
-  const [f,setF]=useState({tipo:"pagar",desc:"",valor:0,fornecedor:fornecedorSugerido||"",numParc:1,categoria:"Outros",venc:"",recorrente:false,diaRec:1});
+  const [f,setF]=useState({tipo:"pagar",desc:"",valor:0,fornecedor:fornecedorSugerido||"",numParc:1,categoria:"Outros",venc:"",recorrente:false,diaRec:1,jaPago:false,formaPagJa:"pix"});
   const eCats=catsProp||getEmpresaCats();
   const cats=eCats[f.tipo]||eCats.pagar;
   return(<><h2 style={{fontSize:16,fontWeight:800,marginBottom:16}}>Nova Conta</h2>
@@ -332,7 +332,7 @@ function ModalNewFin({setModal,setFinanceiro,setRecorrentes,showToast,cats:catsP
     </div>
     {f.tipo==="pagar"&&<Field label="Fornecedor/Credor" value={f.fornecedor} onChange={v=>setF(p=>({...p,fornecedor:v}))}/>}
     {/* Toggle recorrente */}
-    <div onClick={()=>setF(p=>({...p,recorrente:!p.recorrente}))} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 14px",borderRadius:"var(--r)",border:"1.5px solid "+(f.recorrente?"var(--pp)":"var(--bd)"),background:f.recorrente?"var(--ppb)":"var(--bg)",cursor:"pointer",marginTop:4,userSelect:"none"}}>
+    <div onClick={()=>setF(p=>({...p,recorrente:!p.recorrente,jaPago:false}))} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 14px",borderRadius:"var(--r)",border:"1.5px solid "+(f.recorrente?"var(--pp)":"var(--bd)"),background:f.recorrente?"var(--ppb)":"var(--bg)",cursor:"pointer",marginTop:4,userSelect:"none"}}>
       <div style={{width:36,height:20,borderRadius:10,background:f.recorrente?"var(--pp)":"var(--bd2)",transition:"background .2s",position:"relative",flexShrink:0}}>
         <div style={{position:"absolute",top:2,left:f.recorrente?18:2,width:16,height:16,borderRadius:"50%",background:"#fff",transition:"left .2s",boxShadow:"0 1px 3px rgba(0,0,0,.2)"}}/>
       </div>
@@ -341,6 +341,17 @@ function ModalNewFin({setModal,setFinanceiro,setRecorrentes,showToast,cats:catsP
         <div style={{fontSize:10,color:"var(--tx3)"}}>Gerada automaticamente todo mês neste dia</div>
       </div>
     </div>
+    {/* Toggle já pago/recebido — só quando NÃO é recorrente */}
+    {!f.recorrente&&<div onClick={()=>setF(p=>({...p,jaPago:!p.jaPago}))} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 14px",borderRadius:"var(--r)",border:"1.5px solid "+(f.jaPago?"var(--gn)":"var(--bd)"),background:f.jaPago?"var(--gnb)":"var(--bg)",cursor:"pointer",marginTop:4,userSelect:"none"}}>
+      <div style={{width:36,height:20,borderRadius:10,background:f.jaPago?"var(--gn)":"var(--bd2)",transition:"background .2s",position:"relative",flexShrink:0}}>
+        <div style={{position:"absolute",top:2,left:f.jaPago?18:2,width:16,height:16,borderRadius:"50%",background:"#fff",transition:"left .2s",boxShadow:"0 1px 3px rgba(0,0,0,.2)"}}/>
+      </div>
+      <div style={{flex:1}}>
+        <div style={{fontSize:12,fontWeight:800,color:f.jaPago?"var(--gn)":"var(--tx)"}}>✅ Já foi {f.tipo==="receber"?"recebido":"pago"}</div>
+        <div style={{fontSize:10,color:"var(--tx3)"}}>Marca a conta como {f.tipo==="receber"?"recebida":"paga"} na data do vencimento (retroativo)</div>
+      </div>
+    </div>}
+    {f.jaPago&&!f.recorrente&&<Field label="Forma de pagamento" value={f.formaPagJa} onChange={v=>setF(p=>({...p,formaPagJa:v}))} options={[{v:"pix",l:"PIX"},{v:"dinheiro",l:"Dinheiro"},{v:"transferencia",l:"Transferência"},{v:"boleto",l:"Boleto"},{v:"cartao_cred",l:"Cartão de Crédito"},{v:"cartao_deb",l:"Cartão de Débito"}]}/>}
     <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:8}}>
       <Btn v="ghost" onClick={()=>setModal(null)}>Cancelar</Btn>
       <Btn onClick={()=>{
@@ -359,10 +370,14 @@ function ModalNewFin({setModal,setFinanceiro,setRecorrentes,showToast,cats:catsP
           const vParc=f.valor/Math.max(1,f.numParc);
           const parcelas=Array.from({length:Math.max(1,f.numParc)},(_,i)=>{
             let vd="";if(f.venc){const d=new Date(f.venc+"T12:00:00");d.setMonth(d.getMonth()+i);vd=d.toISOString().split("T")[0];}
-            return{id:uid(),valor:vParc,venc:vd,pago:false,dataPago:""};
+            return{id:uid(),valor:vParc,venc:vd,pago:f.jaPago,dataPago:f.jaPago?(vd||hojeISO()):"",formaPag:f.jaPago?f.formaPagJa:""};
           });
-          setFinanceiro(prev=>[...prev,{id:uid(),tipo:f.tipo,desc:f.desc,valor:f.valor,valorPago:0,parcelas,fornecedor:f.fornecedor,categoria:f.categoria||"Outros",status:"aberto",...(fonteCartao?{fonteCartao:true}:{}),...(fontePool?{fontePool}:{})}]);
-          setModal(null);showToast("Conta criada!");
+          const valorPagoTotal=f.jaPago?f.valor:0;
+          const statusFinal=f.jaPago?"pago":"aberto";
+          setFinanceiro(prev=>[...prev,{id:uid(),tipo:f.tipo,desc:f.desc,valor:f.valor,valorPago:valorPagoTotal,parcelas,fornecedor:f.fornecedor,categoria:f.categoria||"Outros",status:statusFinal,...(fonteCartao?{fonteCartao:true}:{}),...(fontePool?{fontePool}:{})}]);
+          setModal(null);
+          if(f.jaPago){showToast(`Conta criada e marcada como ${f.tipo==="receber"?"recebida":"paga"}!`);}
+          else{showToast("Conta criada!");}
         }
       }}><I.Check/> {f.recorrente?"Criar Recorrente":"Criar"}</Btn>
     </div>
